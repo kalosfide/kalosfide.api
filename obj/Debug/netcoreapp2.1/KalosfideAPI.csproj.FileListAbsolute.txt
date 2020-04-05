@@ -1,0 +1,14 @@
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.csproj.CoreCompileInputs.cache
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.RazorAssemblyInfo.cache
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.RazorAssemblyInfo.cs
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.AssemblyInfoInputs.cache
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.AssemblyInfo.cs
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\bin\Debug\netcoreapp2.1\KalosfideAPI.deps.json
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\bin\Debug\netcoreapp2.1\KalosfideAPI.runtimeconfig.json
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\bin\Debug\netcoreapp2.1\KalosfideAPI.runtimeconfig.dev.json
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\bin\Debug\netcoreapp2.1\KalosfideAPI.dll
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\bin\Debug\netcoreapp2.1\KalosfideAPI.pdb
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.RazorTargetAssemblyInfo.cache
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.dll
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.pdb
+C:\Users\François Bonnefoi\Documents\GitHub\KalosfideAPI\KalosfideAPI\obj\Debug\netcoreapp2.1\KalosfideAPI.csprojAssemblyReference.cache
