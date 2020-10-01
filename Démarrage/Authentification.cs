@@ -53,6 +53,7 @@ namespace KalosfideAPI.Démarrage
             services.AddIdentity<ApplicationUser, IdentityRole>(config =>
             {
                 config.SignIn.RequireConfirmedEmail = false;
+                
                 // developpement identity options
                 config.Password.RequireDigit = false;
                 config.Password.RequireLowercase = false;
@@ -61,7 +62,7 @@ namespace KalosfideAPI.Démarrage
                 config.Password.RequiredLength = 6;
             })
                .AddEntityFrameworkStores<ApplicationContext>()
-;//               .AddDefaultTokenProviders();
+               .AddDefaultTokenProviders();
 
             services.AddAuthentication(options =>
             {

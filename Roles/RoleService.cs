@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Roles
 {
-    class GèreArchive : Partages.KeyParams.GéreArchive<Role, RoleVue, ArchiveRole>
+    class GèreArchive : Partages.KeyParams.GéreArchiveUidRno<Role, RoleVue, ArchiveRole>
     {
         public GèreArchive(DbSet<Role> dbSet, DbSet<ArchiveRole> dbSetArchive) : base(dbSet, dbSetArchive)
         { }
@@ -56,7 +56,7 @@ namespace KalosfideAPI.Roles
         /// <returns></returns>
         public async Task<Site> SiteDeRole(AKeyBase akeyRole)
         {
-            Role role = await _context.Role.Where(r => r.CommenceKey(akeyRole.KeyParam)).FirstOrDefaultAsync();
+            Role role = await _context.Role.Where(r => r.Uid == akeyRole.KeyParam.Uid && r.Rno == akeyRole.KeyParam.Rno).FirstOrDefaultAsync();
             return role?.Site;
         }
 
@@ -71,26 +71,9 @@ namespace KalosfideAPI.Roles
         public bool TempsInactifEcoulé(DateTime date)
         {
             TimeSpan timeSpan = new TimeSpan(DateTime.Now.Ticks - date.Ticks);
-            long durée = DateTime.Now.Ticks - date.Ticks;
             if (timeSpan.TotalDays > TypeEtatRole.JoursInactifAvantExclu())
             {
                 return true;
-            }
-            return false;
-        }
-
-        public async Task<bool> TempsInactifEcoulé(Role role)
-        {
-            if (role.Etat == TypeEtatRole.Inactif)
-            {
-                ArchiveRole archive = await _context.ArchiveRole
-                    .Where(er => role.AMêmeKey(er))
-                    .LastOrDefaultAsync();
-                long durée = DateTime.Now.Ticks - archive.Date.Ticks;
-                if (durée >= TypeEtatRole.TicksInactifAvantExclu())
-                {
-                    return true;
-                }
             }
             return false;
         }
@@ -124,6 +107,18 @@ namespace KalosfideAPI.Roles
             return new Role();
         }
 
+        public async Task<Role> CréeRole(string uid)
+        {
+            int roleNo = await DernierNo(uid) + 1;
+            Role role = new Role
+            {
+                Uid = uid,
+                Rno = roleNo,
+                Etat = TypeEtatRole.Nouveau
+            };
+            return role;
+        }
+
         public async Task<Role> CréeRole(Utilisateur utilisateur)
         {
             int roleNo = await DernierNo(utilisateur.Uid) + 1;
@@ -142,7 +137,7 @@ namespace KalosfideAPI.Roles
             {
                 SiteUid = donnée.SiteUid,
                 SiteRno = donnée.SiteRno,
-                NomSite = donnée.Site.NomSite,
+                Url = donnée.Site.Url,
             };
             vue.CopieKey(donnée.KeyParam);
             return vue;

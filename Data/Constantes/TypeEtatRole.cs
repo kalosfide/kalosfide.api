@@ -33,6 +33,13 @@ namespace KalosfideAPI.Data.Constantes
         public const string Inactif = "I";
 
         /// <summary>
+        /// état d'un client qui a créé son compte, qui a des données et qui va quitter le site
+        /// ou état d'un fournisseur dont le site va fermer
+        /// pendant un certain temps il peut télécharger ses données
+        /// </summary>
+        public const string Invité = "V";
+
+        /// <summary>
         /// état d'un client qui a des données et qui a quitté le site
         /// ou état d'un fournisseur dont le site a fermé
         /// ses données sont conservées mais ont été anonymisées

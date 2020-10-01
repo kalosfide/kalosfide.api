@@ -23,13 +23,26 @@ namespace KalosfideAPI.Data
         /// Url du site
         /// </summary>
         [MaxLength(200)]
-        public string NomSite { get; set; }
+        public string Url { get; set; }
 
         /// <summary>
-        /// Titre
+        /// Titre des pages
         /// </summary>
         [MaxLength(200)]
         public string Titre { get; set; }
+
+        /// <summary>
+        /// Pour l'en-tête des documents
+        /// </summary>
+        [Required]
+        [MaxLength(200)]
+        public string Nom { get; set; }
+
+        /// <summary>
+        /// Pour l'en-tête des documents
+        /// </summary>
+        [MaxLength(500)]
+        public string Adresse { get; set; }
 
         /// <summary>
         /// Ville de signature des documents
@@ -51,6 +64,10 @@ namespace KalosfideAPI.Data
         /// </summary>
         public string FormatNomFichierFacture { get; set; }
 
+        /// <summary>
+        /// TypeEtatSite.Catalogue quand une modification du catalogue est en cours.
+        /// TypeEtatSite.Ouvert sinon
+        /// </summary>
         [StringLength(1)]
         public string Etat { get; set; }
 
@@ -58,7 +75,7 @@ namespace KalosfideAPI.Data
         [JsonIgnore]
         virtual public ICollection<Role> Usagers { get; set; }
 
-        virtual public ICollection<Produit> Produits { get; set; }
+        virtual public ICollection<Catégorie> Catégories { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
@@ -68,6 +85,9 @@ namespace KalosfideAPI.Data
             entité.HasKey(donnée => new { donnée.Uid, donnée.Rno });
 
             entité.Property(donnée => donnée.Etat).HasDefaultValue(TypeEtatSite.Ouvert);
+
+            entité.HasIndex(donnée => donnée.Url);
+            entité.HasIndex(donnée => donnée.Nom);
 
             entité.ToTable("Sites");
         }

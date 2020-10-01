@@ -55,11 +55,9 @@ namespace KalosfideAPI.Utiles
         /// <summary>
         /// Retourne un IQueryable qui renvoie les Clients passant les filtres présents et qui inclut les champs Role et Role.Site
         /// </summary>
-        /// <param name="filtreClient">si présent, le Client doit passer le filtre</param>
-        /// <param name="filtreRole">si présent, le role doit passer le filtre</param>
-        /// <param name="keySite">si présent, le site du role doit être celui de keySite</param>
+        /// <param name="keySite"></param>
         /// <returns></returns>
-        IQueryable<Client> ClientsAvecRoleEtSite(Func<Client, bool> filtreClient, Func<Role, bool> filtreRole, AKeyUidRno keySite);
+        IQueryable<Client> ClientsAvecRoleEtSite(AKeyUidRno keyClient);
 
         Task<Produit> Produit(Site site, long No);
     }

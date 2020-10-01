@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Catégories
 {
-    class GèreArchive : Partages.KeyParams.GéreArchive<Catégorie, CatégorieVue, ArchiveCatégorie>
+    class GèreArchive : Partages.KeyParams.GéreArchiveUidRnoNo<Catégorie, CatégorieVue, ArchiveCatégorie>
     {
         public GèreArchive(DbSet<Catégorie> dbSet, DbSet<ArchiveCatégorie> dbSetArchive) : base(dbSet, dbSetArchive)
         {
@@ -148,17 +148,19 @@ namespace KalosfideAPI.Catégories
 
         public async Task<List<CatégorieData>> CatégorieDatas(AKeyUidRno aKeySite, List<ProduitData> produits)
         {
-            IQueryable<Catégorie> queryCatégories = _context.Catégorie
-                .Where(c => aKeySite.CommenceKey(c.KeyParam));
+            List<Catégorie> catégories = await _context.Catégorie
+                .Where(c => aKeySite.Uid == c.Uid && aKeySite.Rno == c.Rno)
+                .ToListAsync();
             if (produits != null)
             {
-                queryCatégories = queryCatégories
-                .Where(c => produits.Where(p => p.CategorieNo == c.No).Any());
+                catégories = catégories
+                .Where(c => produits.Where(p => p.CategorieNo == c.No).Any())
+                .ToList();
             }
-            List<CatégorieData> catégories = await queryCatégories
+            List<CatégorieData> datas = catégories
                 .Select(c => new CatégorieData { No = c.No, Nom = c.Nom })
-                .ToListAsync();
-            return catégories;
+                .ToList();
+            return datas;
         }
 
     }

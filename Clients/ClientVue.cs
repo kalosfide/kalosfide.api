@@ -34,7 +34,7 @@ namespace KalosfideAPI.Clients
 
         public DateTime DateEtat { get; set; }
 
-        public bool? AvecCompte { get; set; }
+        public string Compte { get; set; }
 
         public bool AvecCommandes { get; set; }
 

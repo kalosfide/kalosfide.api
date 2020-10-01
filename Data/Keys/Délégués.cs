@@ -11,5 +11,5 @@ namespace KalosfideAPI.Data.Keys
     /// <typeparam name="T"></typeparam>
     /// <param name="t"></param>
     /// <returns></returns>
-    public delegate bool DFiltre<T>(T t);
+    public delegate IQueryable<T> DFiltre<T>(IQueryable<T> q);
 }

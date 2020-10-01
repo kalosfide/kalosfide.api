@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Produits
 {
-    class GèreArchive : GéreArchive<Produit, ProduitVue, ArchiveProduit>
+    class GèreArchive : GéreArchiveUidRnoNo<Produit, ProduitVue, ArchiveProduit>
     {
         public GèreArchive(DbSet<Produit> dbSet, DbSet<ArchiveProduit> dbSetArchive) : base(dbSet, dbSetArchive)
         {
@@ -233,7 +233,7 @@ namespace KalosfideAPI.Produits
             return new Produit();
         }
 
-        private void RemplitProduitDataDisponible(Produit donnée, IProduitData data)
+        private static void RemplitProduitDataDisponible(Produit donnée, IProduitData data)
         {
             data.Nom = donnée.Nom;
             data.CategorieNo = donnée.CategorieNo;
@@ -242,7 +242,7 @@ namespace KalosfideAPI.Produits
             data.Prix = donnée.Prix;
         }
 
-        private void RemplitProduitData(Produit donnée, IProduitData data)
+        private static void RemplitProduitData(Produit donnée, IProduitData data)
         {
             RemplitProduitDataDisponible(donnée, data);
             data.Etat = donnée.Etat;
@@ -291,7 +291,7 @@ namespace KalosfideAPI.Produits
                 .AnyAsync();
         }
 
-        private ProduitData CréeProduitDataDisponible(Produit donnée)
+        private static ProduitData CréeProduitDataDisponible(Produit donnée)
         {
             ProduitData data = new ProduitData
             {
@@ -301,7 +301,7 @@ namespace KalosfideAPI.Produits
             return data;
         }
 
-        private ProduitData CréeProduitData(Produit produit)
+        private static ProduitData CréeProduitData(Produit produit)
         {
             ProduitBilan bilan(string type)
             {

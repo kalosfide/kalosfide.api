@@ -21,9 +21,7 @@ namespace KalosfideAPI.Sécurité
         [JsonProperty]
         public string Etat { get; set; }
         [JsonProperty]
-        public string NomSite { get; set; }
-
-        public Site Site { get; set; }
+        public string UrlSite { get; set; }
     }
 
 
@@ -70,24 +68,11 @@ namespace KalosfideAPI.Sécurité
         public void DonneClaims(ClaimsPrincipal user)
         {
             IEnumerable<Claim> claims = user.Claims;
-            UserId = (claims.Where(c => c.Type == JwtClaims.UserId).First())?.Value;
-            UserName = (claims.Where(c => c.Type == JwtClaims.UserName).First())?.Value;
-            Uid = (claims.Where(c => c.Type == JwtClaims.UtilisateurId).First())?.Value;
-            Etat = (claims.Where(c => c.Type == JwtClaims.EtatUtilisateur).First())?.Value;
-            RolesSérialisés = (claims.Where(c => c.Type == JwtClaims.Roles).First())?.Value;
-        }
-
-        /// <summary>
-        /// retourne le numéro du dernier role utilisé archivé pour cet Uid
-        /// </summary>
-        /// <param name="Uid"></param>
-        /// <returns></returns>
-        private async Task<int> NoDernierRoleArchivé(string Uid)
-        {
-            return await _context.ArchiveUtilisateur
-                .Where(au => au.Uid == Uid && au.NoDernierRole.HasValue)
-                .Select(au => au.NoDernierRole.Value)
-                .LastOrDefaultAsync();
+            UserId = claims.Where(c => c.Type == JwtClaims.UserId).First()?.Value;
+            UserName = claims.Where(c => c.Type == JwtClaims.UserName).First()?.Value;
+            Uid = claims.Where(c => c.Type == JwtClaims.UtilisateurId).First()?.Value;
+            Etat = claims.Where(c => c.Type == JwtClaims.EtatUtilisateur).First()?.Value;
+            RolesSérialisés = claims.Where(c => c.Type == JwtClaims.Roles).First()?.Value;
         }
 
         /// <summary>
@@ -106,14 +91,30 @@ namespace KalosfideAPI.Sécurité
             {
                 Rno = r.Rno,
                 Etat = r.Etat,
-                NomSite = r.Site.NomSite,
-                Site = r.Site
+                UrlSite = r.Site.Url,
             }).ToList();
             Sites = utilisateur.Roles
                 .Where(r => r.SiteUid == utilisateur.Uid)
                 .Select(r => CréeSiteVue(r.Site))
                 .ToList();
-            NoDernierRole = await NoDernierRoleArchivé(utilisateur.Uid);
+            ArchiveUtilisateur archive = await _context.ArchiveUtilisateur
+                .Where(au => au.Uid == Uid && au.NoDernierRole.HasValue)
+                .OrderBy(au => au.Date)
+                .LastOrDefaultAsync();
+            NoDernierRole = archive != null ? archive.NoDernierRole.Value
+                : Roles.Any() ? Roles.First().Rno : 0;
+        }
+
+        public void AjouteRole(Role role, Site site)
+        {
+            Roles.Add(new CarteRole
+            {
+                Rno = role.Rno,
+                Etat = role.Etat,
+                UrlSite = site.Url
+            });
+            Sites.Add(CréeSiteVue(site));
+            NoDernierRole = role.Rno;
         }
 
         private SiteVue CréeSiteVue(Site site)
@@ -181,11 +182,6 @@ namespace KalosfideAPI.Sécurité
                 NoDernierRole = carteRole.Rno;
             }
             return true;
-        }
-
-        public bool EstClient(AKeyUidRno site)
-        {
-            return Roles.Where(role => EstRoleActif(role) && role.Site.Uid == site.Uid && role.Site.Rno == site.Rno).Any();
         }
     }
 }

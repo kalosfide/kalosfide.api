@@ -84,7 +84,7 @@ namespace KalosfideAPI.Enregistrement
             }
             else
             {
-
+                // l'utilisateur existe déjà
                 CarteUtilisateur carte = await _service.CréeCarteUtilisateur(HttpContext.User);
                 if (carte != null && carte.Uid == null)
                 {
@@ -111,6 +111,13 @@ namespace KalosfideAPI.Enregistrement
             return résultat;
         }
 
+        /// <summary>
+        /// Vérifie que l'utilisateur n'a pas déjà de role sur le site
+        /// </summary>
+        /// <param name="utilisateur"></param>
+        /// <param name="type"></param>
+        /// <param name="vue"></param>
+        /// <returns></returns>
         private async Task<bool> PeutAjouterRole(Utilisateur utilisateur, string type, VueBase vue)
         {
             switch (type)
@@ -127,6 +134,13 @@ namespace KalosfideAPI.Enregistrement
             return false;
         }
 
+        /// <summary>
+        /// Ajoute au résultat qui contient un Utilisateur et un Role, un membre Entity qui est un Administrateur ou un Fournisseur ou un Client
+        /// suivant le type, créé à partir des données de la vue
+        /// </summary>
+        /// <param name="résultat"></param>
+        /// <param name="type">type de role</param>
+        /// <param name="vue"></param>
         private void CréeEntité(RésultatEnregistrement résultat, string type, VueBase vue)
         {
             string uid = résultat.Role.Uid;
@@ -228,7 +242,7 @@ namespace KalosfideAPI.Enregistrement
                 {
                     await _service.Supprime(résultat.Utilisateur);
                 }
-                throw (ex);
+                throw ex;
             }
 
             return await Connecte(résultat.applicationUser, true);
@@ -252,6 +266,14 @@ namespace KalosfideAPI.Enregistrement
             return await Enregistre(TypeDeRole.Fournisseur.Code, vue);
         }
 
+        /// <summary>
+        /// Le client réel a reçu à l'adresse email qu'il a donné au fournisseur un lien avec la clé du role que le fournisseur a créé.
+        /// Si le client virtuel n'a pas été utilisé par le fournisseur, il n'a pas de nom et adresse.
+        /// Si le client réel a déjà un compte, la vue contient les données de connection (userName, password);
+        /// Si le client réel n'a pas de compte, la vue contient les données d'enregistrement (userName, password, email);
+        /// </summary>
+        /// <param name="vue"></param>
+        /// <returns></returns>
         [HttpPost("/api/enregistrement/client")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request

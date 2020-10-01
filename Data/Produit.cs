@@ -54,7 +54,6 @@ namespace KalosfideAPI.Data
         // navigation
         virtual public ICollection<ArchiveProduit> ArchiveProduits { get; set; }
         virtual public Catégorie Catégorie { get; set; }
-        virtual public Site Site { get; set; }
 
         virtual public ICollection<LigneCLF> Lignes { get; set; }
 
@@ -78,12 +77,6 @@ namespace KalosfideAPI.Data
                 .WithMany(catégorie => catégorie.Produits)
                 .HasForeignKey(produit => new { produit.Uid, produit.Rno, produit.CategorieNo })
                 .HasPrincipalKey(catégorie => new { catégorie.Uid, catégorie.Rno, catégorie.No });
-
-            entité
-                .HasOne(produit => produit.Site)
-                .WithMany(site => site.Produits)
-                .HasForeignKey(produit => new { produit.Uid, produit.Rno })
-                .HasPrincipalKey(site => new { site.Uid, site.Rno });
 
             entité.ToTable("Produits");
         }

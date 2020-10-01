@@ -1,19 +1,15 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Enregistrement;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Partages.KeyParams;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sites
 {
     public interface ISiteService : IKeyUidRnoService<Site, SiteVue>
     {
-        Site CréeSite(Role role, EnregistrementFournisseurVue fournisseurVue);
         /// <summary>
         /// Retourne une vue ne contenant que l'état
         /// </summary>
@@ -40,13 +36,15 @@ namespace KalosfideAPI.Sites
         /// <returns></returns>
         Task<RetourDeService> ChangeEtat(Site site, string état);
 
-        Task<SiteVue> TrouveParNom(string nomSite);
+        Task<Site> TrouveParUrl(string url);
+        Task<SiteVue> TrouveVueParUrl(string url);
+        Task<Site> TrouveParKey(string Uid, int Rno);
 
         Task FixeNbs(List<SiteVue> siteVues);
         Task<SiteVue> LitNbs(Site site);
 
-        Task<bool> NomPris(string nomSite);
-        Task<bool> NomPrisParAutre(AKeyUidRno key, string nomSite);
+        Task<bool> UrlPrise(string Url);
+        Task<bool> UrlPriseParAutre(AKeyUidRno key, string Url);
         Task<bool> TitrePris(string titre);
         Task<bool> TitrePrisParAutre(AKeyUidRno key, string titre);
     }

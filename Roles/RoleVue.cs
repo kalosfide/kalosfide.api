@@ -13,6 +13,6 @@ namespace KalosfideAPI.Roles
 
         // calculés
         public string Etat { get; set; }
-        public string NomSite { get; set; }
+        public string Url { get; set; }
     }
 }

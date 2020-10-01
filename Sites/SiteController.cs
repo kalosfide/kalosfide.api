@@ -27,9 +27,9 @@ namespace KalosfideAPI.Sites
         {
         }
 
-        private async Task<bool> EditeInterdit(CarteUtilisateur carte, KeyParam param)
+        private async Task<bool> EditeInterdit(CarteUtilisateur carte, SiteVue vue)
         {
-            return !carte.EstAdministrateur && !await carte.EstActifEtAMêmeUidRno(param);
+            return !carte.EstAdministrateur && !await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
         }
 
         protected override void FixePermissions()
@@ -61,7 +61,7 @@ namespace KalosfideAPI.Sites
             }
 
             bool estAdministrateur = carte.EstAdministrateur;
-            bool estFournisseur = estAdministrateur ? false : await carte.EstActifEtAMêmeUidRno(keySite.KeyParam);
+            bool estFournisseur = !estAdministrateur && await carte.EstActifEtAMêmeUidRno(keySite.KeyParam);
             if (!estAdministrateur && !estFournisseur)
             {
                 return Forbid();
@@ -119,7 +119,7 @@ namespace KalosfideAPI.Sites
             }
 
             bool estAdministrateur = carte.EstAdministrateur;
-            bool estFournisseur = estAdministrateur ? false : await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
+            bool estFournisseur = !estAdministrateur && await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
             if (!estAdministrateur && !estFournisseur)
             {
                 return Forbid();
@@ -160,13 +160,13 @@ namespace KalosfideAPI.Sites
             return await base.Edite(vue);
         }
 
-        [HttpGet("/api/site/trouveParNom/{nomSite}")]
+        [HttpGet("/api/site/trouveParUrl/{url}")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
-        public async Task<IActionResult> TrouveParNom(string nomSite)
+        public async Task<IActionResult> TrouveParUrl(string url)
         {
-            SiteVue vue = await _service.TrouveParNom(nomSite);
+            SiteVue vue = await _service.TrouveVueParUrl(url);
             if (vue == null)
             {
                 return NotFound();
@@ -174,22 +174,22 @@ namespace KalosfideAPI.Sites
             return Ok(vue);
         }
 
-        [HttpGet("/api/site/nomPris/{nomSite}")]
+        [HttpGet("/api/site/urlPrise/{Url}")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
-        public async Task<IActionResult> NomPris(string nomSite)
+        public async Task<IActionResult> UrlPrise(string Url)
         {
-            return Ok(await _service.NomPris(nomSite));
+            return Ok(await _service.UrlPrise(Url));
         }
 
-        [HttpGet("/api/site/nomPrisParAutre/{nomSite}")]
+        [HttpGet("/api/site/urlPriseParAutre/{Url}")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
-        public async Task<IActionResult> NomPrisParAutre([FromQuery] KeyUidRno key, string nomSite)
+        public async Task<IActionResult> UrlPriseParAutre([FromQuery] KeyUidRno key, string Url)
         {
-            return Ok(await _service.NomPrisParAutre(key, nomSite));
+            return Ok(await _service.UrlPriseParAutre(key, Url));
         }
 
         [HttpGet("/api/site/titrePris/{titre}")]

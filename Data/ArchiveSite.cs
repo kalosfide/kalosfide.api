@@ -20,9 +20,15 @@ namespace KalosfideAPI.Data
 
         // données
         [MaxLength(200)]
-        public string NomSite { get; set; }
+        public string Url { get; set; }
         [MaxLength(200)]
         public string Titre { get; set; }
+
+        [Required]
+        [MaxLength(200)]
+        public string Nom { get; set; }
+        [MaxLength(500)]
+        public string Adresse { get; set; }
 
         /// <summary>
         /// Ville de signature des documents

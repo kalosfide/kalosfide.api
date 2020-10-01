@@ -101,8 +101,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task ClientDeLAction()
         {
-            bool filtreClient(Client c) => c.Uid == vérificateur.KeyClient.Uid && c.Rno == vérificateur.KeyClient.Rno;
-            Client client = await _utile.ClientsAvecRoleEtSite(filtreClient, null, null).FirstOrDefaultAsync();
+            Client client = await _utile.ClientsAvecRoleEtSite(vérificateur.KeyClient).FirstOrDefaultAsync();
             if (client == null)
             {
                 vérificateur.Erreur = NotFound();

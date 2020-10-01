@@ -32,28 +32,8 @@ namespace KalosfideAPI.Clients
 
         private IClientService _service { get => __service as IClientService; }
 
-        /// <summary>
-        /// retourne vrai si l'utiliqsateur de la carte n'est ni le client ni le fournisseur du site du client
-        /// </summary>
-        /// <param name="carte"></param>
-        /// <param name="paramClient"></param>
-        /// <returns></returns>
-        private async Task<bool> EditeInterdit(CarteUtilisateur carte, KeyParam paramClient)
-        {
-            bool estClient = await carte.EstActifEtAMêmeUidRno(paramClient);
-            if (estClient)
-            {
-                return false;
-            }
-            KeyParam paramSite = await _service.KeyParamDuSiteDuClient(paramClient);
-            bool estFournisseur = await carte.EstActifEtAMêmeUidRno(paramSite);
-            return !estFournisseur;
-        }
-
         protected override void FixePermissions()
         {
-            dAjouteInterdit = Interdiction;
-            dEditeInterdit = EditeInterdit;
             dSupprimeInterdit = Interdiction;
             dListeInterdit = Interdiction;
             dLitInterdit = Interdiction;
@@ -90,13 +70,20 @@ namespace KalosfideAPI.Clients
                 return BadRequest(ModelState);
             }
 
-            RetourDeService<Client> retour = await _service.Ajoute(vue);
-            if (retour.Ok)
+            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur();
+            if (!retourUtilisateur.Ok)
             {
-                return Ok(retour.Entité);
+                return SaveChangesActionResult(retourUtilisateur);
             }
 
-            return SaveChangesActionResult(retour);
+            RetourDeService<Client> retour = await _service.Ajoute(retourUtilisateur.Entité, vue);
+            if (!retour.Ok)
+            {
+                await _utilisateurService.Supprime(retourUtilisateur.Entité);
+                return SaveChangesActionResult(retour);
+            }
+
+            return Ok(retour.Entité);
         }
 
         [HttpPut("/api/client/edite")]
@@ -206,7 +193,6 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
         public async Task<IActionResult> Liste([FromQuery] KeyUidRno keySite)
         {
             CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
@@ -233,7 +219,6 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
         public async Task<IActionResult> Lit([FromQuery] KeyUidRno keyClient)
         {
             CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
@@ -283,7 +268,7 @@ namespace KalosfideAPI.Clients
                 return NotFound();
             }
 
-            List<ClientEtatVue> clients = await _service.ClientsDuSite(keySite, keySiteDate.Date);
+            List<ClientEtatVue> clients = await _service.NouveauxClients(keySite, keySiteDate.Date);
             return Ok(new
             {
                 Clients = clients,

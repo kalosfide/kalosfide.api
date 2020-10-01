@@ -26,23 +26,6 @@ namespace KalosfideAPI.Partages.KeyParams
 
         Task SupprimeArchives(T donnée);
 
-        /// <summary>
-        /// remplace sans sauver les archives vérifiant le filtre et enregistrées depuis la date de début par des archives contenant les valeurs finales des données correspondantes
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="dateRésumé"></param>
-        /// <param name="dateDébut"></param>
-        /// <returns></returns>
-        Task RésumeArchives(Func<AKeyBase, bool> filtre, DateTime dateRésumé, DateTime? dateDébut);
-
-        /// <summary>
-        /// retourne la date de la dernière archive vérifiant le filtre et enregistrée avant la date de fin
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="jusquA">DateTime de fin</param>
-        /// <returns></returns>
-        Task<DateTime?> DateArchive(Func<AKeyBase, bool> filtre, DateTime? jusquA);
-
     }
 
     /// <summary>
@@ -82,7 +65,7 @@ namespace KalosfideAPI.Partages.KeyParams
         /// <param name="donnée"></param>
         /// <param name="date"></param>
         /// <returns></returns>
-        private TArchive CréeArchiveComplet(T donnée, DateTime date)
+        protected TArchive CréeArchiveComplet(T donnée, DateTime date)
         {
             TArchive archive = CréeArchive();
             archive.CopieKey(donnée.KeyParam);
@@ -124,65 +107,11 @@ namespace KalosfideAPI.Partages.KeyParams
             }
         }
 
+        protected abstract Task<List<TArchive>> Archives(T donnée); 
+
         public async Task SupprimeArchives(T donnée)
         {
-            _dbSetArchive.RemoveRange(await _dbSetArchive
-                .Where(ep => donnée.AMêmeKey(ep))
-                .ToListAsync());
-        }
-
-        /// <summary>
-        /// remplace sans sauver les archives vérifiant le filtre et enregistrées depuis la date de début par des archives contenant les valeurs finales des données correspondantes
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="dateRésumé"></param>
-        /// <param name="dateDébut"></param>
-        /// <returns></returns>
-        public async Task RésumeArchives(Func<AKeyBase, bool> filtre, DateTime dateRésumé, DateTime? dateDébut)
-        {
-            IQueryable<TArchive> query = _dbSetArchive.Where(a => filtre(a));
-            if (dateDébut != null)
-            {
-                query = query.Where(a => DateTime.Compare(a.Date, dateDébut.Value) >= 0);
-            }
-            // archives vérifiant le filtre et enregistrées depuis la date de début
-            List<TArchive> enregistrées = await query.ToListAsync();
-
-            // clés des archives enregistrés
-            IEnumerable<KeyParam> paramsDesEnregistrées = enregistrées.GroupBy(e => e.KeyParam).Select(ge => ge.Key);
-
-            // données ayant ces clés dans leur état en fin de modification
-            IQueryable<T> données = _dbSet.Where(t => paramsDesEnregistrées.Where(k => k.Egale(t.KeyParam)).Any());
-
-            // archives crées à partir de ces données
-            List<TArchive> résumés = await données.Select(t => CréeArchiveComplet(t, dateRésumé)).ToListAsync();
-
-            // remplacement
-            _dbSetArchive.RemoveRange(enregistrées);
-            _dbSetArchive.AddRange(résumés);
-        }
-
-        /// <summary>
-        /// retourne la date de la dernière archive vérifiant le filtre et enregistrée avant la date de fin
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="jusquA">DateTime de fin</param>
-        /// <returns></returns>
-        public async Task<DateTime?> DateArchive(Func<AKeyBase, bool> filtre, DateTime? jusquA)
-        {
-            IQueryable<TArchive> query = _dbSetArchive.Where(a => filtre(a));
-            if (jusquA != null)
-            {
-                query.Where(a => DateTime.Compare(a.Date, jusquA.Value) <= 0);
-            }
-            // dernière archive vérifiant le filtre et enregistrée avant la date de fin
-            TArchive dernière = await query.LastOrDefaultAsync();
-
-            if (dernière == null)
-            {
-                return null;
-            }
-            return dernière.Date;
+            _dbSetArchive.RemoveRange(await Archives(donnée));
         }
     }
 
@@ -237,19 +166,7 @@ namespace KalosfideAPI.Partages.KeyParams
         {
         }
 
-        /// <summary>
-        /// retourne un filtre qui ne laisse passer que les données dont les champs de clé sont égaux à ceux du paramètre
-        /// </summary>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        private DFiltre<T> FiltreKey(KeyParam param)
-        {
-            if (param == null)
-            {
-                return null;
-            }
-            return (t) => t.CommenceKey(param);
-        }
+        protected abstract IQueryable<T> DbSetFiltré(KeyParam param);
 
         public T CréeDonnée(TVue vue)
         {
@@ -318,14 +235,12 @@ namespace KalosfideAPI.Partages.KeyParams
 
         public async Task<T> Lit(TParam param)
         {
-            DFiltre<T> filtre = FiltreKey(param);
-            return await _dbSet.Where(donnée => filtre(donnée)).FirstOrDefaultAsync();
+            return await DbSetFiltré(param).FirstOrDefaultAsync();
         }
 
         public async Task<T> Lit(TParam param, InclutRelations<T> inclutRelations)
         {
-            DFiltre<T> filtre = FiltreKey(param);
-            IQueryable<T> ts = inclutRelations(_dbSet.Where(donnée => filtre(donnée)));
+            IQueryable<T> ts = inclutRelations(DbSetFiltré(param));
             return await ts.FirstOrDefaultAsync();
         }
 
@@ -335,70 +250,28 @@ namespace KalosfideAPI.Partages.KeyParams
             return CréeVue(t);
         }
 
-        public async Task<List<TVue>> CréeVuesAsync(List<T> données)
+        protected virtual async Task<List<TVue>> CréeVues(TParam param)
         {
-            return dCréeVueAsync == null
-                ? données.Select(t => CréeVue(t)).ToList()
-                : (await Task.WhenAll(données.Select(t => dCréeVueAsync(t)))).ToList();
-        }
-
-        protected virtual async Task<List<TVue>> CréeVues(DFiltre<T> filtreT, DFiltre<TVue> fitreVue)
-        {
-            IQueryable<T> ts = filtreT == null ? _dbSet : _dbSet.Where(t => filtreT(t));
+            IQueryable<T> ts = DbSetFiltré(param);
             IQueryable<T> tsComplets = _inclutRelations == null ? ts : _inclutRelations(ts);
             List<T> données = await tsComplets.ToListAsync();
 
-            List<TVue> vues = await CréeVuesAsync(données);
+            List<TVue> vues = null;
+            if (dCréeVueAsync != null)
+            {
+                vues = (await Task.WhenAll(données.Select(t => dCréeVueAsync(t)))).ToList();
+            }
+            else
+            {
+                vues = données.Select(t => CréeVue(t)).ToList();
+            }
 
-            vues = fitreVue == null ? vues : vues.Where(v => fitreVue(v)).ToList();
             return vues;
         }
 
-        public async Task<List<TVue>> ListeVue(KeyParam param)
+        public async Task<List<TVue>> ListeVue(TParam param)
         {
-            return await CréeVues(FiltreKey(param), null);
-        }
-
-        public async Task<List<TVue>> Liste()
-        {
-            return await CréeVues(null, null);
-        }
-
-        public async Task<List<TVue>> Liste(KeyParam param, DFiltre<TVue> valide)
-        {
-            return await CréeVues(FiltreKey(param), valide);
-        }
-
-        public async Task<List<TVue>> Liste(DFiltre<TVue> valide)
-        {
-            return await CréeVues(null, valide);
-        }
-
-        /// <summary>
-        /// remplace sans sauver les archives vérifiant le filtre et enregistrées depuis la date de début par des archives contenant les valeurs finales des données correspondantes
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="dateRésumé"></param>
-        /// <param name="dateDébut"></param>
-        /// <returns></returns>
-        public async Task RésumeArchives(Func<AKeyBase, bool> filtre, DateTime dateRésumé, DateTime? dateDébut)
-        {
-            await _géreArchive.RésumeArchives(filtre, dateRésumé, dateDébut);
-        }
-
-        /// <summary>
-        /// retourne la date de la dernière archive vérifiant le filtre et enregistrée avant la date de fin
-        /// </summary>
-        /// <param name="filtre"></param>
-        /// <param name="jusquA">DateTime de fin</param>
-        /// <returns></returns>
-        public async Task<DateTime?> DateArchive(Func<AKeyBase, bool> filtre, DateTime? jusquA)
-        {
-            if (_géreArchive == null)
-            {
-                return null;
-            }
-            return await _géreArchive.DateArchive(filtre, jusquA);
+            return await CréeVues(param);
         }
     }
 }

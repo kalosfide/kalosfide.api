@@ -38,19 +38,21 @@ namespace KalosfideAPI.CLF
         Task<List<DocCLF>> DocumentsEnvoyésSansSynthèse(CLFDocsSynthèse clfDocs, string type);
 
         /// <summary>
-        /// Retourne un CLFDocs dont le champ Site contient uniquement Etat et le champ Catalogue uniquement Date
+        /// Si le site est d'état Catalogue, retourne un contexte Catalogue: état site = Catalogue, date catalogue = DateNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est postérieure à celle du catalogue de la bdd, les données utilisateur sont à jour,
+        /// retourne un contexte Ok: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est antérieure à celle du catalogue de la bdd
+        /// retourne un contexte Périmé: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur n'a pas passé la date de son catalogue, il n'y pas de données utilisateur,
+        /// retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande du client
         /// </summary>
-        /// <param name="site">le Site du contexte</param>
-        /// <returns></returns>
-        Task<CLFDocs> Contexte(Site site);
-
-
-        /// <summary>
-        /// Retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande d'un client
-        /// </summary>
+        /// <param name="site">site du client</param>
         /// <param name="keyClient">key du client</param>
+        /// <param name="dateCatalogue">présent si le client a déjà chargé les données</param>
         /// <returns></returns>
-        Task<CLFDocs> CommandeEnCours(AKeyUidRno keyClient);
+        Task<CLFDocs> CommandeEnCours(Site site, AKeyUidRno keyClient, DateTime? dateCatalogue);
 
         Task<RetourDeService<CLFDoc>> AjouteBon(AKeyUidRno keyClient, Site site, string type, long noDoc, DocCLF docACopier);
 

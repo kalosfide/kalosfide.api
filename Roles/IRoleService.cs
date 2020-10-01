@@ -8,11 +8,11 @@ namespace KalosfideAPI.Roles
 {
     public interface IRoleService : Partages.KeyParams.IKeyUidRnoService<Role, RoleVue>
     {
+        Task<Role> CréeRole(string uid);
         Task<Role> CréeRole(Utilisateur utilisateur);
         void ChangeEtatSansSauver(Role role, string état);
         Task<RetourDeService<Role>> ChangeEtat(Role role, string état);
         bool TempsInactifEcoulé(DateTime date);
-        Task<bool> TempsInactifEcoulé(Role role);
 
         /// <summary>
         /// retourne le site d'un objet ayant un UidRno qui est celui du role qui en est propriétaire

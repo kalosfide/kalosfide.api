@@ -35,19 +35,18 @@ namespace KalosfideAPI.Catalogues
         /// <returns></returns>
         public async Task<DateTime> DateCatalogue(AKeyUidRno keySite, DateTime? date)
         {
-            IQueryable<ArchiveSite> archivesQuery = _context.ArchiveSite.Where(a => keySite.CommenceKey(a.KeyParam));
+            IQueryable<ArchiveSite> archivesQuery = _context.ArchiveSite.Where(a => keySite.Uid == a.Uid && keySite.Rno == a.Rno)
+                .OrderBy(a => a.Date);
             if (date != null)
             {
-                archivesQuery = archivesQuery.Where(a => DateTime.Compare(a.Date, date.Value) < 0);
+                archivesQuery = archivesQuery.Where(a => a.Date < date.Value);
             }
             // dernierDébutDEtatCatalogue existe toujours car le site est créé dans l'état Catalogue
             ArchiveSite dernierDébutDEtatCatalogue = await archivesQuery.Where(a => a.Etat == TypeEtatSite.Catalogue).LastAsync();
             // dernièreFinDEtatCatalogue n'existe pas si le site est dans l'état Catalogue à la date du paramètre
-            ArchiveSite dernièreFinDEtatCatalogue = await archivesQuery
-                .Where(a => a.Etat == TypeEtatSite.Ouvert && DateTime.Compare(a.Date, dernierDébutDEtatCatalogue.Date) > 0)
-                .FirstOrDefaultAsync();
+            ArchiveSite dernièreFinDEtatCatalogue = await archivesQuery.Where(a => a.Etat == TypeEtatSite.Ouvert).LastOrDefaultAsync();
             DateTime dateFinDEtatCatalogue;
-            if (dernièreFinDEtatCatalogue == null)
+            if (dernièreFinDEtatCatalogue == null || DateTime.Compare(dernièreFinDEtatCatalogue.Date, dernierDébutDEtatCatalogue.Date) < 0)
             {
                 // le site est dans l'état Catalogue à la date
                 dateFinDEtatCatalogue = DateNulle.Date;
@@ -56,11 +55,6 @@ namespace KalosfideAPI.Catalogues
             {
                 // quand le site a quitté l'état Catalogue, dernièreFinDEtatCatalogue a été enregistrée dans les archives du site 
                 dateFinDEtatCatalogue = dernièreFinDEtatCatalogue.Date;
-
-                // inutile sauf pour test : les résultats doivent être dateFinDEtatCatalogue
-                DateTime? dateProduits = await _produitService.DateArchive(keySite.AMêmeKey, date);
-                DateTime? dateCatégories = await _catégorieService.DateArchive(keySite.AMêmeKey, date);
-                // dateFinDEtatCatalogue = dateProduits < dateCatégories ? dateCatégories : dateProduits;
             }
             return dateFinDEtatCatalogue;
         }
@@ -147,7 +141,7 @@ namespace KalosfideAPI.Catalogues
         /// <returns></returns>
         public async Task<Catalogue> Complet(KeyUidRno keySite)
         {
-            Site site = await _context.Site.Where(s => keySite.AMêmeKey(s)).FirstOrDefaultAsync();
+            Site site = await _context.Site.Where(s => keySite.Uid == s.Uid && keySite.Rno == s.Rno).FirstOrDefaultAsync();
             if (site == null)
             {
                 return null;
@@ -165,7 +159,7 @@ namespace KalosfideAPI.Catalogues
         /// <returns></returns>
         public async Task<Catalogue> Disponibles(KeyUidRno keySite)
         {
-            Site site = await _context.Site.Where(s => keySite.AMêmeKey(s)).FirstOrDefaultAsync();
+            Site site = await _context.Site.Where(s => keySite.Uid == s.Uid && keySite.Rno == s.Rno).FirstOrDefaultAsync();
             if (site == null)
             {
                 return null;
@@ -189,7 +183,7 @@ namespace KalosfideAPI.Catalogues
             Catalogue catalogue;
             DateTime dateCatalogue = await DateCatalogue(site, null);
             // si date est présent, l'Api client veut vérifier si son catalogue est à jour
-            bool doitRetourner = date.HasValue ? DateTime.Compare(dateCatalogue, date.Value) > 0 : true;
+            bool doitRetourner = !date.HasValue || DateTime.Compare(dateCatalogue, date.Value) > 0;
             if (doitRetourner)
             {
                 List<ProduitData> produits = await _produitService.ProduitDatasDisponibles(site);
@@ -222,15 +216,18 @@ namespace KalosfideAPI.Catalogues
         public async Task ArchiveModifications(Site site)
         {
             DateTime maintenant = DateTime.Now;
-            ArchiveSite étatDébutModifCatalogue = await _context.ArchiveSite.Where(e => site.AMêmeKey(e) && e.Etat == TypeEtatSite.Catalogue).LastOrDefaultAsync();
+            List<ArchiveSite> archives = await _context.ArchiveSite
+                .Where(a => site.Uid == a.Uid && site.Rno == a.Rno && a.Etat == TypeEtatSite.Catalogue)
+                .OrderBy(a => a.Date)
+                .ToListAsync();
+            ArchiveSite étatDébutModifCatalogue = archives.LastOrDefault();
             DateTime? débutModifCatalogue = null;
             if (étatDébutModifCatalogue != null)
             {
                 débutModifCatalogue = étatDébutModifCatalogue.Date;
             }
-            bool filtre(AKeyBase key) => site.AMêmeKey(key);
-            await _produitService.RésumeArchives(filtre, maintenant, débutModifCatalogue);
-            await _catégorieService.RésumeArchives(filtre, maintenant, débutModifCatalogue);
+            await _produitService.RésumeArchives(site, maintenant, débutModifCatalogue);
+            await _catégorieService.RésumeArchives(site, maintenant, débutModifCatalogue);
         }
     }
 }

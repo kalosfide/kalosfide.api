@@ -1,12 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Internal;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -29,14 +26,14 @@ namespace KalosfideAPI.Erreurs
             var req = context.Request;
 
             // Allows using several time the stream in ASP.Net Core
-            req.EnableRewind();
+            req.EnableBuffering();
 
             // Arguments: Stream, Encoding, detect encoding, buffer size 
             // AND, the most important: keep stream opened
             using (StreamReader reader
                       = new StreamReader(req.Body, Encoding.UTF8, true, 1024, true))
             {
-                bodyStr = reader.ReadToEnd();
+                bodyStr = await reader.ReadToEndAsync();
             }
 
             // Rewind, so the core is not lost when it looks the body for the request
@@ -52,6 +49,13 @@ namespace KalosfideAPI.Erreurs
             catch (Exception ex)
             {
                 _logger.LogError(ex, ex.Message);
+                Exception ex2 = ex;
+                string errorMessage = string.Empty;
+                while (ex2 != null)
+                {
+                    errorMessage += ex2.ToString();
+                    ex2 = ex2.InnerException;
+                }
 
                 context.Response.StatusCode = 500;
             }

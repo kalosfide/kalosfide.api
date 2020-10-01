@@ -26,7 +26,7 @@ namespace KalosfideAPI.Data.Keys
         {
             if (donnée is AKeyUidRnoNo2)
             {
-                AKeyUidRnoNo2 key = (donnée as AKeyUidRnoNo2);
+                AKeyUidRnoNo2 key = donnée as AKeyUidRnoNo2;
                 return Uid == key.Uid && Rno == key.Rno && No == key.No && Uid2 == key.Uid2 && Rno2 == key.Rno2 && No2 == key.No2;
             }
             return false;

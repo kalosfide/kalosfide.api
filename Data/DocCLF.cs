@@ -1,4 +1,5 @@
-﻿using KalosfideAPI.Data.Constantes;
+﻿using KalosfideAPI.CLF;
+using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -98,7 +99,31 @@ namespace KalosfideAPI.Data
                 donnée.Type
             });
 
+            entité.HasOne(doc => doc.Client)
+                .WithMany(client => client.Docs)
+                .HasForeignKey(doc => new { doc.Uid, doc.Rno })
+                .HasPrincipalKey(client => new { client.Uid, client.Rno });
+
             entité.ToTable("Docs");
+        }
+
+        // copie
+        public static DocCLF Clone(string uid, int rno, DocCLF doc)
+        {
+            return new DocCLF
+            {
+                Uid = uid,
+                Rno = rno,
+                No = doc.No,
+                Type = doc.Type,
+                Date = doc.Date,
+                NoGroupe = doc.NoGroupe,
+                SiteUid = doc.SiteUid,
+                SiteRno = doc.SiteRno,
+                NbLignes = doc.NbLignes,
+                Total = doc.Total,
+                Incomplet = doc.Incomplet
+            };
         }
     }
 }

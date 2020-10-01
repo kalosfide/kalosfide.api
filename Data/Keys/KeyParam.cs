@@ -72,34 +72,5 @@ namespace KalosfideAPI.Data.Keys
             };
         }
 
-        public DFiltre<AKeyBase> FiltreKey()
-        {
-            DFiltre<AKeyBase> filtre = null;
-            if (Uid != null)
-            {
-                filtre = (AKeyBase avecKey) => avecKey.KeyParam.Uid == Uid;
-                if (Rno != null)
-                {
-                    filtre += (AKeyBase avecKey) => avecKey.KeyParam.Rno == Rno;
-                    if (No != null)
-                    {
-                        filtre += (AKeyBase avecKey) => avecKey.KeyParam.No == No;
-                        if (Uid2 != null)
-                        {
-                            filtre = (AKeyBase avecKey) => avecKey.KeyParam.Uid2 == Uid2;
-                            if (Rno2 != null)
-                            {
-                                filtre += (AKeyBase avecKey) => avecKey.KeyParam.Rno2 == Rno2;
-                                if (No2 != null)
-                                {
-                                    filtre += (AKeyBase avecKey) => avecKey.KeyParam.No2 == No2;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            return filtre;
-        }
     }
 }

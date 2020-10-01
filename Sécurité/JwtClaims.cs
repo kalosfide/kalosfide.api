@@ -19,6 +19,6 @@ namespace KalosfideAPI.Sécurité
 
         public const string RoleId = "roid";
         public const string EtatRole = "etro";
-        public const string NomSite = "nosi";
+        public const string UrlSite = "ursi";
     }
 }

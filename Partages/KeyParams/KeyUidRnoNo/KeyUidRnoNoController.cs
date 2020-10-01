@@ -24,5 +24,10 @@ namespace KalosfideAPI.Partages.KeyParams
             return !await carte.EstActifEtAMêmeUidRno(param);
         }
 
+        protected async Task<bool> InterditSiPasPropriétaire(CarteUtilisateur carte, TVue vue)
+        {
+            return !await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
+        }
+
     }
 }

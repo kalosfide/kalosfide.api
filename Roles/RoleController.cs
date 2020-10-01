@@ -24,16 +24,10 @@ namespace KalosfideAPI.Roles
 
         public RoleController(IRoleService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
-            FixePermissions();
         }
 
         protected override void FixePermissions()
         {
-            dAjouteInterdit = Interdiction;
-            dEditeInterdit = Interdiction;
-            dSupprimeInterdit = Interdiction;
-            dListeInterdit = Interdiction;
-            dLitInterdit = Interdiction;
         }
 
         [HttpPost]

@@ -131,5 +131,23 @@ namespace KalosfideAPI.Data
 
             entité.ToTable("Lignes");
         }
+
+        public static LigneCLF Clone(string uid, int rno, LigneCLF ligne)
+        {
+            return new LigneCLF
+            {
+                Uid = uid,
+                Rno = rno,
+                No = ligne.No,
+                Uid2 = ligne.Uid2,
+                Rno2 = ligne.Rno2,
+                No2 = ligne.No2,
+                Type = ligne.Type,
+                Date = ligne.Date,
+                TypeCommande = ligne.TypeCommande,
+                Quantité = ligne.Quantité,
+                AFixer = ligne.AFixer
+            };
+        }
     }
 }

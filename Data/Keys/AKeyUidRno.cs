@@ -23,7 +23,7 @@ namespace KalosfideAPI.Data.Keys
         {
             if (donnée is AKeyUidRno)
             {
-                AKeyUidRno key = (donnée as AKeyUidRno);
+                AKeyUidRno key = donnée as AKeyUidRno;
                 return key.Uid == Uid && key.Rno == Rno;
             }
             return CommenceKey(donnée.KeyParam);

@@ -82,7 +82,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Date du catalogue
         /// </summary>
-        public DateTime DateCatalogue { get; set; }
+        public DateTime? DateCatalogue { get; set; }
 
         /// <summary>
         /// présent si la vérification ne peut être complètée

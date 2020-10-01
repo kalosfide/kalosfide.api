@@ -1,11 +1,4 @@
 ﻿using KalosfideAPI.Clients;
-using KalosfideAPI.Data;
-using KalosfideAPI.Enregistrement;
-using KalosfideAPI.Fournisseurs;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace KalosfideAPI.Peuple
 {
@@ -19,7 +12,7 @@ namespace KalosfideAPI.Peuple
                 Password = "123456",
                 Nom = "Les jardins du prévôt",
                 Adresse = "Vellorgues, 84800 L'Isle sur la Sorgue",
-                NomSite = "ljdp",
+                Url = "ljdp",
                 Titre = "Les jardins du prévôt",
             },
             new EnregistrementFournisseurVue
@@ -28,7 +21,7 @@ namespace KalosfideAPI.Peuple
                 Password = "123456",
                 Nom = "Le grand magasin",
                 Adresse = "1 rue du magasin, Enville",
-                NomSite = "le_grand_magasin",
+                Url = "le_grand_magasin",
                 Titre = "Le grand magasin",
             },
         };

@@ -2,7 +2,6 @@
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Enregistrement;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Partages.KeyParams;
@@ -23,7 +22,7 @@ namespace KalosfideAPI.Sites
         public int Nb { get; set; }
     }
 
-    class GèreArchive : Partages.KeyParams.GéreArchive<Site, SiteVue, ArchiveSite>
+    class GèreArchive : GéreArchiveUidRno<Site, SiteVue, ArchiveSite>
     {
         public GèreArchive(DbSet<Site> dbSet, DbSet<ArchiveSite> dbSetArchive) : base(dbSet, dbSetArchive)
         { }
@@ -35,8 +34,10 @@ namespace KalosfideAPI.Sites
 
         protected override void CopieDonnéeDansArchive(Site donnée, ArchiveSite archive)
         {
-            archive.NomSite = donnée.NomSite;
+            archive.Url = donnée.Url;
             archive.Titre = donnée.Titre;
+            archive.Nom = donnée.Nom;
+            archive.Adresse = donnée.Adresse;
             archive.Ville = donnée.Ville;
             archive.Etat = donnée.Etat;
         }
@@ -45,16 +46,28 @@ namespace KalosfideAPI.Sites
         {
             bool modifié = false;
             ArchiveSite archive = new ArchiveSite();
-            if (vue.NomSite != null && donnée.NomSite != vue.NomSite)
+            if (vue.Url != null && donnée.Url != vue.Url)
             {
-                donnée.NomSite = vue.NomSite;
-                archive.NomSite = vue.NomSite;
+                donnée.Url = vue.Url;
+                archive.Url = vue.Url;
                 modifié = true;
             }
             if (vue.Titre != null && donnée.Titre != vue.Titre)
             {
                 donnée.Titre = vue.Titre;
                 archive.Titre = vue.Titre;
+                modifié = true;
+            }
+            if (vue.Nom != null && donnée.Nom != vue.Nom)
+            {
+                donnée.Nom = vue.Nom;
+                archive.Nom = vue.Nom;
+                modifié = true;
+            }
+            if (vue.Adresse != null && donnée.Adresse != vue.Adresse)
+            {
+                donnée.Adresse = vue.Adresse;
+                archive.Adresse = vue.Adresse;
                 modifié = true;
             }
             if (vue.Ville != null && donnée.Ville != vue.Ville)
@@ -88,27 +101,7 @@ namespace KalosfideAPI.Sites
             _utile = utile;
             _clientService = clientService;
             dCréeVueAsync = CréeSiteVueAsync;
-            dValideAjoute = ValideAjoute;
             dValideEdite = ValideEdite;
-        }
-
-        public Site CréeSite(Role role, EnregistrementFournisseurVue fournisseurVue)
-        {
-            Site site = new Site
-            {
-                Uid = role.Uid,
-                Rno = role.Rno,
-                NomSite = fournisseurVue.NomSite,
-                Titre = fournisseurVue.Titre,
-                Ville = fournisseurVue.Ville,
-                FormatNomFichierCommande = fournisseurVue.FormatNomFichierCommande,
-                FormatNomFichierLivraison = fournisseurVue.FormatNomFichierLivraison,
-                FormatNomFichierFacture = fournisseurVue.FormatNomFichierFacture,
-                Etat = TypeEtatSite.Catalogue
-            };
-            role.SiteUid = role.Uid;
-            role.SiteRno = role.Rno;
-            return site;
         }
 
         private Task<SiteVue> CréeSiteVueAsync(Site site)
@@ -117,8 +110,10 @@ namespace KalosfideAPI.Sites
             {
                 Uid = site.Uid,
                 Rno = site.Rno,
-                NomSite = site.NomSite,
+                Url = site.Url,
                 Titre = site.Titre,
+                Nom = site.Nom,
+                Adresse = site.Adresse,
                 Ville = site.Ville,
                 FormatNomFichierCommande = site.FormatNomFichierCommande,
                 FormatNomFichierLivraison = site.FormatNomFichierLivraison,
@@ -130,7 +125,10 @@ namespace KalosfideAPI.Sites
 
         public async Task FixeNbs(List<SiteVue> siteVues)
         {
-            await Task.WhenAll(siteVues.Select(siteVue => FixeNbs(siteVue)));
+            foreach (SiteVue siteVue in siteVues)
+            {
+                await FixeNbs(siteVue);
+            }
         }
 
         private async Task FixeNbs(SiteVue siteVue)
@@ -147,46 +145,56 @@ namespace KalosfideAPI.Sites
             return siteVue;
         }
 
-        public async Task<SiteVue> TrouveParNom(string nomSite)
+        public async Task<SiteVue> TrouveVueParUrl(string url)
         {
-            Site site = await _context.Site.Where(s => s.NomSite == nomSite).FirstOrDefaultAsync();
+            Site site = await _context.Site.Where(s => s.Url == url).FirstOrDefaultAsync();
             return site == null ? null : CréeVue(site);
         }
 
-        private SiteVue CréeVueAvecNbs(Site site)
+        public async Task<Site> TrouveParUrl(string url)
         {
+            Site site = await _context.Site.Where(s => s.Url == url).FirstOrDefaultAsync();
+            return site;
+        }
+
+        public async Task<Site> TrouveParKey(string Uid, int Rno)
+        {
+            Site site = await _context.Site.Where(s => s.Uid == Uid && s.Rno == Rno).FirstOrDefaultAsync();
+            return site;
+        }
+
+        private static SiteVue CréeVueAvecNbs(Site site)
+        {
+            int nbProduits = 0;
+            foreach (Catégorie catégorie in site.Catégories)
+            {
+                nbProduits += catégorie.Produits
+                    .Where(p => p.Etat == TypeEtatProduit.Disponible)
+                    .Count();
+            }
             SiteVue vue = new SiteVue
             {
                 NbClients = site.Usagers
                     .Where(u => u.Uid != site.Uid) // pas fournisseur
                     .Where(u => u.Etat == TypeEtatRole.Actif || u.Etat == TypeEtatRole.Nouveau)
                     .Count(),
-                NbProduits = site.Produits
-                    .Where(p => p.Etat == TypeEtatProduit.Disponible)
-                    .Count()
+                NbProduits = nbProduits
             };
             vue.Copie(site);
             return vue;
         }
 
-        protected override async Task<List<SiteVue>> CréeVues(DFiltre<Site> valideT, DFiltre<SiteVue> valideVue)
+        protected override async Task<List<SiteVue>> CréeVues(KeyParam param)
         {
-            IQueryable<Site> sites = _context.Site
-                .Include(s => s.Produits)
+            IQueryable<Site> sites = DbSetFiltré(param)
+                .Include(s => s.Catégories)
+                .ThenInclude(c => c.Produits)
                 .Include(s => s.Usagers);
-            if (valideT != null)
-            {
-                sites = sites.Where(s => valideT(s));
-            }
             var res1 = await sites.ToListAsync();
 
             IQueryable<SiteVue> vues = sites
                 .Select(site => CréeVueAvecNbs(site));
 
-            if (valideVue != null)
-            {
-                vues = vues.Where(v => valideVue(v));
-            }
             List<SiteVue> liste = await vues.ToListAsync();
             return liste;
         }
@@ -195,13 +203,21 @@ namespace KalosfideAPI.Sites
         // implémentation des membres abstraits
         public override void CopieVueDansDonnée(Site donnée, SiteVue vue)
         {
-            if (vue.NomSite != null)
+            if (vue.Url != null)
             {
-                donnée.NomSite = vue.NomSite;
+                donnée.Url = vue.Url;
             }
             if (vue.Titre != null)
             {
                 donnée.Titre = vue.Titre;
+            }
+            if (vue.Nom != null)
+            {
+                donnée.Nom = vue.Nom;
+            }
+            if (vue.Adresse != null)
+            {
+                donnée.Adresse = vue.Adresse;
             }
             if (vue.Ville != null)
             {
@@ -214,9 +230,11 @@ namespace KalosfideAPI.Sites
 
         public override void CopieVuePartielleDansDonnée(Site donnée, SiteVue vue, Site donnéePourComplèter)
         {
-            donnée.NomSite = vue.NomSite ?? donnéePourComplèter.NomSite;
+            donnée.Url = vue.Url ?? donnéePourComplèter.Url;
             donnée.Titre = vue.Titre ?? donnéePourComplèter.Titre;
             donnée.Etat = vue.Etat ?? donnéePourComplèter.Etat;
+            donnée.Nom = vue.Nom ?? donnéePourComplèter.Nom;
+            donnée.Adresse = vue.Adresse ?? donnéePourComplèter.Adresse;
             donnée.Ville = vue.Ville ?? donnéePourComplèter.Ville;
             donnée.FormatNomFichierCommande = vue.FormatNomFichierCommande ?? donnéePourComplèter.FormatNomFichierCommande;
             donnée.FormatNomFichierLivraison = vue.FormatNomFichierLivraison ?? donnéePourComplèter.FormatNomFichierLivraison;
@@ -232,8 +250,10 @@ namespace KalosfideAPI.Sites
         {
             SiteVue vue = new SiteVue
             {
-                NomSite = donnée.NomSite,
+                Url = donnée.Url,
                 Titre = donnée.Titre,
+                Nom = donnée.Nom,
+                Adresse = donnée.Adresse,
                 Ville = donnée.Ville,
                 FormatNomFichierCommande = donnée.FormatNomFichierCommande,
                 FormatNomFichierLivraison = donnée.FormatNomFichierLivraison,
@@ -246,11 +266,13 @@ namespace KalosfideAPI.Sites
 
         public override async Task<SiteVue> LitVue(KeyParam param)
         {
-            Site site = await _context.Site.Where(e => e.CommenceKey(param)).FirstOrDefaultAsync();
+            Site site = await _context.Site.Where(e => e.Uid == param.Uid && e.Rno == param.Rno).FirstOrDefaultAsync();
             SiteVue vue = new SiteVue
             {
-                NomSite = site.NomSite,
+                Url = site.Url,
                 Titre = site.Titre,
+                Nom = site.Nom,
+                Adresse = site.Adresse,
                 Ville = site.Ville,
                 FormatNomFichierCommande = site.FormatNomFichierCommande,
                 FormatNomFichierLivraison = site.FormatNomFichierLivraison,
@@ -268,7 +290,7 @@ namespace KalosfideAPI.Sites
         /// <returns></returns>
         public async Task<SiteVue> Etat(AKeyUidRno akeySite)
         {
-            Site site = await _context.Site.Where(e => e.CommenceKey(akeySite.KeyParam)).FirstAsync();
+            Site site = await _context.Site.Where(e => e.Uid == akeySite.Uid && e.Rno == akeySite.Rno).FirstAsync();
             if (site == null)
             {
                 return null;
@@ -319,7 +341,7 @@ namespace KalosfideAPI.Sites
             }
 
             // seul l'état Ouvert ou Banni peut suivre un état qui n'est pas Ouvert
-            if (site.Etat != TypeEtatSite.Ouvert && (vue.Etat != TypeEtatSite.Ouvert && vue.Etat != TypeEtatSite.Banni))
+            if (site.Etat != TypeEtatSite.Ouvert && vue.Etat != TypeEtatSite.Ouvert && vue.Etat != TypeEtatSite.Banni)
             {
                 ErreurDeModel.AjouteAModelState(modelState, "etatIncorrect");
                 return;
@@ -375,14 +397,14 @@ namespace KalosfideAPI.Sites
             return await SaveChangesAsync();
         }
 
-        public async Task<bool> NomPris(string nomSite)
+        public async Task<bool> UrlPrise(string Url)
         {
-            return await _dbSet.Where(site => site.NomSite == nomSite).AnyAsync();
+            return await _dbSet.Where(site => site.Url == Url).AnyAsync();
         }
 
-        public async Task<bool> NomPrisParAutre(AKeyUidRno key, string nomSite)
+        public async Task<bool> UrlPriseParAutre(AKeyUidRno key, string Url)
         {
-            return await _dbSet.Where(site => site.NomSite == nomSite && (site.Uid != key.Uid || site.Rno != key.Rno)).AnyAsync();
+            return await _dbSet.Where(site => site.Url == Url && (site.Uid != key.Uid || site.Rno != key.Rno)).AnyAsync();
         }
 
         public async Task<bool> TitrePris(string titre)
@@ -395,27 +417,15 @@ namespace KalosfideAPI.Sites
             return await _dbSet.Where(site => site.Titre == titre && (site.Uid != key.Uid || site.Rno != key.Rno)).AnyAsync();
         }
 
-        private async Task ValideAjoute(Site donnée, ModelStateDictionary modelState)
-        {
-            if (await NomPris(donnée.NomSite))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "nomSitePris");
-            }
-            if (await TitrePris(donnée.Titre))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "titrePris");
-            }
-        }
-
         private async Task ValideEdite(Site donnée, ModelStateDictionary modelState)
         {
-            if (await NomPrisParAutre(donnée, donnée.NomSite))
+            if (await UrlPriseParAutre(donnée, donnée.Url))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "nomSitePris");
+                ErreurDeModel.AjouteAModelState(modelState, "nomPris", "Url");
             }
             if (await TitrePrisParAutre(donnée, donnée.Titre))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "titrePris");
+                ErreurDeModel.AjouteAModelState(modelState, "nomPris", "titre");
             }
         }
     }

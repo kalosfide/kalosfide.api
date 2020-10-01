@@ -13,8 +13,18 @@ namespace KalosfideAPI.Sites
     {
         public override string Uid { get; set; }
         public override int Rno { get; set; }
-        public string NomSite { get; set; }
+        public string Url { get; set; }
         public string Titre { get; set; }
+
+        /// <summary>
+        /// Pour l'en-tête des documents
+        /// </summary>
+        public string Nom { get; set; }
+
+        /// <summary>
+        /// Pour l'en-tête des documents
+        /// </summary>
+        public string Adresse { get; set; }
 
         /// <summary>
         /// Ville de signature des documents
@@ -51,9 +61,11 @@ namespace KalosfideAPI.Sites
         {
             Uid = site.Uid;
             Rno = site.Rno;
-            NomSite = site.NomSite;
+            Url = site.Url;
             Titre = site.Titre;
             Etat = site.Etat;
+            Nom = site.Nom;
+            Adresse = site.Adresse;
             Ville = site.Ville;
             FormatNomFichierCommande = site.FormatNomFichierCommande;
             FormatNomFichierLivraison = site.FormatNomFichierLivraison;

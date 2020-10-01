@@ -29,17 +29,25 @@ namespace KalosfideAPI.CLF
         #region Client-Lecture
 
         /// <summary>
-        /// Retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande d'un client
+        /// Si le site est d'état Catalogue, retourne un contexte Catalogue: état site = Catalogue, date catalogue = DateNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est postérieure à celle du catalogue de la bdd, les données utilisateur sont à jour,
+        /// retourne un contexte Ok: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est antérieure à celle du catalogue de la bdd
+        /// retourne un contexte Périmé: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur n'a pas passé la date de son catalogue, il n'y pas de données utilisateur,
+        /// retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande du client
         /// </summary>
-        /// <param name="keyClient">key du client</param>
+        /// <param name="paramsKeyClient">key du client et date de son catalogue</param>
         /// <returns></returns>
         [HttpGet("/api/commande/enCours")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> EnCours([FromQuery] KeyUidRno keyClient)
+        public async Task<IActionResult> EnCours([FromQuery] ParamsKeyClient paramsKeyClient)
         {
-            vérificateur.Initialise(keyClient);
+            vérificateur.Initialise(paramsKeyClient);
             try
             {
                 await ClientDeLAction();
@@ -50,34 +58,9 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            CLFDocs docs = await _service.CommandeEnCours(keyClient);
+            CLFDocs docs = await _service.CommandeEnCours(vérificateur.Site, paramsKeyClient, paramsKeyClient.DateCatalogue);
 
             return Ok(docs);
-        }
-
-        /// <summary>
-        /// retourne un ContexteCommande contenant les données d'état définissant les droits
-        /// </summary>
-        /// <param name="keyClient">key du client</param>
-        /// <returns></returns>
-        [HttpGet("/api/commande/contexte")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Contexte([FromQuery] KeyUidRno keyClient)
-        {
-            vérificateur.Initialise(keyClient);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstClient();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
-
-            return Ok(await _service.Contexte(vérificateur.Site));
         }
 
         #endregion

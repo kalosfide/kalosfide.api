@@ -111,7 +111,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Date du catalogue
         /// </summary>
-        public DateTime DateCatalogue { get; set; }
+        public DateTime? DateCatalogue { get; set; }
     }
 
     public class ParamsKeyDoc : AKeyUidRnoNo

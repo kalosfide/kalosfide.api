@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using System;
 
 namespace KalosfideAPI.Démarrage
@@ -19,7 +20,9 @@ namespace KalosfideAPI.Démarrage
                 .UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
         }
 
-        public static void Configure(IConfiguration configuration, IHostingEnvironment env, IServiceProvider svp)
+#pragma warning disable IDE0060 // Supprimer le paramètre inutilisé
+        public static void Configure(IConfiguration configuration, IWebHostEnvironment env, IServiceProvider svp)
+#pragma warning restore IDE0060 // Supprimer le paramètre inutilisé
         {
             var optionsBuilder = new DbContextOptionsBuilder();
 

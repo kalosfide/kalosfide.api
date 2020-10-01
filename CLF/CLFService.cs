@@ -38,44 +38,6 @@ namespace KalosfideAPI.CLF
         #region Utile
 
         /// <summary>
-        /// Retourne un IQueryable qui renvoie les commandes passant les filtres présents et qui inclut les champs Détails, Livraison et Livraison.Facture
-        /// et éventuellement (voir les paramètres) les champs Client et Client.Role
-        /// </summary>
-        /// <param name="filtreDoc">si présent, la Commande doit passer le filtre</param>
-        /// <param name="filtreLigne">si présent, au moins un détail doit passer le filtre</param>
-        /// <param name="filtreRole">si présent, les champs Client et Client.Role sont inclus et le role doit passer le filtre</param>
-        /// <param name="keySite">si présent, les champs Client et Client.Role sont inclus et le site du role doit être celui de keySite</param>
-        /// <returns></returns>
-        public IQueryable<DocCLF> DocsAvecLignesEtSynthèses(
-            Func<DocCLF, bool> filtreDoc, Func<LigneCLF, bool> filtreLigne,
-            Func<Role, bool> filtreRole, AKeyUidRno keySite)
-        {
-            IQueryable<DocCLF> query = _context.Docs;
-            if (filtreDoc != null)
-            {
-                query = query.Where(c => filtreDoc(c));
-            }
-            if (keySite != null || filtreRole != null)
-            {
-                query = query.Include(c => c.Client).ThenInclude(cl => cl.Role);
-                if (filtreRole != null)
-                {
-                    query = query.Where(c => filtreRole(c.Client.Role));
-                }
-                if (keySite != null)
-                {
-                    query = query.Where(c => _utile.FiltreSite(keySite)(c.Client.Role));
-                }
-            }
-            query = query.Include(c => c.Lignes);
-            if (filtreLigne != null)
-            {
-                query = query.Where(c => c.Lignes.Where(l => filtreLigne(l)).Any());
-            }
-            return query;
-        }
-
-        /// <summary>
         /// Retourne le document défini par la clé et le type avec ses lignes.
         /// </summary>
         /// <param name="doc"></param>
@@ -129,7 +91,7 @@ namespace KalosfideAPI.CLF
             string typeBon = type == "L" ? "C" : type == "F" ? "L" : null;
             var docs = await _context.Docs
                 .Where(d => d.SiteUid == site.Uid && d.SiteRno == site.Rno && d.Type == typeBon)
-                .Where(d => d.Date.HasValue && !d.NoGroupe.HasValue)
+                .Where(d => d.Date != null && d.NoGroupe == null)
                 .Include(d => d.Lignes)
                 .Select(d => new CLFDoc
                 {
@@ -147,30 +109,49 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Retourne un CLFDocs dont le champ Site contient uniquement Etat et le champ Catalogue uniquement Date
+        /// Si le site est d'état Catalogue, retourne un contexte Catalogue: état site = Catalogue, date catalogue = DateNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est postérieure à celle du catalogue de la bdd, les données utilisateur sont à jour,
+        /// retourne un contexte Ok: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
+        /// et si la date du catalogue utilisateur est antérieure à celle du catalogue de la bdd
+        /// retourne un contexte Périmé: état site = ouvert, date catalogue = DataNulle.
+        /// Si le site est ouvert et si l'utilisateur n'a pas passé la date de son catalogue, il n'y pas de données utilisateur,
+        /// retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande du client
         /// </summary>
-        /// <param name="site">le Site du contexte</param>
-        /// <returns></returns>
-        public async Task<CLFDocs> Contexte(Site site)
-        {
-            CLFDocs docs = new CLFDocs
-            {
-                Site = new Site { Etat = site.Etat },
-                Catalogue = new Catalogue
-                {
-                    Date = await _catalogue.DateCatalogue(site, null)
-                }
-            };
-            return docs;
-        }
-
-        /// <summary>
-        /// Retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande d'un client
-        /// </summary>
+        /// <param name="site">site du client</param>
         /// <param name="keyClient">key du client</param>
+        /// <param name="dateCatalogue">présent si le client a déjà chargé les données</param>
         /// <returns></returns>
-        public async Task<CLFDocs> CommandeEnCours(AKeyUidRno keyClient)
+        public async Task<CLFDocs> CommandeEnCours(Site site, AKeyUidRno keyClient, DateTime? dateCatalogue)
         {
+            DateTime? date = null;
+            if (site.Etat == TypeEtatSite.Catalogue)
+            {
+                // Le site est fermé
+                date = DateNulle.Date;
+            }
+            else
+            {
+                if (dateCatalogue != null)
+                {
+                    date = await _catalogue.DateCatalogue(site, null);
+                    if (DateTime.Compare(dateCatalogue.Value, date.Value) >= 0)
+                    {
+                        // le catalogue du client est à jour
+                        date = DateNulle.Date;
+                    }
+                }
+            }
+            if (date.HasValue)
+            {
+                CLFDocs contexte = new CLFDocs
+                {
+                    Site = new Site { Etat = site.Etat },
+                    Catalogue = new Catalogue { Date = date }
+                };
+                return contexte;
+            }
             List<CLFDoc> docs = await _context.Docs
                 .Where(d => d.Uid == keyClient.Uid && d.Rno == keyClient.Rno && d.Type == "C")
                 .OrderByDescending(d => d.No)
@@ -212,114 +193,85 @@ namespace KalosfideAPI.CLF
             string typeBon = type == "L" ? "C" : type == "F" ? "L" : null;
             DocCLF[] bons = await _context.Docs
                 .Where(d => d.Uid == keyClient.Uid && d.Rno == keyClient.Rno && d.Type == typeBon)
-                .Where(d => d.Date.HasValue && !d.NoGroupe.HasValue)
+                .Where(d => d.Date != null && d.NoGroupe == null)
                 .Include(d => d.Lignes).ThenInclude(l => l.ArchiveProduit)
                 .ToArrayAsync();
 
-            // Retourne le LigneCLFTarif d'une LigneCLF contenant la ligne et son ArchiveProduit
-            async Task<LigneCLFTarif> ligneDernièreArchiveProduit(LigneCLF ligne)
+            List<CLFDoc> docs = new List<CLFDoc>();
+
+            foreach (DocCLF doc in bons)
             {
-                var ap1 = await _context.Produit
-                    .Where(p => p.Uid == ligne.Uid2 && p.Rno == ligne.Rno2 && p.No == ligne.No2)
-                    .Include(p => p.ArchiveProduits)
-                    .Select(p => p.ArchiveProduits)
-                    .FirstAsync();
-                var ap = ap1.ToList().Last();
-                return new LigneCLFTarif
+                CLFDoc cLFDoc = new CLFDoc
                 {
-                    Ligne = ligne,
-                    ArchiveProduit = ap
+                    Uid = doc.Uid,
+                    Rno = doc.Rno,
+                    No = doc.No,
+                    Date = doc.Date,
+                    Lignes = new List<CLFLigneData>(),
                 };
-            }
 
-            // Retourne le DocCLFLignesCLFTarifs d'un document contenant le document
-            // et les LigneCLFTarif contenant les LigneCLF du document et leurs ArchiveProduit
-            async Task<DocCLFLignesCLFTarifs> docCLFLignesDernièresArchivesProduit(DocCLF doc)
-            {
-                LigneCLFTarif[] lignesCLFTarifs = await Task.WhenAll(doc.Lignes.Select(l => ligneDernièreArchiveProduit(l)).ToArray());
-                return new DocCLFLignesCLFTarifs
+                List<ProduitData> archiveProduits = new List<ProduitData>();
+                List<CatégorieData> archiveCatégories = new List<CatégorieData>();
+
+                // liste des lignes dont la date est antérieure à celle de modification de leur produit et qui donnent lieu à une entrée de tarif
+                foreach (LigneCLF ligne in doc.Lignes)
                 {
-                    DocCLF = doc,
-                    LigneCLFTarifs = lignesCLFTarifs
-                };
-            }
-
-            async Task<DocCLFLignesCLFTarifs> docCLFLignesTarifs(DocCLF doc)
-            {
-                DocCLFLignesCLFTarifs docCLFLignesCLFTarifs = await docCLFLignesDernièresArchivesProduit(doc);
-                docCLFLignesCLFTarifs.LigneCLFTarifs = docCLFLignesCLFTarifs.LigneCLFTarifs.Where(lt => lt.Ligne.Date < lt.ArchiveProduit.Date);
-                if (docCLFLignesCLFTarifs.LigneCLFTarifs.Count() == 0)
-                {
-                }
-                return docCLFLignesCLFTarifs;
-            }
-
-            var x2 = await Task.WhenAll(bons.Select(d => docCLFLignesTarifs(d)).ToArray());
-
-            async Task<LigneCLFTarif> ligneClFArchiveCatégorie(LigneCLF ligne)
-            {
-                var archives = await _context.Catégorie
-                    .Where(c => c.Uid == ligne.Uid2 && c.Rno == ligne.Rno2 && c.No == ligne.ArchiveProduit.CategorieNo)
-                    .Include(c => c.ArchiveCatégories)
-                    .Select(c => c.ArchiveCatégories
-                        .Where(ac => ac.Date <= ligne.Date))
-                    .FirstAsync();
-                ArchiveCatégorie archive = archives.OrderBy(a => a.Date).Last();
-                return new LigneCLFTarif
-                {
-                    Ligne = ligne,
-                    ArchiveCatégorie = archive
-                };
-            }
-
-            async Task<DocCLFTarif> docCLFTarifs1(DocCLF doc)
-            {
-                DocCLFLignesCLFTarifs docCLFLignesCLFTarifs = await docCLFLignesDernièresArchivesProduit(doc);
-                var ligneCLFTarifs = docCLFLignesCLFTarifs.LigneCLFTarifs.Where(lt => lt.Ligne.Date < lt.ArchiveProduit.Date);
-                if (ligneCLFTarifs.Count() > 0)
-                {
-                    ligneCLFTarifs = await Task.WhenAll(docCLFLignesCLFTarifs.LigneCLFTarifs
-                        .Select(lt => ligneClFArchiveCatégorie(lt.Ligne))
-                        .ToArray());
-                }
-                return new DocCLFTarif
-                {
-                    DocCLF = doc,
-                    ArchivesProduit = ligneCLFTarifs.Select(lt => lt.Ligne.ArchiveProduit),
-                    ArchivesCatégorie = ligneCLFTarifs.Select(lt => lt.ArchiveCatégorie)
-                };
-            }
-
-            DocCLFTarif[] docCLFTarifs = await Task.WhenAll(bons.Select(d => docCLFTarifs1(d)).ToArray());
-
-            List<CLFDoc> docs = docCLFTarifs
-                .Select(daspc => new CLFDoc
-                {
-                    Uid = daspc.DocCLF.Uid,
-                    Rno = daspc.DocCLF.Rno,
-                    No = daspc.DocCLF.No,
-                    Date = daspc.DocCLF.Date,
-                    Lignes = daspc.DocCLF.Lignes.Select(l => new CLFLigneData
+                    cLFDoc.Lignes.Add(new CLFLigneData
                     {
-                        No = l.No2,
-                        Date = l.Date,
-                        TypeCommande = l.TypeCommande,
-                        Quantité = l.Quantité,
-                        AFixer = l.AFixer
-                    }).ToList(),
-                    Tarif = new Catalogue
+                        No = ligne.No2,
+                        Date = ligne.Date,
+                        TypeCommande = ligne.TypeCommande,
+                        Quantité = ligne.Quantité,
+                        AFixer = ligne.AFixer
+                    });
+
+                    // liste des archives du produit de la ligne
+                    List<ArchiveProduit> aps = await _context.Produit
+                        .Where(p => p.Uid == ligne.Uid2 && p.Rno == ligne.Rno2 && p.No == ligne.No2)
+                        .Include(p => p.ArchiveProduits)
+                        .Select(p => p.ArchiveProduits.OrderBy(a => a.Date).ToList())
+                        .FirstAsync();
+                    ArchiveProduit ap = aps.Last();
+                    // si la ligne a été créée avant la dernière archive, il faut ajauter au tarif la dernière archive avant la création de la ligne
+                    if (ligne.Date < ap.Date)
                     {
-                        Produits = daspc.ArchivesProduit.Select(p => _produitService.CréeProduitDataAvecDate(p)).ToList(),
-                        Catégories=daspc.ArchivesCatégorie.Select(c => _catégorieService.CréeCatégorieDataAvecDate(c)).ToList()
+                        ap = aps.Where(a => a.Date <= ligne.Date).Last();
+                        archiveProduits.Add(_produitService.CréeProduitDataAvecDate(ap));
                     }
-                })
-                .ToList();
+                    // liste des archives de la catégorie du produit de la ligne
+                    List<ArchiveCatégorie> acs = await _context.Catégorie
+                        .Where(c => c.Uid == ligne.Uid2 && c.Rno == ligne.Rno2 && c.No == ap.CategorieNo)
+                        .Include(c => c.ArchiveCatégories)
+                        .Select(c => c.ArchiveCatégories.OrderBy(a => a.Date).ToList())
+                        .FirstAsync();
+                    ArchiveCatégorie ac = acs.Last();
+                    // si la ligne a été créée avant la dernière archive, il faut ajauter au tarif la dernière archive avant la création de la ligne
+                    if (ligne.Date < ac.Date)
+                    {
+                        ac = acs.Where(a => a.Date <= ligne.Date).Last();
+                        archiveCatégories.Add(_catégorieService.CréeCatégorieDataAvecDate(ac));
+                    }
 
+                }
+
+                if (archiveProduits.Count > 0 || archiveCatégories.Count > 0)
+                {
+                    cLFDoc.Tarif = new Catalogue
+                    {
+                        Produits = archiveProduits,
+                        Catégories = archiveCatégories
+                    };
+                }
+
+                docs.Add(cLFDoc);
+            }
+
+            // s'il ny a pas de bons à synthétiser, retourne la dernière synthèse
             if (docs.Count() == 0)
             {
                 DocCLF docCLF = await _context.Docs
                     .Where(d => d.Uid == keyClient.Uid && d.Rno == keyClient.Rno && d.Type == type)
-                    .Where(d => d.Date.HasValue)
+                    .Where(d => d.Date != null)
                     .OrderBy(d => d.Date)
                     .Include(d => d.Lignes).ThenInclude(l => l.ArchiveProduit).ThenInclude(a => a.Produit).ThenInclude(p => p.ArchiveProduits)
                     .LastOrDefaultAsync();
@@ -374,7 +326,7 @@ namespace KalosfideAPI.CLF
         {
             IQueryable<DocCLF> queryDocs = _context.Docs
                 .Where(d => d.Uid == clfDocs.KeyClient.Uid && d.Rno == clfDocs.KeyClient.Rno && d.Type == type)
-                .Where(d => d.Date.HasValue && !d.NoGroupe.HasValue)
+                .Where(d => d.Date != null && d.NoGroupe == null)
                 .Where(d => clfDocs.NoDocs.Where(no => no == d.No).Any());
             if (type == "C")
             {
@@ -398,7 +350,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         private async Task<CLFDocs> Résumés(ParamsFiltreDoc paramsFiltre, Site site, Client client)
         {
-            IQueryable<DocCLF> query = _context.Docs.Where(d => d.Date.HasValue && !DateNulle.Egale(d.Date.Value));
+            IQueryable<DocCLF> query = _context.Docs.Where(d => d.Date != null && d.Date != DateNulle.Date);
             if (site != null)
             {
                 query = query.Where(d => d.SiteUid == site.Uid && d.SiteRno == site.Rno);
@@ -413,11 +365,11 @@ namespace KalosfideAPI.CLF
             }
             if (paramsFiltre.DateMin != null)
             {
-                query = query.Where(d => DateTime.Compare(d.Date.Value, paramsFiltre.DateMin.Value) >= 0);
+                query = query.Where(d => d.Date >= paramsFiltre.DateMin);
             }
             if (paramsFiltre.DateMax != null)
             {
-                query = query.Where(d => DateTime.Compare(d.Date.Value, paramsFiltre.DateMax.Value)<= 0);
+                query = query.Where(d => d.Date.Value <= paramsFiltre.DateMax);
             }
             query = query.OrderBy(d => d.Date);
             if (paramsFiltre.I0 > 0)
@@ -477,7 +429,7 @@ namespace KalosfideAPI.CLF
         {
             var docs = _context.Docs
                 .Where(d => d.Uid == keyDocument.Uid && d.Rno == keyDocument.Rno && d.No == keyDocument.No && d.Type == type)
-                .Where(d => d.Date.HasValue);
+                .Where(d => d.Date != null);
             return await docs.FirstOrDefaultAsync();
         }
 
@@ -492,17 +444,26 @@ namespace KalosfideAPI.CLF
         {
             DocCLF docCLF = await _context.Docs
                 .Where(d => d.Uid == keyDocument.Uid && d.Rno == keyDocument.Rno && d.No == keyDocument.No && d.Type == type)
-                .Where(d => d.Date.HasValue)
+                .Where(d => d.Date != null)
                 .Include(d => d.Lignes).ThenInclude(l => l.ArchiveProduit)
                 .Include(d => d.Client)
                 .FirstOrDefaultAsync();
             List<ProduitData> produits = docCLF.Lignes.Select(l => _produitService.CréeProduitDataAvecDate(l.ArchiveProduit)).ToList();
-            List<CatégorieData> catégories = await _context.ArchiveCatégorie
-                .Where(c => produits.Where(p => p.CategorieNo == c.No).Any())
-                .GroupBy(c => new { c.Uid,c.Rno,c.No })
-                .Select(gr => gr.OrderBy(c => c.Date).Last())
-                .Select(c => _catégorieService.CréeCatégorieDataAvecDate(c))
-                .ToListAsync();
+            List<long?> nos = produits
+                .Select(p => p.CategorieNo)
+                .GroupBy(n => n)
+                .Select(gr => gr.Key)
+                .ToList();
+            List<CatégorieData> catégories = new List<CatégorieData>();
+            foreach (long no in nos)
+            {
+                ArchiveCatégorie archive = await _context.ArchiveCatégorie
+                    .Where(a => a.Uid == site.Uid && a.Rno == site.Rno && a.No == no)
+                    .OrderBy(a => a.Date)
+                    .LastAsync();
+                catégories.Add(_catégorieService.CréeCatégorieDataAvecDate(archive));
+            }
+
             CLFDoc clfDoc = new CLFDoc
             {
                 Uid = docCLF.Uid,
@@ -838,48 +799,46 @@ namespace KalosfideAPI.CLF
             };
 
             List<LigneCLF> lignesCLF = new List<LigneCLF>();
-            void AjouteCLFLigne(LigneCLF ligneCLF) 
-                {
-                LigneCLF ligneSynthèse = lignesCLF.Where(l => l.No2 == ligneCLF.No2 && l.Date == ligneCLF.Date).FirstOrDefault();
-                if (ligneSynthèse != null)
-                {
-                    ligneSynthèse.Quantité += ligneCLF.AFixer;
-                }
-                else
-                {
-                    ligneSynthèse = new LigneCLF
-                    {
-                        Uid = synthèse.Uid,
-                        Rno = synthèse.Rno,
-                        No = synthèse.No,
-                        Uid2 = ligneCLF.Uid2,
-                        Rno2 = ligneCLF.Rno2,
-                        No2 = ligneCLF.No2,
-                        Type = type,
-                        Quantité = ligneCLF.AFixer,
-                        Date = ligneCLF.Date
-                    };
-                    lignesCLF.Add(ligneSynthèse);
-                }
-            }
-            void AjouteCLFDoc(DocCLF docCLF)
+
+            foreach (DocCLF docCLF in docCLFs)
             {
                 docCLF.NoGroupe = synthèse.No;
-                docCLF.Lignes.ToList().ForEach(l => AjouteCLFLigne(l));
-            }
-            docCLFs.ForEach(d => AjouteCLFDoc(d));
-
-            async Task<decimal> coût(LigneCLF ligneCLF)
-            {
-                return await _context.ArchiveProduit
-                    .Where(ap => ap.Uid == ligneCLF.Uid2 && ap.Rno == ligneCLF.Rno2 && ap.No == ligneCLF.No2 && ap.Date == ligneCLF.Date)
-                    .Select(ap => ligneCLF.Quantité.Value * ap.Prix.Value)
-                    .FirstAsync();
+                foreach (LigneCLF ligneCLF in docCLF.Lignes)
+                {
+                    LigneCLF ligneSynthèse = lignesCLF.Where(l => l.No2 == ligneCLF.No2 && l.Date == ligneCLF.Date).FirstOrDefault();
+                    if (ligneSynthèse != null)
+                    {
+                        ligneSynthèse.Quantité += ligneCLF.AFixer;
+                    }
+                    else
+                    {
+                        ligneSynthèse = new LigneCLF
+                        {
+                            Uid = synthèse.Uid,
+                            Rno = synthèse.Rno,
+                            No = synthèse.No,
+                            Uid2 = ligneCLF.Uid2,
+                            Rno2 = ligneCLF.Rno2,
+                            No2 = ligneCLF.No2,
+                            Type = type,
+                            Quantité = ligneCLF.AFixer,
+                            Date = ligneCLF.Date
+                        };
+                        lignesCLF.Add(ligneSynthèse);
+                    }
+                }
             }
 
             synthèse.NbLignes = lignesCLF.Count();
-            decimal[] coûts = await Task.WhenAll(lignesCLF.Select(l => coût(l)));
-            synthèse.Total = coûts.Sum();
+            synthèse.Total = 0;
+            foreach (LigneCLF ligneCLF1 in lignesCLF)
+            {
+                synthèse.Total += await _context.ArchiveProduit
+                    .Where(ap => ap.Uid == ligneCLF1.Uid2 && ap.Rno == ligneCLF1.Rno2 && ap.No == ligneCLF1.No2 && ap.Date == ligneCLF1.Date)
+                    .Select(ap => ligneCLF1.Quantité.Value * ap.Prix.Value)
+                    .FirstAsync();
+
+            }
 
             _context.Docs.Add(synthèse);
             RetourDeService<DocCLF> retour = await SaveChangesAsync(synthèse);

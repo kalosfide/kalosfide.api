@@ -20,6 +20,9 @@ namespace KalosfideAPI.Data
         [StringLength(1)]
         public string Etat { get; set; }
 
+        // navigation
+        virtual public Role Role { get; set; }
+
         // création
         public static void CréeTable(ModelBuilder builder)
         {
@@ -28,6 +31,12 @@ namespace KalosfideAPI.Data
             entité.HasKey(donnée => new { donnée.Uid, donnée.Rno, donnée.Date });
 
             entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno });
+
+            entité
+                .HasOne(a => a.Role)
+                .WithMany(r => r.Archives)
+                .HasForeignKey(a => new { a.Uid, a.Rno })
+                .HasPrincipalKey(r => new { r.Uid, r.Rno });
 
             entité.ToTable("ArchiveRoles");
         }

@@ -21,8 +21,8 @@ namespace KalosfideAPI.Partages.KeyParams
         /// <summary>
         /// si présent et vrai pour une carte d'utilisateur et une donnée, interdit d'ajouter la donnée
         /// </summary>
-        protected DInterdictionCarte<KeyParam> dAjouteInterdit;
-        protected DInterdictionCarte<KeyParam> dEditeInterdit;
+        protected DInterdictionCarte<TVue> dAjouteInterdit;
+        protected DInterdictionCarte<TVue> dEditeInterdit;
         protected DInterdictionCarte<KeyParam> dSupprimeInterdit;
         protected DInterdictionCarte<KeyParam> dLitInterdit;
         protected DInterdictionCarte<KeyParam> dListeInterdit;
@@ -69,7 +69,7 @@ namespace KalosfideAPI.Partages.KeyParams
                     return Forbid();
                 }
 
-                if (await dAjouteInterdit(carte, vue.KeyParamParent))
+                if (await dAjouteInterdit(carte, vue))
                 {
                     return Forbid();
                 }
@@ -120,7 +120,7 @@ namespace KalosfideAPI.Partages.KeyParams
                     return Forbid();
                 }
 
-                if (await dEditeInterdit(carte, vue.KeyParam))
+                if (await dEditeInterdit(carte, vue))
                 {
                     return Forbid();
                 }
@@ -254,21 +254,10 @@ namespace KalosfideAPI.Partages.KeyParams
 
             return Ok(objet);
         }
-        public async Task<IActionResult> Liste(KeyParam param)
-        {
-            return await Liste(async () => await __service.ListeVue(param), param);
-        }
+
         public async Task<IActionResult> Liste()
         {
-            return await Liste(async () => await __service.Liste(), null);
-        }
-        protected async Task<IActionResult> Liste(KeyParam param, DFiltre<TVue> valide)
-        {
-            return await Liste(async () => await __service.Liste(param, valide), param);
-        }
-        protected async Task<IActionResult> Liste(DFiltre<TVue> valide)
-        {
-            return await Liste(async () => await __service.Liste(valide), null);
+            return await Liste(async () => await __service.ListeVue(null), null);
         }
 
     }

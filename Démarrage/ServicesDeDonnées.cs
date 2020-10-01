@@ -17,8 +17,6 @@ namespace KalosfideAPI.Démarrage
 
             Administrateurs.Initialisation.ConfigureServices(services);
 
-            Fournisseurs.Initialisation.ConfigureServices(services);
-
             Clients.Initialisation.ConfigureServices(services);
 
             Catégories.Initialisation.ConfigureServices(services);

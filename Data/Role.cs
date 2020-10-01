@@ -26,6 +26,7 @@ namespace KalosfideAPI.Data
 
         // navigation
         virtual public Utilisateur Utilisateur { get; set; }
+        virtual public ICollection<ArchiveRole> Archives { get; set; }
 
         virtual public Site Site { get; set; }
 

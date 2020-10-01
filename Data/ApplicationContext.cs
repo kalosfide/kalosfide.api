@@ -27,10 +27,9 @@ namespace KalosfideAPI.Data
             Data.ArchiveSite.CréeTable(builder);
 
             Data.Administrateur.CréeTable(builder);
-            Data.Fournisseur.CréeTable(builder);
-            Data.ArchiveFournisseur.CréeTable(builder);
             Data.Client.CréeTable(builder);
             Data.ArchiveClient.CréeTable(builder);
+            Data.Invitation.CréeTable(builder);
 
             // Tables de données
             Data.Catégorie.CréeTable(builder);
@@ -54,10 +53,9 @@ namespace KalosfideAPI.Data
         public DbSet<ArchiveSite> ArchiveSite { get; set; }
 
         public DbSet<Administrateur> Administrateur { get; set; }
-        public DbSet<Fournisseur> Fournisseur { get; set; }
-        public DbSet<ArchiveFournisseur> ArchiveFournisseur { get; set; }
         public DbSet<Client> Client { get; set; }
         public DbSet<ArchiveClient> ArchiveClient { get; set; }
+        public DbSet<Invitation> Invitation { get; set; }
 
         public DbSet<Catégorie> Catégorie { get; set; }
         public DbSet<ArchiveCatégorie> ArchiveCatégorie { get; set; }

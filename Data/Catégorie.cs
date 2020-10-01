@@ -26,7 +26,7 @@ namespace KalosfideAPI.Data
 
         // navigation
         virtual public ICollection<ArchiveCatégorie> ArchiveCatégories { get; set; }
-        virtual public Fournisseur Producteur { get; set; }
+        virtual public Site Site { get; set; }
         virtual public ICollection<Produit> Produits { get; set; }
 
         // création
@@ -39,8 +39,8 @@ namespace KalosfideAPI.Data
             entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno, donnée.Nom }).IsUnique();
 
             entité
-                .HasOne(catégorie => catégorie.Producteur)
-                .WithMany(producteur => producteur.Catégories)
+                .HasOne(catégorie => catégorie.Site)
+                .WithMany(site => site.Catégories)
                 .HasForeignKey(catégorie => new { catégorie.Uid, catégorie.Rno });
 
             entité.ToTable("Catégories");

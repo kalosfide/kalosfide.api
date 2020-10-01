@@ -25,7 +25,7 @@ namespace KalosfideAPI.Utiles
 
         public async Task<Site> SiteDeKey(AKeyUidRno akeySite)
         {
-            return await _context.Site.Where(site => site.AMêmeKey(akeySite)).FirstOrDefaultAsync();
+            return await _context.Site.Where(site => site.Uid == akeySite.Uid && site.Rno == akeySite.Rno).FirstOrDefaultAsync();
         }
 
         /// <summary>
@@ -70,14 +70,16 @@ namespace KalosfideAPI.Utiles
         /// <returns></returns>
         public async Task<DateTime> DateCatalogue(AKeyUidRno keySite)
         {
-            DateTime dateProduits = await _context.ArchiveProduit
-                .Where(e => keySite.AMêmeKey(e))
-                .Select(e => e.Date)
+            ArchiveProduit archiveProduit = await _context.ArchiveProduit
+                .Where(a => keySite.Uid == a.Uid && keySite.Rno == a.Rno)
+                .OrderBy(a => a.Date)
                 .LastAsync();
-            DateTime dateCatégories = await _context.ArchiveCatégorie
-                .Where(e => keySite.AMêmeKey(e))
-                .Select(e => e.Date)
+            DateTime dateProduits = archiveProduit.Date;
+            ArchiveCatégorie archiveCatégorie = await _context.ArchiveCatégorie
+                .Where(a => keySite.Uid == a.Uid && keySite.Rno == a.Rno)
+                .OrderBy(a => a.Date)
                 .LastAsync();
+            DateTime dateCatégories = archiveCatégorie.Date;
             return dateCatégories < dateProduits ? dateProduits : dateCatégories;
         }
 
@@ -98,33 +100,23 @@ namespace KalosfideAPI.Utiles
         /// <returns></returns>
         public Func<Role, bool> FiltreRoleActif()
         {
-            bool filtreRole(Role role) => role.Etat == TypeEtatRole.Actif || role.Etat == TypeEtatRole.Nouveau;
+            static bool filtreRole(Role role) => role.Etat == TypeEtatRole.Actif || role.Etat == TypeEtatRole.Nouveau;
             return filtreRole;
         }
 
         /// <summary>
         /// Retourne un IQueryable qui renvoie les Clients passant les filtres présents et qui inclut les champs Role et Role.Site
         /// </summary>
-        /// <param name="filtreClient">si présent, le Client doit passer le filtre</param>
-        /// <param name="filtreRole">si présent, le role doit passer le filtre</param>
-        /// <param name="keySite">si présent, le site du role doit être celui de keySite</param>
+        /// <param name="keyClient">si présent, unseul client est retourné</param>
         /// <returns></returns>
-        public IQueryable<Client> ClientsAvecRoleEtSite(Func<Client, bool> filtreClient, Func<Role, bool> filtreRole, AKeyUidRno keySite)
+        public IQueryable<Client> ClientsAvecRoleEtSite(AKeyUidRno keyClient)
         {
             IQueryable<Client> query = _context.Client;
-            if (filtreClient != null)
+            if (keyClient != null)
             {
-                query = query.Where(cl => filtreClient(cl));
+                query = query.Where(cl => cl.Uid == keyClient.Uid && cl.Rno == keyClient.Rno);
             }
             query = query.Include(c => c.Role).ThenInclude(r => r.Site);
-            if (filtreRole != null)
-            {
-                query = query.Where(c => filtreRole(c.Role));
-            }
-            if (keySite != null)
-            {
-                query = query.Where(cl => FiltreSite(keySite)(cl.Role));
-            }
             return query;
         }
 

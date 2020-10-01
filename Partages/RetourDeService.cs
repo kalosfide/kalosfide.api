@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Identity;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -37,6 +38,12 @@ namespace KalosfideAPI.Partages
             this.Objet = Objet;
         }
 
+        public RetourDeService(IdentityResult result)
+        {
+            Type = TypeRetourDeService.IdentityError;
+            Objet = result.Errors;
+        }
+
     }
 
     public class RetourDeService<T> : RetourDeService where T: class
@@ -49,5 +56,7 @@ namespace KalosfideAPI.Partages
         public RetourDeService(TypeRetourDeService type) : base(type) { }
 
         public RetourDeService(T Entité) : base(Entité) { }
+
+        public RetourDeService(IdentityResult result): base(result) { }
     }
 }
