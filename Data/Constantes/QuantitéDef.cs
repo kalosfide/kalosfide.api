@@ -63,7 +63,7 @@ namespace KalosfideAPI.Data.Constantes
         /// <returns></returns>
         public static string Vérifie(decimal quantité)
         {
-            return DécimalDef.Vérifie(Précision, Décimales, quantité);
+            return Vérifie(Précision, Décimales, quantité);
         }
 
         /// <summary>

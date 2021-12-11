@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Utiles;
@@ -21,8 +22,7 @@ namespace KalosfideAPI.CLF
             IUtileService utile,
             IUtilisateurService utilisateurService) : base(service, utile, utilisateurService)
         {
-            _type = "L";
-            _typeBon = "C";
+            _type = TypeClf.Livraison;
         }
 
         #region Lecture
@@ -34,6 +34,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         [HttpGet("/api/livraison/clients")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public new async Task<IActionResult> Clients([FromQuery] KeyUidRno keySite)
@@ -48,6 +49,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         [HttpGet("/api/livraison/client")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public new async Task<IActionResult> Client([FromQuery] KeyUidRno keyClient)
@@ -58,54 +60,61 @@ namespace KalosfideAPI.CLF
         #endregion
 
         #region Action
-        private async Task<IActionResult> CréeBonVirtuel(ParamsKeyClient paramsClient, bool copieLignes)
+
+        /// <summary>
+        /// Crée une nouvelle livraison virtuelle vide pour le client défini par la clé
+        /// </summary>
+        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
+        /// <returns></returns>
+        [HttpPost("/api/livraison/nouveau")]
+        [ProducesResponseType(201)] // created
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Nouveau([FromQuery] ParamsKeyClient paramsClient)
         {
-            vérificateur.Initialise(paramsClient);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstFournisseur();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
+            return await CréeBon(paramsClient, false);
+        }
 
-            DocCLF docACopier = null;
-            // il ne peut y avoir qu'une seule livraison virtuelle pour le fournisseur
-            KeyUidRnoNo key = new KeyUidRnoNo
-            {
-                Uid = vérificateur.KeyClient.Uid,
-                Rno = vérificateur.KeyClient.Rno,
-                No = 0
-            };
-            DocCLF livraison = await _service.DocCLFDeKey(key, "L");
-            if (livraison != null)
-            {
-                return RésultatBadRequest("LivraisonVirtuellePrésente");
-            }
-            if (copieLignes)
-            {
-                docACopier = await _service.DernierDoc(vérificateur.KeyClient, "F");
-                if (docACopier == null)
-                {
-                    return RésultatBadRequest("PasDeDernièreFacture");
-                }
-            }
+        /// <summary>
+        /// Crée une nouvelle livraison virtuelle pour le client défini par la clé avec des détails copiés sur ceux de la facture précédente
+        /// dont les produits sont toujours disponibles si cette facture a été créée par un bon de livraison virtuel seul
+        /// </summary>
+        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
+        /// <returns></returns>
+        [HttpPost("/api/livraison/clone")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Clone([FromQuery] ParamsKeyClient paramsClient)
+        {
+            return await CréeBon(paramsClient, true);
+        }
 
-            RetourDeService<CLFDoc> retour = await _service.AjouteBon(vérificateur.KeyClient, vérificateur.Site, "L", 0, docACopier);
-
-            if (retour.Ok)
-            {
-                return Ok(retour.Entité);
-            }
-
-            return SaveChangesActionResult(retour);
+        /// <summary>
+        /// Efface toutes les lignes du bon et si le bon est virtuel, supprime le bon.
+        /// </summary>
+        /// <param name="paramsBon"></param>
+        /// <returns></returns>
+        [HttpPost("/api/livraison/efface")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Efface([FromQuery] ParamsKeyDoc paramsBon)
+        {
+            return await EffaceBon(paramsBon);
         }
 
         [HttpPut("/api/livraison/edite")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
@@ -132,12 +141,25 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/fixe")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
         public new async Task<IActionResult> Fixe([FromQuery] ParamsFixeLigne paramsLigne)
         {
             return await base.Fixe(paramsLigne);
+        }
+
+        [HttpDelete("/api/livraison/supprime")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public new async Task<IActionResult> Supprime([FromQuery] ParamsSupprimeLigne paramsSupprime)
+        {
+            return await base.Supprime(paramsSupprime);
         }
 
         /// <summary>
@@ -148,12 +170,13 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/copie1")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Copie1([FromQuery] KeyUidRnoNo2 keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, _type);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeClf.Livraison);
             return await Action(keyLigne, action);
         }
 
@@ -165,11 +188,12 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/copieD")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> CopieD([FromQuery] KeyUidRnoNo keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, _type);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeClf.Livraison);
             return await Action(keyDoc, action);
         }
 
@@ -182,11 +206,12 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/copieT")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> CopieT(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> CopieT(ParamsSynthèse clfDocs)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, _type);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeClf.Livraison);
             return await Action(clfDocs, action);
         }
 
@@ -198,12 +223,13 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/annule1")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Annule1([FromQuery] KeyUidRnoNo2 keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, _type);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeClf.Livraison);
             return await Action(keyLigne, action);
         }
 
@@ -215,11 +241,12 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/annuleD")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> AnnuleD([FromQuery] KeyUidRnoNo keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, _type);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeClf.Livraison);
             return await Action(keyDoc, action);
         }
 
@@ -232,11 +259,12 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/annuleT")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> AnnuleT(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> AnnuleT(ParamsSynthèse clfDocs)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, _type);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeClf.Livraison);
             return await Action(clfDocs, action);
         }
 
@@ -249,9 +277,10 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/livraison/envoi")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Envoi(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> Envoi(ParamsSynthèse clfDocs)
         {
             return await Synthèse(clfDocs);
         }

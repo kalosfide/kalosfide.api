@@ -4,11 +4,12 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Produits;
 using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveProduit : AKeyUidRnoNo, IKeyArchive
+    public class ArchiveProduit : AKeyUidRnoNo, IAvecDate, IProduitData
     {
         // key
         [Required]
@@ -18,6 +19,9 @@ namespace KalosfideAPI.Data
         public override int Rno { get; set; }
         [Required]
         public override long No { get; set; }
+        /// <summary>
+        /// Date de la fin de la modification de catalogue où cette archive a été ajoutée.
+        /// </summary>
         [Required]
         public DateTime Date { get; set; }
 
@@ -37,7 +41,6 @@ namespace KalosfideAPI.Data
         public string Etat { get; set; }
 
         // navigation
-        virtual public ICollection<LigneCLF> Lignes { get; set; }
         virtual public Produit Produit { get; set; }
 
         // création
@@ -51,7 +54,7 @@ namespace KalosfideAPI.Data
 
             entité
                 .HasOne(archive => archive.Produit)
-                .WithMany(produit => produit.ArchiveProduits)
+                .WithMany(produit => produit.Archives)
                 .HasForeignKey(archive => new { archive.Uid, archive.Rno, archive.No })
                 .HasPrincipalKey(produit => new { produit.Uid, produit.Rno, produit.No });
 

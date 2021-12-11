@@ -13,18 +13,19 @@ namespace KalosfideAPI.Partages
         /// <summary>
         /// modèle des erreurs BadRequest
         /// </summary>
-        /// <param name="erreur"></param>
+        /// <param name="code">nom du validateur</param>
+        /// <param name="champ">nom du champ du formulaire</param>
         /// <returns></returns>
-        protected IActionResult RésultatBadRequest(string code, string champ)
+        protected IActionResult RésultatBadRequest(string champ, string code)
         {
-            ErreurDeModel.AjouteAModelState(ModelState, code, champ);
+            ErreurDeModel.AjouteAModelState(ModelState, champ, code);
             return BadRequest(ModelState);
         }
 
         /// <summary>
         /// modèle des erreurs BadRequest
         /// </summary>
-        /// <param name="code"></param>
+        /// <param name="code">nom du validateur du formulaire</param>
         /// <returns></returns>
         protected IActionResult RésultatBadRequest(string code)
         {
@@ -32,12 +33,22 @@ namespace KalosfideAPI.Partages
             return BadRequest(ModelState);
         }
 
+        /// <summary>
+        /// Modèle des Erreurs Forbid
+        /// </summary>
+        /// <param name="message"></param>
+        /// <returns></returns>
+        protected IActionResult RésultatInterdit(string message)
+        {
+            return StatusCode(403, new { Message = message });
+        }
+
         public IActionResult SaveChangesActionResult(RetourDeService retour)
         {
             switch (retour.Type)
             {
                 case TypeRetourDeService.Ok:
-                    return NoContent();
+                    return Ok();
                 case TypeRetourDeService.IdentityError:
                     return StatusCode(500, "La création du compte utilisateur a échoué.");
                 case TypeRetourDeService.ConcurrencyError:

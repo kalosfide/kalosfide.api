@@ -32,7 +32,7 @@ namespace KalosfideAPI.Partages
             Type = type;
         }
 
-        public RetourDeService(Object Objet)
+        public RetourDeService(object Objet)
         {
             Type = TypeRetourDeService.Ok;
             this.Objet = Objet;
@@ -42,6 +42,13 @@ namespace KalosfideAPI.Partages
         {
             Type = TypeRetourDeService.IdentityError;
             Objet = result.Errors;
+        }
+
+        public RetourDeService(RetourDeService retour)
+        {
+            Type = retour.Type;
+            Objet = retour.Objet;
+            Message = retour.Message;
         }
 
     }
@@ -58,5 +65,7 @@ namespace KalosfideAPI.Partages
         public RetourDeService(T Entité) : base(Entité) { }
 
         public RetourDeService(IdentityResult result): base(result) { }
+
+        public RetourDeService(RetourDeService retour): base(retour) { }
     }
 }

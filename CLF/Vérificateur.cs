@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using KalosfideAPI.Clients;
+using KalosfideAPI.Data.Constantes;
 
 namespace KalosfideAPI.CLF
 {
@@ -42,7 +43,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// vue contenant les donnéees d'état du client
         /// </summary>
-        public Client Client { get; set; }
+        public Role Client { get; set; }
 
         /// <summary>
         /// site du client
@@ -80,7 +81,7 @@ namespace KalosfideAPI.CLF
         public long NoLivraison { get; set; }
 
         /// <summary>
-        /// Date du catalogue
+        /// Date du catalogue contenu dans le paramètre si l'utilisateur est client
         /// </summary>
         public DateTime? DateCatalogue { get; set; }
 
@@ -94,20 +95,40 @@ namespace KalosfideAPI.CLF
         public Vérificateur()
         {
         }
+
+        /// <summary>
+        /// Fixe KeyClient et DateCatalogue.
+        /// </summary>
+        /// <param name="paramsCrée">contient la KeyUidRno du client et la date du catalogue de l'utilisateur</param>
         public void Initialise(ParamsKeyClient paramsCrée)
         {
             KeyClient = paramsCrée;
             DateCatalogue = paramsCrée.DateCatalogue;
         }
-        public void Initialise(AKeyUidRno keyClient)
+
+        /// <summary>
+        /// Fixe KeyClient.
+        /// </summary>
+        /// <param name="aKeyClient">objet ayant la même KeyUidRno que le client</param>
+        public void Initialise(AKeyUidRno aKeyClient)
         {
-            KeyClient = keyClient;
+            KeyClient = aKeyClient;
         }
-        public void Initialise(AKeyUidRnoNo keyDoc)
+
+        /// <summary>
+        /// Fixe KeyClient et KeyDoc.
+        /// </summary>
+        /// <param name="keyDocSansType">objet ayant la même KeyUidRnoNo que le document</param>
+        public void Initialise(KeyUidRnoNo keyDocSansType)
         {
-            KeyClient = AKeyUidRnoNo.KeyUidRno(keyDoc);
-            KeyDoc = keyDoc;
+            KeyClient = AKeyUidRnoNo.KeyUidRno(keyDocSansType);
+            KeyDoc = keyDocSansType;
         }
+
+        /// <summary>
+        /// Fixe KeyClient, KeyDoc et DateCatalogue.
+        /// </summary>
+        /// <param name="paramsSupprime">contient la KeyUidRnoNo du document et la date du catalogue de l'utilisateur</param>
         public void Initialise(ParamsKeyDoc paramsSupprime)
         {
             KeyClient = AKeyUidRnoNo.KeyUidRno(paramsSupprime);
@@ -132,32 +153,15 @@ namespace KalosfideAPI.CLF
             KeyClient = AKeyUidRnoNo2.KeyUidRno_1(clfLigne);
             KeyDoc = AKeyUidRnoNo2.KeyUidRnoNo_1(clfLigne);
             KeyLigne = new KeyUidRnoNo2();
-            KeyLigne.CopieKey(clfLigne.KeyParam);
+            KeyLigne.CopieKey(clfLigne);
             CLFLigne = clfLigne;
         }
         public void Initialise(CLFLigne clfLigne, ParamsVide paramsLigne)
         {
             Initialise(clfLigne);
-            if (paramsLigne != null)
+            if (paramsLigne != null && paramsLigne.DateCatalogue.HasValue)
             {
                 DateCatalogue = paramsLigne.DateCatalogue;
-            }
-        }
-
-        public void Ajoute(params Func<Vérificateur, Task>[] vérifications)
-        {
-            Vérifications.AddRange(vérifications);
-        }
-
-        public async Task Vérifie()
-        {
-            for (int i = 0; i < Vérifications.Count; i++)
-            {
-                await Vérifications[i](this);
-                if (Erreur != null)
-                {
-                    return;
-                }
             }
         }
     }

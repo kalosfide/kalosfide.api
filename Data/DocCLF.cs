@@ -28,7 +28,7 @@ namespace KalosfideAPI.Data
         public override long No { get; set; }
 
         /// <summary>
-        /// 'C' ou 'L' ou 'F'.
+        /// L'une des constantes TypeCLF.Commande ou TypeCLF.Livraison ou TypeCLF.Facture
         /// </summary>
         public string Type { get; set; }
 
@@ -74,7 +74,8 @@ namespace KalosfideAPI.Data
         /// Lignes du document
         /// </summary>
         virtual public ICollection<LigneCLF> Lignes { get; set; }
-        virtual public Client Client { get; set; }
+
+        virtual public Role Client { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
@@ -99,31 +100,33 @@ namespace KalosfideAPI.Data
                 donnée.Type
             });
 
-            entité.HasOne(doc => doc.Client)
-                .WithMany(client => client.Docs)
-                .HasForeignKey(doc => new { doc.Uid, doc.Rno })
-                .HasPrincipalKey(client => new { client.Uid, client.Rno });
+            entité
+                .HasOne(d => d.Client)
+                .WithMany(c => c.Docs)
+                .HasForeignKey(d => new { d.Uid, d.Rno })
+                .HasPrincipalKey(c => new { c.Uid, c.Rno });
 
             entité.ToTable("Docs");
         }
 
         // copie
+        /// <summary>
+        /// Crée une copie avec une autre clé de client.
+        /// </summary>
         public static DocCLF Clone(string uid, int rno, DocCLF doc)
         {
-            return new DocCLF
+            DocCLF copie = new DocCLF
             {
                 Uid = uid,
                 Rno = rno,
                 No = doc.No,
                 Type = doc.Type,
-                Date = doc.Date,
-                NoGroupe = doc.NoGroupe,
                 SiteUid = doc.SiteUid,
                 SiteRno = doc.SiteRno,
                 NbLignes = doc.NbLignes,
-                Total = doc.Total,
-                Incomplet = doc.Incomplet
+                Total = doc.Total
             };
+            return copie;
         }
     }
 }

@@ -6,12 +6,10 @@ namespace KalosfideAPI.Data.Constantes
     public static class TypeEtatRole
     {
         /// <summary>
-        /// état d'un client qui a créé son compte et n'a pas encore été validé par le fournisseur
-        /// ou état d'un fournisseur qui n'a pas encore été validé par l'administrateur.
-        /// <remarks>
-        /// Droits client: lire catalogue, commander, documents
-        /// droits fournisseur: catalogue, clients, commander pour clients, livraison, documents
-        /// </remarks>
+        /// Etat d'un client qui vient de répondre à une invitation.
+        /// Ce client ne peut pas commander tant que le fournisseur ne l'a pas activé.
+        /// Etat d'un fournisseur qui vient d'envoyer sa demande de devenir fournisseur.
+        /// Ce fournisseur ne peut rien faire tant qu'un administrateur ne l'a pas activé.
         /// </summary>
         public const string Nouveau = "N";
 
@@ -33,18 +31,11 @@ namespace KalosfideAPI.Data.Constantes
         public const string Inactif = "I";
 
         /// <summary>
-        /// état d'un client qui a créé son compte, qui a des données et qui va quitter le site
-        /// ou état d'un fournisseur dont le site va fermer
-        /// pendant un certain temps il peut télécharger ses données
-        /// </summary>
-        public const string Invité = "V";
-
-        /// <summary>
         /// état d'un client qui a des données et qui a quitté le site
         /// ou état d'un fournisseur dont le site a fermé
         /// ses données sont conservées mais ont été anonymisées
         /// </summary>
-        public const string Exclu = "X";
+        public const string Fermé = "F";
 
         public static bool EstValide(string etat)
         {
@@ -53,7 +44,7 @@ namespace KalosfideAPI.Data.Constantes
                 Nouveau,
                 Actif,
                 Inactif,
-                Exclu,
+                Fermé,
             }).Contains(etat);
         }
 

@@ -14,6 +14,7 @@ namespace KalosfideAPI.Sécurité
 
         public const string UtilisateurId = "utid";
         public const string EtatUtilisateur = "etut";
+        public const string SessionId = "ssid";
 
         public const string Roles = "rols";
 

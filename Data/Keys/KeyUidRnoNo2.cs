@@ -13,5 +13,6 @@ namespace KalosfideAPI.Data.Keys
         public override string Uid2 { get; set; }
         public override int Rno2 { get; set; }
         public override long No2 { get; set; }
+        public override DateTime Date { get; set; }
     }
 }

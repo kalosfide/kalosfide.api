@@ -19,56 +19,46 @@ namespace KalosfideAPI.Data.Keys
         {
 
         }
-        public KeyParam(KeyParam param)
-        {
-            Uid = param.Uid;
-            Rno = param.Rno ?? param.Rno;
-            No = param.No ?? param.No;
-            Date = param.Date ?? param.Date;
-            Uid2 = param.Uid2;
-            Rno2 = param.Rno2 ?? param.Rno2;
-            No2 = param.No2 ?? param.No2;
-        }
 
         public bool Egale(KeyParam param)
         {
             return Uid == param.Uid && Rno == param.Rno && No == param.No && Date == param.Date && Uid2 == param.Uid2 && Rno2 == param.Rno2 && No2 == param.No2;
         }
 
-        public KeyUid CréeKeyUid()
+        static public KeyUid CréeKeyUid(KeyParam param)
         {
-            if (Uid == null)
+            if (param.Uid == null)
             {
                 return null;
             }
             return new KeyUid
             {
-                Uid = Uid
+                Uid = param.Uid
             };
         }
-        public KeyUidRno CréeKeyUidRno()
+        static public KeyUidRno CréeKeyUidRno(KeyParam param)
         {
-            if (Uid == null || Rno == null)
+            if (param.Uid == null || param.Rno == null)
             {
                 return null;
             }
             return new KeyUidRno
             {
-                Uid = Uid,
-                Rno = Rno ?? 0
+                Uid = param.Uid,
+                Rno = param.Rno.Value
             };
         }
-        public KeyUidRnoNo CréeKeyUidRnoNo()
+        static public KeyUidRnoNo CréeKeyUidRnoNo(KeyParam param)
         {
-            if (Uid == null || Rno == null || No == null)
+            if (param.Uid == null || param.Rno == null || param.No == null)
             {
                 return null;
             }
             return new KeyUidRnoNo
             {
-                Uid = Uid,
-                Rno = Rno ?? 0,
-                No = No ?? 0
+                Uid = param.Uid,
+                Rno = param.Rno.Value,
+                No = param.No.Value
             };
         }
 

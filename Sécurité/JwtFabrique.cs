@@ -14,9 +14,9 @@ namespace KalosfideAPI.Sécurité
 {
     public class JwtRéponse
     {
-        public string Id;
-        public string Jeton;
-        public long ExpireDans;
+        public string Id { get; set; }
+        public string Jeton { get; set; }
+        public long ExpireDans { get; set; }
     }
 
     public class JwtFabrique : IJwtFabrique
@@ -36,29 +36,15 @@ namespace KalosfideAPI.Sécurité
         {
             List<Claim> claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, carte.UserName),
+                new Claim(JwtRegisteredClaimNames.Sub, carte.Utilisateur.ApplicationUser.UserName),
                 new Claim(JwtRegisteredClaimNames.Jti, await _jwtOptions.JtiGenerator()),
                 new Claim(JwtRegisteredClaimNames.Iat, ToUnixEpochDate(_jwtOptions.IssuedAt).ToString(), ClaimValueTypes.Integer64),
-                new Claim( JwtClaims.UserId, carte.UserId ),
-                new Claim( JwtClaims.UserName, carte.UserName),
-                new Claim( JwtClaims.UtilisateurId, carte.Uid),
-                new Claim(JwtClaims.EtatUtilisateur, carte.Etat),
-                new Claim( JwtClaims.Roles, carte.RolesSérialisés),
+                new Claim(JwtClaims.UserId, carte.Utilisateur.UserId),
+                new Claim(JwtClaims.UserName, carte.Utilisateur.ApplicationUser.UserName),
+                new Claim(JwtClaims.UtilisateurId, carte.Utilisateur.Uid),
+                new Claim(JwtClaims.SessionId, carte.Utilisateur.SessionId.ToString())
             };
 
-            string jeton = CréeJeton(claims);
-
-            JwtRéponse jwtr = new JwtRéponse
-            {
-                Id = carte.UserId,
-                Jeton = jeton,
-                ExpireDans = (int)_jwtOptions.ValidFor.TotalSeconds,
-            };
-            return jwtr;
-        }
-
-        private string CréeJeton(List<Claim> claims)
-        {
             JwtSecurityToken jwt = new JwtSecurityToken(
                 issuer: _jwtOptions.Issuer,
                 audience: _jwtOptions.Audience,
@@ -67,8 +53,15 @@ namespace KalosfideAPI.Sécurité
                 expires: _jwtOptions.Expiration,
                 signingCredentials: _jwtOptions.SigningCredentials);
 
-            return new JwtSecurityTokenHandler().WriteToken(jwt);
+            string jeton = new JwtSecurityTokenHandler().WriteToken(jwt);
 
+            JwtRéponse jwtr = new JwtRéponse
+            {
+                Id = carte.Utilisateur.UserId,
+                Jeton = jeton,
+                ExpireDans = (int)_jwtOptions.ValidFor.TotalSeconds,
+            };
+            return jwtr;
         }
 
         // Utilités

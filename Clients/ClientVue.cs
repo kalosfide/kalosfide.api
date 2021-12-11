@@ -1,42 +1,66 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
+using KalosfideAPI.Roles;
 
 namespace KalosfideAPI.Clients
 {
-    public class ClientVue : AKeyUidRno, IClient
+    public class ClientVue : AKeyUidRno, IRoleData
     {
         public override string Uid { get; set; }
         public override int Rno { get; set; }
         public string Nom { get; set; }
         public string Adresse { get; set; }
+        public string Ville { get; set; }
+        public string Etat { get; set; }
+
+        public static RoleVue RoleVue(ClientVue vue)
+        {
+            return new RoleVue
+            {
+                Uid = vue.Uid,
+                Rno = vue.Rno,
+                Nom = vue.Nom,
+                Adresse = vue.Adresse
+            };
+        }
     }
-    public class ClientVueAjoute : AKeyUidRno, IClient
+    public class ClientVueAjoute : AKeyUidRno, IRoleData
     {
+        /// <summary>
+        /// Uid du site
+        /// </summary>
         public override string Uid { get; set; }
+
+        /// <summary>
+        /// Rno du Site
+        /// </summary>
         public override int Rno { get; set; }
+
         public string Nom { get; set; }
         public string Adresse { get; set; }
+        public string Ville { get; set; }
+        public string Etat { get; set; }
     }
-    public class ClientEtatVue : AKeyUidRno
+    public class ClientEtatVue : AKeyUidRno, IRoleData
     {
         public override string Uid { get; set; }
         public override int Rno { get; set; }
 
         public string Nom { get; set; }
         public string Adresse { get; set; }
+
+        public string Ville { get; set; }
 
         public string Etat { get; set; }
 
+        public DateTime Date0 { get; set; }
+
         public DateTime DateEtat { get; set; }
 
-        public string Compte { get; set; }
+        public string Email { get; set; }
 
-        public bool AvecCommandes { get; set; }
+        public bool AvecDocuments { get; set; }
 
     }
 }

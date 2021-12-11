@@ -1,5 +1,6 @@
 ﻿using KalosfideAPI.Clients;
 using KalosfideAPI.Data;
+using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
@@ -8,7 +9,6 @@ using KalosfideAPI.Sites;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,32 +19,25 @@ namespace KalosfideAPI.Utilisateurs
     [Route("api/[controller]")]
     [ApiValidationFilter]
     [Authorize]
-    public class UtilisateurController : BaseController
+    public class UtilisateurController : AvecCarteController
     {
-        private readonly IJwtFabrique _jwtFabrique;
-
-        private readonly IUtilisateurService _service;
-
         private readonly ISiteService _siteService;
 
         private readonly IClientService _clientService;
 
         public UtilisateurController(
-            IJwtFabrique jwtFabrique,
-            IUtilisateurService service,
+            IUtilisateurService utilisateurService,
             ISiteService siteService,
             IClientService clientService
-        )
+        ) : base(utilisateurService)
         {
-            _jwtFabrique = jwtFabrique;
-            _service = service;
             _siteService = siteService;
             _clientService = clientService;
         }
 
         private async Task<RetourDeService<ApplicationUser>> CréeUser(ICréeCompteVue vue)
         {
-            RetourDeService<ApplicationUser> retour = await _service.CréeUtilisateur(vue);
+            RetourDeService<ApplicationUser> retour = await UtilisateurService.CréeUtilisateur(vue);
 
             if (retour.Type == TypeRetourDeService.IdentityError)
             {
@@ -53,7 +46,7 @@ namespace KalosfideAPI.Utilisateurs
                 {
                     if (error.Code == IdentityErrorCodes.DuplicateUserName)
                     {
-                        ErreurDeModel.AjouteAModelState(ModelState, "nomPris", "email");
+                        ErreurDeModel.AjouteAModelState(ModelState, "email", "nomPris");
                     }
                     else
                     {
@@ -65,63 +58,13 @@ namespace KalosfideAPI.Utilisateurs
 
         }
 
-        private async Task<IActionResult> ResultAvecCarte(CarteUtilisateur carteUtilisateur)
-        {
-            JwtRéponse jwtRéponse = await _jwtFabrique.CréeReponse(carteUtilisateur);
-            string header = JsonConvert.SerializeObject(jwtRéponse);
-            Request.HttpContext.Response.Headers.Add(JwtFabrique.NomJwtRéponse, header);
-            return new OkObjectResult(carteUtilisateur);
-        }
-
-        [HttpPost("ajoute")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
-        [AllowAnonymous]
-        public async Task<IActionResult> Ajoute([FromBody]CréeCompteVue vue)
-        {
-
-            RetourDeService<ApplicationUser> retour = await CréeUser(vue);
-
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState); 
-            }
-            if (retour.Type != TypeRetourDeService.Ok)
-            {
-                return SaveChangesActionResult(retour);
-            }
-
-            // envoie un mail contenant le lien de confirmation
-            await _service.EnvoieEmailConfirmeCompte(retour.Entité);
-            return Ok();
-        }
-
-        [HttpPost("confirmeEmail")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
-        [AllowAnonymous]
-        public async Task<IActionResult> ConfirmeEmail([FromBody]ConfirmeEmailVue confirme)
-        {
-            ApplicationUser user = await _service.TrouveParId(confirme.Id);
-            bool emailConfirmé = false;
-            if (user != null)
-            {
-                emailConfirmé = await _service.EmailConfirmé(user, confirme.Code);
-            }
-            if (!emailConfirmé)
-            {
-                return RésultatBadRequest("Vous devez confirmer votre adresse email en cliquant sur le lien qui vous a été envoyé.");
-            }
-            return Ok();
-        }
-
-        [HttpPost("Connecte")]
+        [HttpPost("connecte")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [AllowAnonymous]
         public async Task<IActionResult> Connecte([FromBody]ConnectionVue connection)
         {
-            ApplicationUser user = await _service.ApplicationUserVérifié(connection.Email, connection.Password);
+            ApplicationUser user = await UtilisateurService.ApplicationUserVérifié(connection.Email, connection.Password);
             if (user == null)
             {
                 return RésultatBadRequest("Nom ou mot de passe invalide");
@@ -131,14 +74,14 @@ namespace KalosfideAPI.Utilisateurs
                 return RésultatBadRequest("Vous devez confirmer votre adresse email en cliquant sur le lien qui vous a été envoyé.");
             }
             
-            return await Connecte(user, connection.Persistant);
+            return await Connecte(user);
         }
 
-        private async Task<IActionResult> Connecte(ApplicationUser user, bool persistant)
+        private async Task<IActionResult> Connecte(ApplicationUser user)
         {
-            CarteUtilisateur carteUtilisateur = await _service.CréeCarteUtilisateur(user);
+            CarteUtilisateur carte = await UtilisateurService.CréeCarteUtilisateur(user);
 
-            if (!carteUtilisateur.EstUtilisateurActif)
+            if (!carte.EstUtilisateurActif)
             {
                 var erreur = new 
                 {
@@ -148,114 +91,109 @@ namespace KalosfideAPI.Utilisateurs
                 return StatusCode(403, erreur);
             }
 
-            List<SiteVue> sites = carteUtilisateur.Sites;
-            await _siteService.FixeNbs(sites);
+            await UtilisateurService.Connecte(carte);
 
-            await _service.Connecte(user, persistant);
-
-            return await ResultAvecCarte(carteUtilisateur);
+            return await ResultAvecCarte(carte);
         }
 
         [HttpPost("deconnecte")]
         [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
+        [AllowAnonymous]
         public async Task<IActionResult> Deconnecte()
         {
-            await _service.Déconnecte();
-            
+            CarteUtilisateur carte = await CréeCarteUtilisateur();
+            if (carte.Erreur == null)
+            {
+                // ne déconnecte que si l'utilisateur est connecté à sa session en cours
+                await UtilisateurService.Déconnecte(carte);
+            }
+
+            // dans tous les cas
             return Ok();
         }
 
-        [HttpPost("créeSite")]
+        [HttpGet("session")]
         [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
-        public async Task<IActionResult> CréeSite([FromBody] CréeSiteVue vue)
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        public async Task<IActionResult> Session()
         {
-            if (!_service.VérifieTrimCréeSiteVue(vue))
+            CarteUtilisateur carte = await CréeCarteUtilisateur();
+            if (carte.Erreur != null)
             {
-                return BadRequest();
+                return carte.Erreur;
             }
 
-            CarteUtilisateur carteUtilisateur = await _service.CréeCarteUtilisateur(HttpContext.User);
-            if (carteUtilisateur == null)
-            {
-                return Forbid();
-            }
-
-            if (!carteUtilisateur.EstUtilisateurActif)
-            {
-                var erreur = new
-                {
-                    Champ = "etatUtilisateur",
-                    Description = "Cet utilisateur n'est pas autorisé"
-                };
-                return StatusCode(403, erreur);
-            }
-
-            Site site = await _siteService.TrouveParUrl(vue.Url);
-            if (site != null)
-            {
-                ErreurDeModel.AjouteAModelState(ModelState, "nomPris", "Url");
-                return BadRequest(ModelState);
-            }
-
-            RetourDeService<Role> retour = await _service.CréeRoleSite(carteUtilisateur.Uid, vue);
-            if (!retour.Ok)
-            {
-                return SaveChangesActionResult(retour);
-            }
-
-            carteUtilisateur.AjouteRole(retour.Entité, retour.Entité.Site);
-            return await ResultAvecCarte(carteUtilisateur);
+            return Ok();
         }
 
+        /// <summary>
+        /// Vérifie que l'utilisateur invité n'est pas déjà client du site et s'il y a un compte existant, vérifie que ce compte n'est pas déjà attribué.
+        /// </summary>
+        /// <param name="invitation"></param>
+        /// <returns>InvitationVérifiée avec le Site, l'Utilisateur défini par l'Email s'il existe et le Role à gérer s'il y en a un</returns>
         private async Task<InvitationVérifiée> VérifieInviteClient(Invitation invitation)
         {
             InvitationVérifiée vérifiée = new InvitationVérifiée
             {
-                Invitation = await _service.TrouveInvitation(invitation)
+                Invitation = await UtilisateurService.TrouveInvitation(invitation)
             };
-
-            ApplicationUser user = await _service.TrouveParNom(invitation.Email);
 
             Site site = await _siteService.TrouveParKey(invitation.Uid, invitation.Rno);
             if (site == null)
             {
-                vérifiée.Result = NotFound();
+                vérifiée.Erreur = NotFound();
                 return vérifiée;
             }
             vérifiée.Site = site;
 
+            // s'il s'agit d'une invitation à gérer un compte existant, on vérifie si le compte existe et convient
             if (invitation.UidClient != null)
             {
-                Client client = await _service.TrouveClientDansSite(site, invitation.UidClient, invitation.RnoClient.Value);
+                // on lit dans le bdd le Role avec Site et Utilisateur et éventuellement ApplicationUser
+                Role client = await _clientService.LitRole(invitation.UidClient, invitation.RnoClient.Value);
                 if (client == null)
                 {
-                    vérifiée.Result = NotFound();
+                    // le compte n'existe pas
+                    vérifiée.Erreur = NotFound();
                     return vérifiée;
                 }
-                bool avecCompte = await _clientService.AvecCompte(client);
-                if (avecCompte)
+                if (Role.EstFournisseur(client))
                 {
-                    ErreurDeModel.AjouteAModelState(ModelState, "Le client est déjà attribué à un utilisateur");
-                    vérifiée.Result = BadRequest(ModelState);
+                    // c'est le fournisseur
+                    vérifiée.Erreur = RésultatBadRequest("Le role est celui d'un fournisseur");
+                    return vérifiée;
+                }
+                if (!Role.EstUsager(client, site))
+                {
+                    vérifiée.Erreur = RésultatBadRequest("Le site du client n'est pas le site de l'invitation");
+                    return vérifiée;
+                }
+                if (client.Utilisateur.ApplicationUser != null)
+                {
+                    vérifiée.Erreur = RésultatBadRequest("Le client est déjà attribué à un utilisateur");
                     return vérifiée;
                 }
                 vérifiée.Client = client;
             }
 
+            // vérifie s'il existe un Utilisateur ayant l'Email de l'invitation 
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeEmail(invitation.Email);
             if (user == null)
             {
+                // il n'y a pas d'ApplicationUser ayant le même Email que l'invitation
                 return vérifiée;
             }
-            Utilisateur utilisateur = await _service.UtilisateurDeUser(user.Id);
-            bool déjàClient = utilisateur.Roles
+            // il y a un ApplicationUser ayant le même Email que l'invitation
+            // on lit dans la bdd l'Utilisateur correspondant avec ses Roles
+            Utilisateur utilisateur = await UtilisateurService.UtilisateurDeApplicationUser(user);
+            bool déjàUsager= utilisateur.Roles
                 .Where(r => r.Site.Uid == invitation.Uid && r.Site.Rno == invitation.Rno)
                 .Any();
-            if (déjàClient)
+            if (déjàUsager)
             {
-                ErreurDeModel.AjouteAModelState(ModelState, "L'utilisateur invité est déjà client du site");
-                vérifiée.Result = BadRequest(ModelState);
+                // l'Utilisateur a déjà un role sur le Site
+                vérifiée.Erreur = RésultatBadRequest("L'utilisateur invité est déjà usager du site");
                 return vérifiée;
             }
             vérifiée.Utilisateur = utilisateur;
@@ -264,40 +202,28 @@ namespace KalosfideAPI.Utilisateurs
 
         [HttpPost("invitation")]
         [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
         public async Task<IActionResult> Invitation([FromBody] Invitation invitation)
         {
-
-            CarteUtilisateur carteUtilisateur = await _service.CréeCarteUtilisateur(HttpContext.User);
-            if (carteUtilisateur == null)
+            // l'invitation a la même key que son site
+            CarteUtilisateur carte = await CréeCarteFournisseur(invitation);
+            if (carte.Erreur != null)
             {
-                return Forbid();
+                return carte.Erreur;
             }
 
-            if (!carteUtilisateur.EstUtilisateurActif)
-            {
-                var erreur = new
-                {
-                    Champ = "etatUtilisateur",
-                    Description = "Cet utilisateur n'est pas autorisé"
-                };
-                return StatusCode(403, erreur);
-            }
-
+            // Vérifie que l'utilisateur invité n'est pas déjà client du site et s'il y a un compte existant, vérifie que ce compte n'est pas déjà attribué
             InvitationVérifiée vérifiée = await VérifieInviteClient(invitation);
-            if (vérifiée.Result != null)
+            if (vérifiée.Erreur != null)
             {
-                return vérifiée.Result;
+                return vérifiée.Erreur;
             }
-
-            Invitation enregistrée = vérifiée.Invitation;
-
-            await _service.EnvoieEmailDevenirClient(invitation, vérifiée);
 
             invitation.Date = DateTime.Now;
 
-            RetourDeService<Invitation> retour = await _service.RemplaceInvitation(enregistrée, invitation);
+            RetourDeService<Invitation> retour = await UtilisateurService.EnvoieEmailDevenirClient(invitation, vérifiée);
             if (!retour.Ok)
             {
                 return SaveChangesActionResult(retour);
@@ -308,32 +234,20 @@ namespace KalosfideAPI.Utilisateurs
 
         [HttpGet("invitations")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> Invitations([FromQuery] KeyUidRno keySite)
         {
-            CarteUtilisateur carte = await _service.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteFournisseur(keySite);
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
-            }
-
-            if (!await carte.EstActifEtAMêmeUidRno(keySite.KeyParam))
-            {
-                // pas le fournisseur
-                return Forbid();
-            }
-
-            Site site = await _siteService.TrouveParKey(keySite.Uid, keySite.Rno);
-            if (site == null)
-            {
-                return NotFound();
+                return carte.Erreur;
             }
 
             InvitationsStock invitations = new InvitationsStock
             {
-                Invitations = await _service.Invitations(site),
+                Invitations = await UtilisateurService.Invitations(carte.Role.Site),
                 Date = DateTime.Now
             };
 
@@ -342,41 +256,25 @@ namespace KalosfideAPI.Utilisateurs
 
         [HttpDelete("invitation")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> AnnuleInvitation([FromQuery] InvitationKey key)
         {
-            CarteUtilisateur carte = await _service.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteFournisseur(key);
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
 
-            Site site = await _siteService.TrouveParKey(key.Uid, key.Rno);
-            if (site == null)
-            {
-                return NotFound();
-            }
-
-            if (!await carte.EstActifEtAMêmeUidRno(site.KeyParam))
-            {
-                // pas le fournisseur
-                return Forbid();
-            }
-
-            Invitation invitation = await _service.TrouveInvitation(key);
+            Invitation invitation = await UtilisateurService.TrouveInvitation(key);
             if (invitation == null)
             {
                 return NotFound();
             }
 
-            RetourDeService retour = await _service.SupprimeInvitation(invitation);
-            if (!retour.Ok)
-            {
-                return SaveChangesActionResult(retour);
-            }
-            return Ok();
+            RetourDeService retour = await UtilisateurService.SupprimeInvitation(invitation);
+            return SaveChangesActionResult(retour);
         }
 
         /// <summary>
@@ -385,23 +283,25 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="code"></param>
         /// <returns></returns>
-        [HttpGet("invitationClient")]
+        [HttpGet("invitation")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
         [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
         public async Task<IActionResult> InvitationClient([FromQuery] string code)
         {
 
-            Invitation invitation = _service.DécodeInvitation(code);
+            Invitation invitation = UtilisateurService.DécodeInvitation(code);
             if (invitation == null)
             {
-                return Forbid();
+                return RésultatBadRequest("Pas d'invitation");
             }
 
+            // Vérifie que l'utilisateur invité n'est pas déjà client du site et s'il y a un compte existant, vérifie que ce compte n'est pas déjà attribué
             InvitationVérifiée vérifiée = await VérifieInviteClient(invitation);
-            if (vérifiée.Result != null)
+            if (vérifiée.Erreur != null)
             {
-                return vérifiée.Result;
+                return vérifiée.Erreur;
             }
 
             // il doit y avoir une invitation enregistrée
@@ -426,37 +326,51 @@ namespace KalosfideAPI.Utilisateurs
         [HttpPost("devenirClient")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
         public async Task<IActionResult> DevenirClient([FromBody] DevenirClientVue vue)
         {
-            if (!_service.VérifieTrimDevenirClientVue(vue))
+            // Vérifie que Nom et Adresse sont présents et non vides
+            Role.VérifieTrim(vue, ModelState);
+            if (!ModelState.IsValid)
             {
-                return BadRequest();
+                return BadRequest(ModelState);
             }
+
+            // Vérifie que l'invitation est présente et valide
+            IActionResult absentOuInvalide = RésultatBadRequest("Invitation absente ou invalide");
             if (vue.Code == null)
             {
-                return Forbid();
+                return absentOuInvalide;
             }
-            Invitation invitation = _service.DécodeInvitation(vue.Code);
+            Invitation invitation = UtilisateurService.DécodeInvitation(vue.Code);
             if (invitation == null)
             {
-                return Forbid();
+                return absentOuInvalide;
             }
-
             if (vue.Email != invitation.Email)
             {
-                return Forbid();
+                return absentOuInvalide;
             }
 
-            InvitationVérifiée vérifiée = await VérifieInviteClient(invitation);
-            if (vérifiée.Result != null)
+            // Vérifie qu'il y a une invitation enregistrée qui est l'invitation de la vue
+            Invitation enregistrée = await UtilisateurService.TrouveInvitation(invitation);
+            if (enregistrée == null || enregistrée.Date != invitation.Date || enregistrée.UidClient != invitation.UidClient || enregistrée.RnoClient != invitation.RnoClient)
             {
-                return vérifiée.Result;
+                return absentOuInvalide;
+            }
+
+            // Vérifie que l'utilisateur invité n'est pas déjà client du site et s'il y a un compte existant, vérifie que ce compte n'est pas déjà attribué
+            InvitationVérifiée vérifiée = await VérifieInviteClient(invitation);
+            if (vérifiée.Erreur != null)
+            {
+                return vérifiée.Erreur;
             }
 
             ApplicationUser user;
             if (vérifiée.Utilisateur == null)
             {
+                // l'invité n'a pas de compte Kalosfide
                 RetourDeService<ApplicationUser> retourUser = await CréeUser(vue);
                 if (!ModelState.IsValid)
                 {
@@ -471,38 +385,83 @@ namespace KalosfideAPI.Utilisateurs
             }
             else
             {
-                if (vérifiée.Invitation == null)
-                {
-                    return NotFound();
-                }
-
-                user = await _service.ApplicationUserVérifié(vue.Email, vue.Password);
+                // l'utilisateur a un compte Kalosfide
+                // on vérifie le mot de passe
+                user = await UtilisateurService.ApplicationUserVérifié(vue.Email, vue.Password);
                 if (user == null)
                 {
                     return RésultatBadRequest("Nom ou mot de passe invalide");
                 }
             }
 
-
-            if (await _service.VérifieNomPris(vérifiée.Site, vue.Nom, vérifiée.Client))
+            // vérifie que le Nom est libre
+            Role client = await _clientService.ClientDeNom(vérifiée.Site, vue.Nom);
+            if (client != null && (vérifiée.Client == null || vérifiée.Client.Uid != client.Uid))
             {
-                ErreurDeModel.AjouteAModelState(ModelState, "nomPris", "nom");
-                return BadRequest(ModelState);
+                return RésultatBadRequest("nom", "nomPris");
             }
 
-            RetourDeService retour = await _service.CréeRoleClient(vérifiée.Site, vérifiée.Utilisateur, vérifiée.Client, vue);
+            // crée le Role
+            RetourDeService retour = await _clientService.CréeRoleClient(vérifiée.Site, vérifiée.Utilisateur, vérifiée.Client, vue);
             if (!retour.Ok)
             {
                 return SaveChangesActionResult(retour);
             }
 
+            // Supprime l'invitation de la table
+            await UtilisateurService.SupprimeInvitation(enregistrée);
+
             // confirme l'email si ce n'est pas fait
             if (!user.EmailConfirmed)
             {
-                await _service.ConfirmeEmailDirect(user);
+                await UtilisateurService.ConfirmeEmailDirect(user);
             }
             
-            return await Connecte(user, true);
+            return await Connecte(user);
+        }
+
+        #region Compte
+
+        [HttpPost("ajoute")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [AllowAnonymous]
+        public async Task<IActionResult> Ajoute([FromBody]CréeCompteVue vue)
+        {
+
+            RetourDeService<ApplicationUser> retour = await CréeUser(vue);
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState); 
+            }
+            if (retour.Type != TypeRetourDeService.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+
+            // envoie un mail contenant le lien de confirmation
+            await UtilisateurService.EnvoieEmailConfirmeCompte(retour.Entité);
+            return Ok();
+        }
+
+        [HttpPost("confirmeEmail")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [AllowAnonymous]
+        public async Task<IActionResult> ConfirmeEmail([FromBody] ConfirmeEmailVue confirme)
+        {
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeUserId(confirme.Id);
+            bool emailConfirmé = false;
+            if (user != null)
+            {
+                emailConfirmé = await UtilisateurService.EmailConfirmé(user, confirme.Code);
+            }
+            if (!emailConfirmé)
+            {
+                return RésultatBadRequest("Vous devez confirmer votre adresse email en cliquant sur le lien qui vous a été envoyé.");
+            }
+            return Ok();
         }
 
         [HttpPost("oubliMotDePasse")]
@@ -510,11 +469,11 @@ namespace KalosfideAPI.Utilisateurs
         [AllowAnonymous]
         public async Task<IActionResult> OubliMotDePasse([FromBody] OubliMotDePasseVue vue)
         {
-            ApplicationUser user = await _service.TrouveParNom(vue.Email);
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeEmail(vue.Email);
             // n'envoie le mail que si la vue est valide
             if (user != null && user.EmailConfirmed && user.Email == vue.Email)
             {
-                await _service.EnvoieEmailRéinitialiseMotDePasse(user);
+                await UtilisateurService.EnvoieEmailRéinitialiseMotDePasse(user);
             }
             // retourne toujours Ok pour ne pas envoyer d'information
             return Ok();
@@ -525,11 +484,11 @@ namespace KalosfideAPI.Utilisateurs
         [AllowAnonymous]
         public async Task<IActionResult> RéinitialiseMotDePasse([FromBody] RéinitialiseMotDePasseVue vue)
         {
-            ApplicationUser user = await _service.TrouveParId(vue.Id);
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeUserId(vue.Id);
             bool réinitialisé = false;
             if (user != null)
             {
-                réinitialisé = await _service.RéinitialiseMotDePasse(user, vue.Code, vue.Password);
+                réinitialisé = await UtilisateurService.RéinitialiseMotDePasse(user, vue.Code, vue.Password);
             }
             if (!réinitialisé)
             {
@@ -543,9 +502,9 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(200)] // Ok
         public async Task<IActionResult> ChangeMotDePasse([FromBody] ChangeMotDePasseVue vue)
         {
-            ApplicationUser user = await _service.TrouveParNom(vue.Email);
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeEmail(vue.Email);
 
-            if (await _service.ChangeMotDePasse(user, vue.Ancien, vue.Nouveau))
+            if (await UtilisateurService.ChangeMotDePasse(user, vue.Ancien, vue.Nouveau))
             {
                 return Ok();
             }
@@ -557,14 +516,13 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(400)] // Bad request
         public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailVue vue)
         {
-            ApplicationUser user = await _service.TrouveParNom(vue.Email);
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeEmail(vue.Email);
             if (user != null)
             {
-                ErreurDeModel.AjouteAModelState(ModelState, "nomPris", "email");
-                return BadRequest(ModelState);
+                return RésultatBadRequest("email", "nomPris");
             }
-            user = await _service.TrouveParId(vue.Id);
-            await _service.EnvoieEmailChangeEmail(user, vue.Email);
+            user = await UtilisateurService.ApplicationUserDeUserId(vue.Id);
+            await UtilisateurService.EnvoieEmailChangeEmail(user, vue.Email);
             return Ok();
         }
 
@@ -572,11 +530,11 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(200)] // Ok
         public async Task<IActionResult> ConfirmeChangeEmail([FromBody] ConfirmeChangeEmailVue vue)
         {
-            ApplicationUser user = await _service.TrouveParId(vue.Id);
+            ApplicationUser user = await UtilisateurService.ApplicationUserDeUserId(vue.Id);
             bool changé = false;
             if (user != null && vue.Email != null)
             {
-                changé = await _service.ChangeEmail(user, vue.Email, vue.Code);
+                changé = await UtilisateurService.ChangeEmail(user, vue.Email, vue.Code);
             }
             if (changé)
             {
@@ -585,13 +543,21 @@ namespace KalosfideAPI.Utilisateurs
             return StatusCode(500, "Changement impossible");
         }
 
+        #endregion // Compte
+
         // GET api/utilisateur/?id
         [HttpGet("{id}")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> Lit(string id)
         {
-            Utilisateur utilisateur = await _service.Lit(id);
+            CarteUtilisateur carte = await CréeCarteAdministrateur();
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+
+            Utilisateur utilisateur = await UtilisateurService.UtilisateurDeUid(id);
             if (utilisateur == null)
             {
                 return NotFound();
@@ -605,33 +571,34 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> Liste()
         {
-            return Ok(await _service.Lit());
+            CarteUtilisateur carte = await CréeCarteAdministrateur();
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+
+            return Ok(await UtilisateurService.Lit());
         }
 
         // DELETE api/utilisateur/5
         [HttpDelete("{id}")]
-        [ProducesResponseType(204)] // no content
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(404)] // Not found
-        [ProducesResponseType(500)] // 500 Internal Server Error
         public async Task<IActionResult> Supprime(string id)
         {
-            CarteUtilisateur carte = await _service.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteAdministrateur();
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
-            if (!carte.EstAdministrateur)
-            {
-                return Forbid();
-            }
-            var utilisateur = await _service.Lit(id);
+
+            var utilisateur = await UtilisateurService.UtilisateurDeUid(id);
             if (utilisateur == null)
             {
                 return NotFound();
             }
-            var retour = await _service.Supprime(utilisateur);
-
+            var retour = await UtilisateurService.Supprime(utilisateur);
             return SaveChangesActionResult(retour);
         }
     }

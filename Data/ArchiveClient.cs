@@ -20,7 +20,6 @@ namespace KalosfideAPI.Data
         [Required]
         public DateTime Date { get; set; }
 
-        [Required]
         [MaxLength(200)]
         public string Nom { get; set; }
         [MaxLength(500)]

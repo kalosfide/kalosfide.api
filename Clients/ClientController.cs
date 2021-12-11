@@ -5,7 +5,6 @@ using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Partages.KeyParams;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utiles;
 using KalosfideAPI.Utilisateurs;
@@ -17,264 +16,222 @@ namespace KalosfideAPI.Clients
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class ClientController : KeyUidRnoController<Client, ClientVue>
+    public class ClientController : AvecCarteController
     {
         private readonly IUtileService _utile;
+        private readonly IClientService _service;
 
         public ClientController(IClientService service,
             IUtileService utile,
             IUtilisateurService utilisateurService
-            ) : base(service, utilisateurService)
+            ) : base(utilisateurService)
         {
             _utile = utile;
-            FixePermissions();
+            _service = service;
         }
 
-        private IClientService _service { get => __service as IClientService; }
-
-        protected override void FixePermissions()
-        {
-            dSupprimeInterdit = Interdiction;
-            dListeInterdit = Interdiction;
-            dLitInterdit = Interdiction;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="keySite"></param>
-        /// <param name="vue"></param>
-        /// <returns></returns>
-        [HttpGet("/api/client/ajoute")]
-        [ProducesResponseType(200)] // Ok
+        [HttpPost("/api/client/ajoute")]
+        [ProducesResponseType(201)] // Created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Ajoute([FromQuery] ClientVueAjoute vue)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
-            {
-                // fausse carte
-                return Forbid();
-            }
             // seul le fournisseur du site peut créer un client
-            if (!await carte.EstActifEtAMêmeUidRno(vue.KeyParam))
+            // la key de la vue est celle du site
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(vue);
+            if (carteUtilisateur.Erreur != null)
             {
-                return Forbid();
+                return carteUtilisateur.Erreur;
             }
 
-            await _service.ValideAjoute(vue, ModelState);
-            if (!ModelState.IsValid)
+            Role client = await _service.ClientDeNom(vue, vue.Nom);
+            if (client != null)
             {
-                return BadRequest(ModelState);
+                return RésultatBadRequest("nom", "nomPris");
             }
 
-            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur();
+            // Crée un utilisateur sans ApplicationUser
+            RetourDeService<Utilisateur> retourUtilisateur = await UtilisateurService.CréeUtilisateur();
             if (!retourUtilisateur.Ok)
             {
                 return SaveChangesActionResult(retourUtilisateur);
             }
 
-            RetourDeService<Client> retour = await _service.Ajoute(retourUtilisateur.Entité, vue);
+            // le Role doit être créé dans l'état Actif
+            vue.Etat = TypeEtatRole.Actif;
+            // Crée le Role
+            RetourDeService<Role> retour = await _service.Ajoute(retourUtilisateur.Entité, vue);
             if (!retour.Ok)
             {
-                await _utilisateurService.Supprime(retourUtilisateur.Entité);
+                // La création du Role a échoué, il faut supprimer l'Utilisateur
+                await UtilisateurService.Supprime(retourUtilisateur.Entité);
                 return SaveChangesActionResult(retour);
             }
 
-            return Ok(retour.Entité);
+            return StatusCode(201, retour.Entité.KeyParam);
         }
 
         [HttpPut("/api/client/edite")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Edite(ClientVue vue)
+        public async Task<IActionResult> Edite(ClientVue vue)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(vue);
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
 
-            KeyParam paramSite = await _service.KeyParamDuSiteDuClient(vue.KeyParam);
-            // sont autorisés: le client et le fournisseur du site s'il a créé le client
-            bool estClient = await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
-            if (!estClient)
+            if (Role.EstFournisseur(carte.Role))
             {
-                bool estFournisseur = await carte.EstActifEtAMêmeUidRno(paramSite);
-                if (!estFournisseur)
+                if (await _service.Email(vue) != null)
                 {
-                    // l'utilisateur n'est ni le client ni le fournisseur du site
-                    return Forbid();
-                }
-                if (await _service.AvecCompte(vue))
-                {
-                    // l'utilisateur est le fournisseur du site mais n'a pas créé le client
-                    return Forbid();
+                    // l'utilisateur est le fournisseur du site mais le client gére son compte
+                    return RésultatInterdit("Vous ne pouvez pas modifier un client qui gére son compte.");
                 }
             }
 
-            Client donnée = await _service.Lit(vue.KeyParam);
+            Role donnée = await _service.Lit(vue);
             if (donnée == null)
             {
                 return NotFound();
             }
 
-            Client àValider = _service.CréeDonnéeEditéeComplète(vue, donnée);
-
-            await _service.ValideEdite(paramSite.CréeKeyUidRno(), àValider, ModelState);
-            if (!ModelState.IsValid)
+            Role client = await _service.ClientDeNom(carte.Role.Site, vue.Nom);
+            if (client != null && client.Uid != vue.Uid)
             {
-                return BadRequest(ModelState);
+                return RésultatBadRequest("nom", "nomPris");
             }
 
-            RetourDeService<Client> retour = await _service.Edite(donnée, vue);
+            RetourDeService<Role> retour = await _service.Edite(donnée, ClientVue.RoleVue(vue));
 
             return SaveChangesActionResult(retour);
         }
 
-        [HttpPut("/api/client/etat")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Etat(ClientEtatVue vue)
+        private async Task<IActionResult> Etat(KeyUidRno keyClient, string état)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            // on lit dans le bdd le Role avec Site et Utilisateur et éventuellement ApplicationUser
+            Role client = await _service.LitRole(keyClient.Uid, keyClient.Rno);
+            if (client == null)
             {
-                // fausse carte
-                return Forbid();
-            }
-
-            KeyParam paramSite = await _service.KeyParamDuSiteDuClient(vue.KeyParam);
-            bool estFournisseur = await carte.EstActifEtAMêmeUidRno(paramSite);
-            if (!estFournisseur)
-            {
-                // seul le fournisseur peut changer l'état d'un client
-                return Forbid();
-            }
-
-            Role role = await _service.Role(vue.KeyParam);
-            if (role == null)
-            {
+                // le compte n'existe pas
                 return NotFound();
             }
-
-            if (vue.Etat == TypeEtatRole.Actif)
+            if (Role.EstFournisseur(client))
             {
-                if (role.Etat != TypeEtatRole.Nouveau && role.Etat != TypeEtatRole.Inactif)
+                // c'est le fournisseur
+                return RésultatBadRequest("Le role est celui d'un fournisseur");
+            }
+
+            // seul le fournisseur peut changer l'état d'un client
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(client.Site);
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+
+            if (état == TypeEtatRole.Actif)
+            {
+                // on ne peut pas désactiver un client d'Etat déjà Actif
+                if (client.Etat == TypeEtatRole.Actif)
                 {
                     return BadRequest();
                 }
+                // le fournisseur peut activer un client Nouveau et réactiver un client Inactif ou Fermé
+                return SaveChangesActionResult(await _service.Active(client));
             }
             else
             {
-                if (vue.Etat != TypeEtatRole.Exclu)
+                if (client.Etat == TypeEtatRole.Inactif || client.Etat == TypeEtatRole.Fermé)
                 {
                     return BadRequest();
                 }
-                if (role.Etat != TypeEtatRole.Nouveau && role.Etat != TypeEtatRole.Actif)
+
+                // les demandes de passer à l'un des Etats Inactif ou Fermé sont traités de la même façon
+                if (client.Etat == TypeEtatRole.Nouveau)
                 {
-                    return BadRequest();
+                    // toutes les modifications apportées à la bdd par l'utilisateur qui gère ce compte sont supprimées
+                    return SaveChangesActionResult(await _service.Supprime(client));
+                }
+                else
+                {
+                    // Si le Role a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé  il est supprimé sinon.
+                    // Si le Role a été créé par le fournisseur et est vide, supprime le Role.
+                    // Si le Role a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'Etat Fermé
+                    // quand le client se connectera ou quand le fournisseur chargera la liste des clients aprés 60 jours.
+                    return SaveChangesActionResult(await _service.Inactive(client));
                 }
             }
-
-            RetourDeService<Role> retour = await _service.ChangeEtat(role, vue.Etat);
-
-            return SaveChangesActionResult(retour);
         }
 
-        [HttpGet("/api/client/liste")]
+        [HttpPut("/api/client/active")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Liste([FromQuery] KeyUidRno keySite)
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Active([FromQuery] KeyUidRno keyClient)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
-            {
-                // fausse carte
-                return Forbid();
-            }
+            return await Etat(keyClient, TypeEtatRole.Actif);
+        }
 
-            if (! await carte.EstActifEtAMêmeUidRno(keySite.KeyParam))
-            {
-                return Forbid();
-            }
-
-            List<ClientEtatVue> clients = await _service.ClientsDuSite(keySite);
-            return Ok(new
-            {
-                Clients = clients,
-                Date = DateTime.Now
-            });
+        [HttpPut("/api/client/inactive")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Inactive([FromQuery] KeyUidRno keyClient)
+        {
+            return await Etat(keyClient, TypeEtatRole.Inactif);
         }
 
         [HttpGet("/api/client/lit")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> Lit([FromQuery] KeyUidRno keyClient)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(keyClient);
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
 
-            if (carte.Uid != keyClient.Uid || !carte.Roles.Exists(r => r.Rno == keyClient.Rno))
-            {
-                return Forbid();
-            }
-
-            ClientVue vue = await _service.LitVue(keyClient);
-            return Ok(vue);
+            return Ok(carte.Role);
         }
 
-        [HttpGet("/api/client/depuis")]
+        [HttpGet("/api/client/liste")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
-        public async Task<IActionResult> Depuis([FromQuery] KeyUidRnoDate keySiteDate)
+        public async Task<IActionResult> Liste([FromQuery] KeyUidRno keySite)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            if (carteUtilisateur.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carteUtilisateur.Erreur;
             }
 
-            KeyUidRno keySite = new KeyUidRno
-            {
-                Uid = keySiteDate.Uid,
-                Rno = keySiteDate.Rno
-            };
-
-            if (!await carte.EstActifEtAMêmeUidRno(keySite.KeyParam))
-            {
-                return Forbid();
-            }
-
-            Site site = await _utile.SiteDeKey(keySite);
-            if (site == null)
-            {
-                return NotFound();
-            }
-
-            List<ClientEtatVue> clients = await _service.NouveauxClients(keySite, keySiteDate.Date);
+            List<ClientEtatVue> clients = await _service.ClientsDuSite(keySite);
+            List<InvitationVue> invitations = await UtilisateurService.Invitations(keySite);
             return Ok(new
             {
                 Clients = clients,
+                Invitations = invitations,
                 Date = DateTime.Now
             });
         }
-
     }
+
 }

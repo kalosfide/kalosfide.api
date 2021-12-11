@@ -5,8 +5,10 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Partages.KeyParams
 {
-    public interface IKeyUidRnoService<T, TVue> : IKeyParamService<T, TVue, KeyParam> where T: AKeyUidRno where TVue: AKeyUidRno
+    public interface IKeyUidRnoService<T, TVue> : IKeyParamService<T, TVue> where T: AKeyUidRno where TVue: AKeyUidRno
     {
         Task<int> DernierNo(string uid);
+
+        Task<T> Lit(AKeyUidRno key);
     }
 }

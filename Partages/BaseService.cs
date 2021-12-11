@@ -47,7 +47,7 @@ namespace KalosfideAPI.Partages
             }
         }
 
-        public async Task<RetourDeService<T>> SaveChangesAsync<T>( T objet) where T: class
+        public async Task<RetourDeService<T>> SaveChangesAsync<T>(T objet) where T: class
         {
             try
             {

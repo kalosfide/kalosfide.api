@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Partages.KeyParams
 {
-    public abstract class KeyUidRnoController<T, TVue> : KeyParamController<T, TVue, KeyParam> where T : AKeyUidRno where TVue : AKeyUidRno
+    public abstract class KeyUidRnoController<T, TVue> : KeyParamController<T, TVue> where T : AKeyUidRno where TVue : AKeyUidRno
     {
 
         public KeyUidRnoController(IKeyUidRnoService<T, TVue> service, IUtilisateurService utilisateurService) : base(service, utilisateurService)

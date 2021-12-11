@@ -19,63 +19,53 @@ namespace KalosfideAPI.Catégories
 
         public CatégorieController(ICatégorieService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
-            FixePermissions();
         }
 
         private ICatégorieService _service { get => __service as ICatégorieService; }
 
-        protected override void FixePermissions()
-        {
-            dEcritVerrouillé = EcritVerrouillé;
-            dAjouteInterdit = InterditSiPasPropriétaire;
-            dEditeInterdit = InterditSiPasPropriétaire;
-            dSupprimeInterdit = InterditSiPasPropriétaire;
-        }
-
-        private async Task<bool> EcritVerrouillé(Catégorie donnée)
-        {
-            Site site = await _service.SiteDeDonnée(donnée);
-            return site == null || site.Etat != TypeEtatSite.Catalogue;
-        }
-
         [HttpPost("/api/categorie/ajoute")]
         [ProducesResponseType(201)] // created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Ajoute(CatégorieVue vue)
+        public async Task<IActionResult> Ajoute(CatégorieVue vue)
         {
-            return await base.Ajoute(vue);
-        }
-
-        [HttpGet("/api/categorie/lit")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Lit([FromQuery] KeyUidRnoNo param)
-        {
-            return await base.Lit(param.KeyParam);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
+            return await Ajoute(carte, vue);
         }
 
         [HttpPut("/api/categorie/edite")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Edite(CatégorieVue vue)
+        public async Task<IActionResult> Edite(CatégorieVue vue)
         {
-            return await base.Edite(vue);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
+            Catégorie catégorie = await _service.Lit(vue);
+            return await Edite(carte, catégorie, vue);
         }
 
         [HttpDelete("/api/categorie/supprime")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Supprime([FromQuery] KeyParam paramsCatégorie)
+        public async Task<IActionResult> Supprime([FromQuery] KeyParam paramsCatégorie)
         {
-            IActionResult result = await base.Supprime(paramsCatégorie);
-            return result;
+            KeyUidRnoNo key = KeyParam.CréeKeyUidRnoNo(paramsCatégorie);
+            if (key == null)
+            {
+                return BadRequest();
+            }
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(key);
+            Catégorie catégorie = await _service.Lit(key);
+            return  await Supprime(carte, catégorie);
         }
 
         [HttpGet("/api/categorie/nomPris/{nom}")]

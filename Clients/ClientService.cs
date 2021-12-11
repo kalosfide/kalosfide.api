@@ -1,11 +1,8 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Partages.KeyParams;
 using KalosfideAPI.Roles;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -14,120 +11,56 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Clients
 {
-    class GèreArchive : Partages.KeyParams.GéreArchiveUidRno<Client, ClientVue, ArchiveClient>
+    public class ClientService : RoleService, IClientService
     {
-        public GèreArchive(DbSet<Client> dbSet, DbSet<ArchiveClient> dbSetArchive) : base(dbSet, dbSetArchive)
-        { }
-
-        protected override ArchiveClient CréeArchive()
+        public ClientService(ApplicationContext context) : base(context)
         {
-            return new ArchiveClient();
-        }
-
-        protected override void CopieDonnéeDansArchive(Client donnée, ArchiveClient archive)
-        {
-            archive.Nom = donnée.Nom;
-            archive.Adresse = donnée.Adresse;
-        }
-
-        protected override ArchiveClient CréeArchiveDesDifférences(Client donnée, ClientVue vue)
-        {
-            bool modifié = false;
-            ArchiveClient archive = new ArchiveClient();
-            if (vue.Nom != null && donnée.Nom != vue.Nom)
-            {
-                archive.Nom = donnée.Nom;
-                donnée.Nom = vue.Nom;
-                modifié = true;
-            }
-            if (vue.Adresse != null && donnée.Adresse != vue.Adresse)
-            {
-                donnée.Adresse = vue.Adresse;
-                archive.Adresse = vue.Adresse;
-                modifié = true;
-            }
-            return modifié ? archive : null;
-        }
-    }
-
-    public class ClientService : KeyUidRnoService<Client, ClientVue>, IClientService
-    {
-        private readonly IRoleService _roleService;
-        public ClientService(ApplicationContext context,
-            IRoleService roleService) : base(context)
-        {
-            _dbSet = _context.Client;
-            _roleService = roleService;
-            _géreArchive = new GèreArchive(_dbSet, _context.ArchiveClient);
         }
 
         /// <summary>
-        /// retourne vrai si le client peut se connecter
+        /// Retourne l'email de l'utilsateur si le client gère son compte
         /// </summary>
-        /// <param name="aKeyClient"></param>
-        /// <returns></returns>
-        public async Task<bool> AvecCompte(AKeyUidRno aKeyClient)
+        /// <param name="aKeyClient">objet ayant la clé du client</param>
+        /// <returns>null si le client ne gère pas son compte</returns>
+        public async Task<string> Email(AKeyUidRno aKeyClient)
         {
-            string userId = await _context.Utilisateur
+            Utilisateur utilisateur = await _context.Utilisateur
                 .Where(u => u.Uid == aKeyClient.Uid)
-                .Select(u => u.UserId)
+                .Include(u => u.ApplicationUser)
                 .FirstOrDefaultAsync();
-            return userId != null;
-        }
-
-        private ClientEtatVue ClientEtatVue(CRU cru)
-        {
-            return new ClientEtatVue
-            {
-                Uid = cru.Role.Uid,
-                Rno = cru.Role.Rno,
-                Nom = cru.Client.Nom,
-                Adresse = cru.Client.Adresse,
-                Etat = cru.Role.Etat,
-                DateEtat = cru.DateEtat,
-                Compte = cru.Utilisateur.UserId == null ? "N" : "O",
-                AvecCommandes = cru.AvecCommandes
-            };
+            return utilisateur.ApplicationUser?.Email;
         }
 
         /// <summary>
-        /// retourne la liste des CRUs des clients non exclus du site
+        /// retourne la liste des RUs des clients non exclus du site
         /// </summary>
         /// <param name="aKeySite"></param>
         /// <returns></returns>
-        private IQueryable<CRU> IQCRUsDuSite(AKeyUidRno aKeySite)
+        private IQueryable<RU> IQRUsDuSite(AKeyUidRno aKeySite)
         {
             return _context.Role
                 .Where(r => r.SiteUid == aKeySite.Uid && r.SiteRno == aKeySite.Rno) // usagers
-                .Where(r => r.Uid != aKeySite.Uid) // sauf fournisseur
+                .Where(r => r.Uid != aKeySite.Uid || r.Rno != aKeySite.Rno) // sauf fournisseur
                 .Include(r => r.Archives)
-                .Join(_context.Utilisateur,
-                    r => r.Uid,
-                    u => u.Uid,
-                    (role, utilisateur) => new { role, utilisateur })
-                .Join(_context.Client,
-                    ru => new { ru.role.Uid, ru.role.Rno },
-                    c => new { c.Uid, c.Rno },
-                    (ru, client) => new CRU
+                .Include(r => r.Utilisateur)
+                .Select(r => new RU
                     {
-                        Client = client,
-                        Role = ru.role,
-                        Utilisateur = ru.utilisateur
+                        Role = r,
                     });
         }
 
         /// <summary>
-        /// retourne la liste des CRUs des clients non exclus du site
+        /// retourne la liste des RUs des clients non exclus du site
         /// </summary>
         /// <param name="aKeySite"></param>
         /// <returns></returns>
-        private async Task<List<CRU>> CRUsDuSite(AKeyUidRno aKeySite)
+        private async Task<List<RU>> RUsDuSite(AKeyUidRno aKeySite)
         {
 
-            List<CRU> crus = await IQCRUsDuSite(aKeySite).ToListAsync();
+            List<RU> crus = await IQRUsDuSite(aKeySite).ToListAsync();
             long maintenant = DateTime.Now.Ticks;
             int joursInactifAvantExclu = TypeEtatRole.JoursInactifAvantExclu();
-            foreach (CRU cru in crus)
+            foreach (RU cru in crus)
             {
                 ArchiveRole archive = cru.Role.Archives.OrderBy(a => a.Date).Last();
                 if (archive.Etat == TypeEtatRole.Inactif)
@@ -136,22 +69,22 @@ namespace KalosfideAPI.Clients
                     if (timeSpan.TotalDays > joursInactifAvantExclu)
                     {
                         // changer l'état
-                        await _roleService.ChangeEtat(cru.Role, TypeEtatRole.Exclu);
-                        cru.Role.Etat = TypeEtatRole.Exclu;
+                        await ChangeEtat(cru.Role, TypeEtatRole.Fermé);
+                        cru.Role.Etat = TypeEtatRole.Fermé;
                         cru.DateEtat = DateTime.Now;
                     }
                 }
                 else
                 {
                     cru.DateEtat = archive.Date;
-                    if (archive.Etat == TypeEtatRole.Nouveau || archive.Etat == TypeEtatRole.Actif)
+                    if (archive.Etat == TypeEtatRole.Actif)
                     {
-                        bool aCommandé = await _context.Docs
+                        bool avecDocuments = await _context.Docs
                             .Where(d => d.Uid == archive.Uid && d.Rno == archive.Rno)
                             .Include(d => d.Lignes)
                             .Where(d => d.Lignes.Any())
                             .AnyAsync();
-                        cru.AvecCommandes = aCommandé;
+                        cru.AvecDocuments = avecDocuments;
                     }
                 }
             }
@@ -166,199 +99,396 @@ namespace KalosfideAPI.Clients
         /// <returns></returns>
         public async Task<List<ClientEtatVue>> ClientsDuSite(AKeyUidRno aKeySite)
         {
-            List<CRU> crus = await CRUsDuSite(aKeySite);
-            return crus
-                .OrderBy(cru => cru.Client.Nom)
-                .Select(cru => ClientEtatVue(cru))
+            ClientEtatVue ClientEtatVue(RU ru)
+            {
+                return new ClientEtatVue
+                {
+                    Uid = ru.Role.Uid,
+                    Rno = ru.Role.Rno,
+                    Nom = ru.Role.Nom,
+                    Adresse = ru.Role.Adresse,
+                    Etat = ru.Role.Etat,
+                    Date0 = ru.Role.Archives.First().Date,
+                    DateEtat = ru.DateEtat,
+                    Email = ru.Role.Utilisateur.ApplicationUser?.Email,
+                    AvecDocuments = ru.AvecDocuments
+                };
+            }
+            List<RU> rus = await RUsDuSite(aKeySite);
+            return rus
+                .OrderBy(ru => ru.Role.Nom)
+                .Select(ru => ClientEtatVue(ru))
                 .ToList();
         }
 
         /// <summary>
-        /// Retourne la liste des clients d'état nouveau après avoir fait passer à l'état actif ceux qui ont créé leur compte avant la date
-        /// </summary>
-        /// <param name="aKeySite"></param>
-        /// <returns></returns>
-        public async Task<List<ClientEtatVue>> NouveauxClients(AKeyUidRno aKeySite, DateTime date)
-        {
-            List<CRU> crus = await IQCRUsDuSite(aKeySite)
-                .Where(cru => cru.Utilisateur.UserId != null) // avec compte
-                .Where(cru => cru.Role.Etat == TypeEtatRole.Nouveau)
-                .ToListAsync();
-            List<CRU> àActiver = crus
-                .Where(cru => cru.DateEtat <= date)
-                .ToList();
-            àActiver.ForEach(cru => _roleService.ChangeEtatSansSauver(cru.Role, TypeEtatRole.Actif));
-            RetourDeService retour = await SaveChangesAsync();
-            List<ClientEtatVue> àRetourner = crus
-                .Where(cru => cru.DateEtat > date)
-                .Select(cru => ClientEtatVue(cru))
-                .ToList();
-            return àRetourner;
-        }
-
-        /// <summary>
-        /// retourne le nombre de clients non exclus du site
+        /// retourne le nombre de clients actifs du site
         /// </summary>
         /// <param name="aKeySite"></param>
         /// <returns></returns>
         public async Task<int> NbClients(AKeyUidRno aKeySite)
         {
-            List<CRU> crus = await CRUsDuSite(aKeySite);
-            return crus
-                .Where(cru => cru.Role.Etat == TypeEtatRole.Nouveau || cru.Role.Etat == TypeEtatRole.Actif)
+            List<RU> rus = await RUsDuSite(aKeySite);
+            return rus
+                .Where(ru => ru.Role.Etat == TypeEtatRole.Actif)
                 .Count();
         }
 
-        public async Task<KeyParam> KeyParamDuSiteDuClient(KeyParam param)
+        /// <summary>
+        /// Lit dans le bdd un Role avec Site et Utilisateur et éventuellement ApplicationUser
+        /// </summary>
+        /// <param name="uid">Uid du role à lire</param>
+        /// <param name="rno">Rno du role à lire</param>
+        /// <returns></returns>
+        public async Task<Role> LitRole(string uid, int rno)
         {
             return await _context.Role
-                .Where(r => r.Uid == param.Uid && r.Rno == param.Rno)
-                .Select(r => new KeyParam { Uid = r.SiteUid, Rno = r.SiteRno })
+                .Where(r => r.Uid == uid && r.Rno == rno)
+                .Include(r => r.Site)
+                .Include(r => r.Utilisateur).ThenInclude(u => u.ApplicationUser)
                 .FirstOrDefaultAsync();
         }
 
         /// <summary>
-        /// 
+        /// Retourne le client du site ayant le nom
         /// </summary>
-        /// <param name="param">du client et du role</param>
+        /// <param name="akeySite"></param>
+        /// <param name="nom"></param>
         /// <returns></returns>
-        public async Task<Role> Role(KeyParam param)
+        public async Task<Role> ClientDeNom(AKeyUidRno akeySite, string nom)
         {
             return await _context.Role
-                .Where(r => r.Uid == param.Uid && r.Rno == param.Rno)
+                // usager du site
+                .Where(r => r.SiteUid == akeySite.Uid && r.SiteRno == akeySite.Rno)
+                // pas le fournisseur
+                .Where(r => r.Uid != r.SiteUid || r.Rno != r.SiteRno)
+                .Where(c => c.Nom == nom)
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<RetourDeService<Role>> ChangeEtat(Role role, string état)
+        /// <summary>
+        /// Crée un Role
+        /// </summary>
+        /// <param name="utilisateur"></param>
+        /// <param name="keySite"></param>
+        /// <param name="vue"></param>
+        /// <returns></returns>
+        private async Task<Role> CréeRole(Utilisateur utilisateur, AKeyUidRno keySite, IRoleData vue)
         {
-            if (état == TypeEtatRole.Exclu)
-            {
-                état = TypeEtatRole.Inactif;
-            }
-            _roleService.ChangeEtatSansSauver(role, état);
-            return await _roleService.ChangeEtat(role, état);
-        }
-
-        private IQueryable<string> IQueryNomPrisParUid(AKeyUidRno akeySite, string nom)
-        {
-            return _context.Role
-                .Where(r => r.SiteUid == akeySite.Uid && r.SiteRno == akeySite.Rno)
-                .Join(_context.Client,
-                    r => new { r.Uid, r.Rno },
-                    c => new { c.Uid, c.Rno },
-                    (r, c) => c
-                    )
-                .Where(c => c.Nom == nom)
-                .Select(c => c.Uid);
-        }
-
-        public async Task<bool> NomPris(AKeyUidRno akeySite, string nom)
-        {
-            return await IQueryNomPrisParUid(akeySite, nom).AnyAsync();
-        }
-
-        public async Task<bool> NomPrisParAutre(AKeyUidRno akeySite, AKeyUidRno akey, string nom)
-        {
-            return await IQueryNomPrisParUid(akeySite, nom).Where(uid => uid != akey.Uid).AnyAsync();
-        }
-
-        public async Task ValideAjoute(AKeyUidRno akeySite, IClient client, ModelStateDictionary modelState)
-        {
-            if (await NomPris(akeySite, client.Nom))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "nomPris");
-            }
-        }
-
-        public async Task ValideAjoute(ClientVueAjoute vue, ModelStateDictionary modelState)
-        {
-            await ValideAjoute(vue, vue, modelState);
-        }
-
-        public async Task ValideEdite(KeyUidRno keySite, Client donnée, ModelStateDictionary modelState)
-        {
-            if (await NomPrisParAutre(keySite, donnée, donnée.Nom))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "nomPris");
-            }
-        }
-
-        public async Task<RetourDeService<Client>> Ajoute(Utilisateur utilisateur, AKeyUidRno keySite, IClient vue)
-        {
-            Role role = new Role
+            return new Role
             {
                 Uid = utilisateur.Uid,
-                Rno = await _roleService.DernierNo(utilisateur.Uid) + 1,
-                Etat = TypeEtatRole.Actif,
+                Rno = await DernierNo(utilisateur.Uid) + 1,
                 SiteUid = keySite.Uid,
-                SiteRno = keySite.Rno
-            };
-            RetourDeService<Role> retour2 = await _roleService.Ajoute(role);
-            if (!retour2.Ok)
-            {
-                return new RetourDeService<Client>(retour2.Type);
-            }
-            Client client = new Client
-            {
-                Uid = utilisateur.Uid,
-                Rno = 1,
+                SiteRno = keySite.Rno,
                 Nom = vue.Nom,
-                Adresse = vue.Adresse
+                Adresse = vue.Adresse,
             };
-            RetourDeService<Client> retour = await Ajoute(client);
-            if (!retour.Ok)
-            {
-                await _roleService.Supprime(role);
-            }
+        }
+
+        /// <summary>
+        /// Ajoute à la bdd un nouveau Role et l'archive correspondante
+        /// </summary>
+        /// <param name="utilisateur"></param>
+        /// <param name="keySite"></param>
+        /// <param name="vue"></param>
+        /// <returns></returns>
+        public async Task<RetourDeService<Role>> Ajoute(Utilisateur utilisateur, AKeyUidRno keySite, IRoleData vue)
+        {
+            Role role = await CréeRole(utilisateur, keySite, vue);
+            role.Etat = TypeEtatRole.Actif;
+            RetourDeService<Role> retour = await Ajoute(role);
             return retour;
         }
 
-        public async Task<RetourDeService<Client>> Ajoute(Utilisateur utilisateur, ClientVueAjoute vue)
+        /// <summary>
+        /// Ajoute à la bdd un nouveau Role et l'archive correspondante
+        /// </summary>
+        /// <param name="utilisateur"></param>
+        /// <param name="keySite"></param>
+        /// <param name="vue"></param>
+        /// <returns></returns>
+        public async Task<RetourDeService<Role>> Ajoute(Utilisateur utilisateur, ClientVueAjoute vue)
         {
             return await Ajoute(utilisateur, vue, vue);
         }
 
-        public override void CopieVueDansDonnée(Client donnée, ClientVue vue)
+        /// <summary>
+        /// Crée un nouveau Role de Client et si il y a un ancien Client attribue ses archives et ses documents au role créé
+        /// </summary>
+        /// <param name="site"></param>
+        /// <param name="utilisateur"></param>
+        /// <param name="clientInvité"></param>
+        /// <param name="vue"></param>
+        /// <returns></returns>
+        public async Task<RetourDeService> CréeRoleClient(Site site, Utilisateur utilisateur, Role clientInvité, IRoleData vue)
         {
-            if (vue.Nom != null)
+            // on crée le Client
+            Role role = await CréeRole(utilisateur, site, vue);
+            // le Role doit être créé dans l'état Nouveau
+            role.Etat = TypeEtatRole.Nouveau;
+            if (clientInvité == null)
             {
-                donnée.Nom = vue.Nom;
+                // il n'y a ni archives ni documents à récupérer
+                // on ajoute aux tables Role et ArchiveRole
+                return await Ajoute(role);
             }
-            if (vue.Adresse != null)
+
+            // il y a des archives et peut-être des documents à réattribuer
+            // on ajoute seulement à la table Role (sans utiliser Ajoute)
+            _context.Role.Add(role);
+            RetourDeService<Role> retour = await SaveChangesAsync(role);
+            if (!retour.Ok)
             {
-                donnée.Adresse = vue.Adresse;
+                return retour;
             }
-        }
 
-        public override void CopieVuePartielleDansDonnée(Client donnée, ClientVue vue, Client donnéePourComplèter)
-        {
-            donnée.Nom = vue.Nom ?? donnéePourComplèter.Nom;
-            donnée.Adresse = vue.Adresse ?? donnéePourComplèter.Adresse;
-        }
-
-        public override Client CréeDonnée()
-        {
-            return new Client();
-        }
-
-        public override ClientVue CréeVue(Client donnée)
-        {
-            ClientVue vue = new ClientVue
+            // on doit attribuer au client créé les archives du Role existant
+            List<ArchiveRole> archives = await _context.ArchiveRole
+                .Where(a => a.Uid == clientInvité.Uid && a.Rno == clientInvité.Rno)
+                .ToListAsync();
+            archives = archives
+                .Select(a => ArchiveRole.Clone(role.Uid, role.Rno, a))
+                .ToList();
+            // et ajouter une archive enregistrant le passage à l'état Nouveau
+            ArchiveRole archive = new ArchiveRole
             {
-                Nom = donnée.Nom,
-                Adresse = donnée.Adresse,
+                Uid = role.Uid,
+                Rno = role.Rno,
+                Etat = TypeEtatRole.Nouveau,
+                Date = DateTime.Now
             };
-            vue.CopieKey(donnée.KeyParam);
-            return vue;
+            archives.Add(archive);
+            _context.ArchiveRole.AddRange(archives);
+
+            // on doit attribuer au client créé les documents et les lignes du client existant et supprimer celui-ci
+            List<DocCLF> anciensDocs = await _context.Docs
+                .Where(d => d.Uid == clientInvité.Uid && d.Rno == clientInvité.Rno)
+                .ToListAsync();
+            // s'il n'y a pas de documents, il n'y a rien à réattribuer
+            if (anciensDocs.Count != 0)
+            {
+                List<LigneCLF> anciennesLignes = await _context.Lignes
+                    .Where(l => l.Uid == clientInvité.Uid && l.Rno == clientInvité.Rno)
+                    .ToListAsync();
+                // s'il n'y a pas de lignes, il n'y a rien à réattribuer
+                if (anciennesLignes.Count != 0)
+                {
+                    List<DocCLF> nouveauxDocs = anciensDocs
+                        .Select(d => DocCLF.Clone(role.Uid, role.Rno, d))
+                        .ToList();
+                    List<LigneCLF> nouvellesLignes = anciennesLignes
+                        .Select(l => LigneCLF.Clone(role.Uid, role.Rno, l))
+                        .ToList();
+                    _context.Docs.AddRange(nouveauxDocs);
+                    var r = await SaveChangesAsync();
+                    if (r.Ok)
+                    {
+                        _context.Lignes.AddRange(nouvellesLignes);
+                        r = await SaveChangesAsync();
+                    }
+                }
+            }
+
+            // l'utilisateur d'un Client créé par le fournisseur n'a que ce role et doit être supprimé.
+
+            // supprime l'ancien client et en cascade ses archives, ses documents et ses lignes
+            SupprimeSansSauver(clientInvité);
+            _context.Role.Remove(clientInvité);
+            await SaveChangesAsync();
+            return retour;
         }
 
-        public async Task<ClientVue> LitVue(KeyUidRno keyClient)
+        private new async Task<RetourDeService<ClientEtatVue>> ChangeEtat(Role role, string état)
         {
-            Client client = await _context.Client
-                .Where(c => c.Uid == keyClient.Uid && c.Rno == keyClient.Rno)
-                .FirstAsync();
-            ClientVue vue = CréeVue(client);
-            return vue;
+            DateTime date = ChangeEtatSansSauver(role, état);
+            ClientEtatVue vue = new ClientEtatVue
+            {
+                Uid = role.Uid,
+                Rno = role.Rno,
+                DateEtat = date
+            };
+            return await SaveChangesAsync(vue);
         }
+
+        /// <summary>
+        /// Change l'Etat du Role en Actif et sauvegarde
+        /// </summary>
+        /// <param name="roleNonActif"></param>
+        /// <returns>RetourDeService d'un ClientEtatVue contenant uniquement la clé et la date de changement d'état</returns>
+        public async Task<RetourDeService<ClientEtatVue>> Active(Role roleNonActif)
+        {
+            return await ChangeEtat(roleNonActif, TypeEtatRole.Actif);
+        }
+
+        /// <summary>
+        /// Supprime toutes les modifications apportées à la bdd depuis et y compris la création du Role sur Invitation
+        /// </summary>
+        /// <param name="roleNouveau">Role qui a été créé en répondant à une Invitation</param>
+        /// <returns>RetourDeService  d'un ClientEtatVue contenant un Role identique à celui que l'Invitation invitait à gérer s'il y en avait un, null sinon</returns>
+        public new async Task<RetourDeService<ClientEtatVue>> Supprime(Role roleNouveau)
+        {
+            Role rétabli = null;
+            ClientEtatVue vue = null;
+            List<ArchiveRole> archives = await _context.ArchiveRole
+                .Where(a => a.Uid == roleNouveau.Uid && a.Rno == roleNouveau.Rno)
+                .OrderBy(a => a.Date)
+                .ToListAsync();
+            // index de l'archive ayant enregiistré le
+            int indexCréation = archives.FindIndex(a => a.Etat == TypeEtatRole.Nouveau);
+            if (indexCréation != 0)
+            {
+                // le compte existait avant le rattachement au client, il faut le rétablir
+                rétabli = await CréeRole(roleNouveau.Utilisateur, roleNouveau.Site, roleNouveau);
+                // date du dernier changement d'état à fixer à partir des archives
+                DateTime dateEtat = archives.ElementAt(0).Date;
+
+                // Fixe les champs du Role à rétablir avec les champs non nuls de l'archive
+                // Si l'archive a un Etat fixe la date de changement d'état
+                ArchiveRole rétablitArchive(ArchiveRole archive)
+                {
+                    if (archive.Nom != null)
+                    {
+                        rétabli.Nom = archive.Nom;
+                    }
+                    if (archive.Adresse != null)
+                    {
+                        rétabli.Adresse = archive.Adresse;
+                    }
+                    if (archive.Etat != null)
+                    {
+                        rétabli.Etat = archive.Etat;
+                        dateEtat = archive.Date;
+                    }
+                    if (archive.Ville != null)
+                    {
+                        rétabli.Ville = archive.Ville;
+                    }
+                    if (archive.FormatNomFichierCommande != null)
+                    {
+                        rétabli.FormatNomFichierCommande = archive.FormatNomFichierCommande;
+                    }
+                    if (archive.FormatNomFichierLivraison != null)
+                    {
+                        rétabli.FormatNomFichierLivraison = archive.FormatNomFichierLivraison;
+                    }
+                    if (archive.FormatNomFichierFacture != null)
+                    {
+                        rétabli.FormatNomFichierFacture = archive.FormatNomFichierFacture;
+                    }
+                    return ArchiveRole.Clone(rétabli.Uid, rétabli.Rno, archive);
+                }
+
+                // transforme un RetourDeService avec erreur en RetourDeService<ClientEtatVue> avec la même erreur
+                RetourDeService<ClientEtatVue> transformeErreur(RetourDeService retour)
+                {
+                    // on copie l'erreur dans RetourDeService de ClientEtatVue
+                    RetourDeService<ClientEtatVue> retourVue = new RetourDeService<ClientEtatVue>(retour.Type);
+                    if (retour.IdentityError)
+                    {
+                        retourVue.Objet = retour.Objet;
+                    }
+                    return retourVue;
+                }
+
+                // on doit attribuer au client créé les archives antérieures au passage à l'état nouveau
+                // et rétablir ses champs en fonction de ces archives
+                List<ArchiveRole> archivesRétablies = archives
+                    .GetRange(0, indexCréation)
+                    .Select(a => rétablitArchive(a))
+                    .ToList();
+
+
+                // on ajoute seulement à la table Role
+                _context.Role.Add(rétabli);
+                // il faut sauvegarder pour pouvoir ajouter les élément dépendants
+                RetourDeService retour = await SaveChangesAsync();
+                if (!retour.Ok)
+                {
+                    return transformeErreur(retour);
+                }
+                vue = new ClientEtatVue
+                {
+                    Uid = rétabli.Uid,
+                    Rno = rétabli.Rno,
+                    Etat = TypeEtatRole.Actif,
+                    DateEtat = dateEtat
+                };
+                Role.CopieDef(rétabli, vue);
+
+                // on ajoute les archives
+                _context.ArchiveRole.AddRange(archivesRétablies);
+
+                // date du passage à l'état nouveau
+                DateTime dateCréation = archives.ElementAt(indexCréation).Date;
+                // on doit attribuer au client créé les documents et les lignes du client créés avant le passage à l'état nouveau
+                List<DocCLF> anciensDocs = await _context.Docs
+                    .Where(d => d.Uid == roleNouveau.Uid && d.Rno == roleNouveau.Rno && d.Date < dateCréation)
+                    .ToListAsync();
+                // s'il n'y a pas de documents, il n'y a rien à réattribuer
+                if (anciensDocs.Count != 0)
+                {
+                    List<LigneCLF> anciennesLignes = await _context.Lignes
+                        .Where(l => l.Uid == roleNouveau.Uid && l.Rno == roleNouveau.Rno && anciensDocs.Where(d => d.No == l.No).Any())
+                        .ToListAsync();
+                    // s'il n'y a pas de lignes, il n'y a rien à réattribuer
+                    if (anciennesLignes.Count != 0)
+                    {
+                        vue.AvecDocuments = true;
+                        List<DocCLF> nouveauxDocs = anciensDocs
+                            .Select(d => DocCLF.Clone(rétabli.Uid, rétabli.Rno, d))
+                            .ToList();
+                        List<LigneCLF> nouvellesLignes = anciennesLignes
+                            .Select(l => LigneCLF.Clone(rétabli.Uid, rétabli.Rno, l))
+                            .ToList();
+                        _context.Docs.AddRange(nouveauxDocs);
+                        retour = await SaveChangesAsync();
+                        if (retour.Ok)
+                        {
+                            _context.Lignes.AddRange(nouvellesLignes);
+                            retour = await SaveChangesAsync();
+                        }
+                        if (!retour.Ok)
+                        {
+                            return transformeErreur(retour);
+                        }
+                    }
+                }
+            }
+            _context.Role.Remove(roleNouveau);
+            return await SaveChangesAsync(vue);
+        }
+
+        /// <summary>
+        /// Si le Role a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé  il est supprimé sinon.
+        /// Si le Role a été créé par le fournisseur et est vide, supprime le Role.
+        /// Si le Role a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'Etat Fermé
+        /// quand le client se connectera ou quand le fournisseur chargera la liste des clients aprés 60 jours.
+        /// </summary>
+        /// <param name="roleActif"></param>
+        /// <returns>RetourDeService d'un ClientEtatVue contenant uniquement la clé et la date de changement d'état ou null si le Role a été supprimé</returns>
+        public async Task<RetourDeService<ClientEtatVue>> Inactive(Role roleActif)
+        {
+            if (roleActif.Utilisateur.UserId != null)
+            {
+                // le compte est géré par le client, il faut le désactiver
+                // il sera automatiquement fermé aprés 60 jours
+                return await ChangeEtat(roleActif, TypeEtatRole.Inactif);
+            }
+            // le compte est géré par le fournisseur, il faut le fermer s'il y a des documents avec des lignes, le supprimer sinon
+            bool avecLignes = await _context.Lignes
+                .Where(l => l.Uid == roleActif.Uid && l.Rno == roleActif.Rno)
+                .AnyAsync();
+            if (avecLignes)
+            {
+                return await ChangeEtat(roleActif, TypeEtatRole.Fermé);
+            }
+            else
+            {
+                _context.Role.Remove(roleActif);
+                return await SaveChangesAsync<ClientEtatVue>(null);
+            }
+        }
+
     }
 }

@@ -9,12 +9,6 @@ namespace KalosfideAPI.Utiles
 {
     public interface IUtileService
     {
-        /// <summary>
-        /// Retourne une fonction qui filtre les roles qui appartiennent à un site
-        /// </summary>
-        /// <param name="keySite"></param>
-        /// <returns></returns>
-        Func<Role, bool> FiltreSite(AKeyUidRno keySite);
 
         Task<Site> SiteDeKey(AKeyUidRno akeySite);
 
@@ -40,24 +34,11 @@ namespace KalosfideAPI.Utiles
         Task<int> NbDisponibles(AKeyUidRno keySite);
 
         /// <summary>
-        /// retourne la date du catalogue du site
+        /// Retourne le Role (qui inclut le champ Site) correspondant à la key s'il sagit de celui d'un client
         /// </summary>
-        /// <param name="keySite"></param>
+        /// <param name="keyClient">key du client</param>
         /// <returns></returns>
-        Task<DateTime> DateCatalogue(AKeyUidRno keySite);
-
-        /// <summary>
-        /// retourne un filtre que ne passent que les roles d'Etat Actif ou Nouveau
-        /// </summary>
-        /// <returns></returns>
-        Func<Role, bool> FiltreRoleActif();
-
-        /// <summary>
-        /// Retourne un IQueryable qui renvoie les Clients passant les filtres présents et qui inclut les champs Role et Role.Site
-        /// </summary>
-        /// <param name="keySite"></param>
-        /// <returns></returns>
-        IQueryable<Client> ClientsAvecRoleEtSite(AKeyUidRno keyClient);
+        Task<Role> ClientRoleAvecSite(AKeyUidRno keyClient);
 
         Task<Produit> Produit(Site site, long No);
     }

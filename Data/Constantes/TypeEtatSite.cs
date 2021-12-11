@@ -7,7 +7,6 @@ namespace KalosfideAPI.Data.Constantes
     {
         public const string Ouvert = "O";
         public const string Catalogue = "C";
-        public const string Livraison = "L";
         public const string Banni = "X";
         public static bool EstValide(string etat)
         {
@@ -15,7 +14,6 @@ namespace KalosfideAPI.Data.Constantes
             {
                 Ouvert,
                 Catalogue,
-                Livraison,
                 Banni
             }).Contains(etat);
         }

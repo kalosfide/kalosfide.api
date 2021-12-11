@@ -1,5 +1,6 @@
 ﻿using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
@@ -8,7 +9,13 @@ using System.ComponentModel.DataAnnotations;
 
 namespace KalosfideAPI.Data
 {
-    public class Site : AKeyUidRno
+    public interface ISiteDef
+    {
+        string Url { get; set; }
+        string Titre { get; set; }
+    }
+
+    public class Site : AKeyUidRno, ISiteDef
     {
         // key
         [Required]
@@ -32,50 +39,63 @@ namespace KalosfideAPI.Data
         public string Titre { get; set; }
 
         /// <summary>
-        /// Pour l'en-tête des documents
+        /// Vrai quand il n'y a pas de modification du catalogue en cours.
         /// </summary>
-        [Required]
-        [MaxLength(200)]
-        public string Nom { get; set; }
+        public bool Ouvert { get; set; }
 
         /// <summary>
-        /// Pour l'en-tête des documents
+        /// null tant que la première modification du catalogue (qui crée le catalogue) n'est pas terminée.
+        /// Date de la fin de la dernière modification du catalogue si le site n'est pas d'état Catalogue.
         /// </summary>
-        [MaxLength(500)]
-        public string Adresse { get; set; }
-
-        /// <summary>
-        /// Ville de signature des documents
-        /// </summary>
-        public string Ville { get; set; }
-
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierCommande { get; set; }
-
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierLivraison { get; set; }
-
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierFacture { get; set; }
-
-        /// <summary>
-        /// TypeEtatSite.Catalogue quand une modification du catalogue est en cours.
-        /// TypeEtatSite.Ouvert sinon
-        /// </summary>
-        [StringLength(1)]
-        public string Etat { get; set; }
+        public DateTime? DateCatalogue { get; set; }
 
         // navigation
         [JsonIgnore]
         virtual public ICollection<Role> Usagers { get; set; }
 
         virtual public ICollection<Catégorie> Catégories { get; set; }
+
+        virtual public ICollection<ArchiveSite> Archives { get; set; }
+
+        // utiles
+        public static void CopieDef(ISiteDef de, ISiteDef vers)
+        {
+            vers.Url = de.Url;
+            vers.Titre = de.Titre;
+        }
+
+        /// <summary>
+        /// Vérifie que Url et Titre sont présents et non vides.
+        /// </summary>
+        /// <param name="siteDef"></param>
+        /// <param name="modelState"></param>
+        public static void VérifieTrim(ISiteDef siteDef, ModelStateDictionary modelState)
+        {
+            if (siteDef.Url == null)
+            {
+                Erreurs.ErreurDeModel.AjouteAModelState(modelState, "nom", "Absent");
+            }
+            else
+            {
+                siteDef.Url = siteDef.Url.Trim();
+                if (siteDef.Url.Length == 0)
+                {
+                    Erreurs.ErreurDeModel.AjouteAModelState(modelState, "nom", "Vide");
+                }
+            }
+            if (siteDef.Titre == null)
+            {
+                Erreurs.ErreurDeModel.AjouteAModelState(modelState, "adresse", "Absent");
+            }
+            else
+            {
+                siteDef.Titre = siteDef.Titre.Trim();
+                if (siteDef.Titre.Length == 0)
+                {
+                    Erreurs.ErreurDeModel.AjouteAModelState(modelState, "adresse", "Vide");
+                }
+            }
+        }
 
         // création
         public static void CréeTable(ModelBuilder builder)
@@ -84,10 +104,10 @@ namespace KalosfideAPI.Data
 
             entité.HasKey(donnée => new { donnée.Uid, donnée.Rno });
 
-            entité.Property(donnée => donnée.Etat).HasDefaultValue(TypeEtatSite.Ouvert);
+            // quand le site est créé, la modification du catalogue commence 
+            entité.Property(donnée => donnée.Ouvert).HasDefaultValue(false);
 
             entité.HasIndex(donnée => donnée.Url);
-            entité.HasIndex(donnée => donnée.Nom);
 
             entité.ToTable("Sites");
         }

@@ -20,6 +20,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         Task<DocCLF> DocCLFDeKey(AKeyUidRnoNo doc, string type);
 
+        /// <summary>
         /// Retourne la ligne définie par la clé et le type avec son document.
         /// </summary>
         /// <param name="ligne"></param>
@@ -27,46 +28,56 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         Task<LigneCLF> LigneCLFDeKey(AKeyUidRnoNo2 ligne, string type);
 
+        /// <summary>
+        /// Lit le dernier document du client défini par la clé et du type donné.
+        /// </summary>
+        /// <param name="keyClient">clé ou Role du client</param>
+        /// <param name="type">TypeCLF du document</param>
+        /// <returns>le DocCLF enregistré incluant ses LigneCLF et leurs produits</returns>
         Task<DocCLF> DernierDoc(AKeyUidRno keyClient, string type);
 
+        Task<bool> EstSynthèseSansBons(DocCLF synthèse);
+
         /// <summary>
-        /// Retourne la liste des documents de la bdd du type demandé dont le client est celui du clfDocs et le numéro l'un de ceux des documents du clfDocs
+        /// Retourne la liste des documents d'un client du type demandé qui ont été envoyés (i.e. qui ont une Date) et qui ne font pas
+        /// déjà partie d'une synthèse (i.e. qui n'ont pas de NoGroupe) et dont le No est dans une liste.
+        /// S'il existe, le bon virtuel est considéré comme envoyé et sans synthèse.
+        /// Les DocCLF retounés incluent leurs LigneCLF.
         /// </summary>
-        /// <param name="clfDocs"></param>
+        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<List<DocCLF>> DocumentsEnvoyésSansSynthèse(CLFDocsSynthèse clfDocs, string type);
+        Task<List<DocCLF>> DocumentsEnvoyésSansSynthèse(ParamsSynthèse paramsSynthèse, string type);
 
         /// <summary>
-        /// Si le site est d'état Catalogue, retourne un contexte Catalogue: état site = Catalogue, date catalogue = DateNulle.
-        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
-        /// et si la date du catalogue utilisateur est postérieure à celle du catalogue de la bdd, les données utilisateur sont à jour,
-        /// retourne un contexte Ok: état site = ouvert, date catalogue = DataNulle.
-        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
-        /// et si la date du catalogue utilisateur est antérieure à celle du catalogue de la bdd
-        /// retourne un contexte Périmé: état site = ouvert, date catalogue = DataNulle.
-        /// Si le site est ouvert et si l'utilisateur n'a pas passé la date de son catalogue, il n'y pas de données utilisateur,
-        /// retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande du client
+        /// Lit la dernière commande du client
         /// </summary>
-        /// <param name="site">site du client</param>
         /// <param name="keyClient">key du client</param>
-        /// <param name="dateCatalogue">présent si le client a déjà chargé les données</param>
+        /// <returns>un CLFDocs dont le champ Documents contient le CLFDoc de la dernière commande du client</returns>
+        Task<CLFDocs> CommandeEnCours(AKeyUidRno keyClient);
+
+        Task<RetourDeService<DocCLF>> AjouteBon(AKeyUidRno keyClient, Site site, string type, long noDoc);
+        /// <summary>
+        /// Enregistre comme lignes d'un nouveau bon des copies des lignes d'un document précédent
+        /// dont le produit est toujours disponible en mettant à jour s'il y a lieu la date du catalogue applicable.
+        /// </summary>
+        /// <param name="bon">nouveau bon auquel on veut ajouter des lignes</param>
+        /// <param name="docACopier">document incluant ses lignes</param>
+        /// <param name="dateCatalogue">date du catalogue du site</param>
         /// <returns></returns>
-        Task<CLFDocs> CommandeEnCours(Site site, AKeyUidRno keyClient, DateTime? dateCatalogue);
+        Task<RetourDeService> CopieLignes(DocCLF bon, DocCLF docACopier, DateTime dateCatalogue);
 
-        Task<RetourDeService<CLFDoc>> AjouteBon(AKeyUidRno keyClient, Site site, string type, long noDoc, DocCLF docACopier);
+        Task<RetourDeService> EffaceBonEtSupprimeSiVirtuel(DocCLF doc);
 
-        Task<RetourDeService> SupprimeCommande(DocCLF doc);
+        Task<RetourDeService> AjouteLigneCommande(Site site, CLFLigne ligne);
 
-        Task<RetourDeService<CLFLigne>> AjouteLigne(CLFLigne ligne);
-
-        Task<RetourDeService<LigneCLF>> EditeLigne(LigneCLF ligne, CLFLigne lignePostée);
+        Task<RetourDeService> EditeLigne(LigneCLF ligne, CLFLigne lignePostée);
 
         Task<RetourDeService<LigneCLF>> FixeLigne(LigneCLF ligne, decimal àFixer);
 
         Task<RetourDeService> SupprimeLigne(LigneCLF ligne);
 
-        Task<RetourDeService<CLFDoc>> EnvoiCommande(DocCLF doc);
+        Task<RetourDeService<CLFDoc>> EnvoiCommande(Site site, DocCLF doc);
 
         /// <summary>
         /// Retourne un CLFDocs dont le Documents contient les états de préparation des bons envoyés et sans synthèse de tous les clients.
@@ -143,10 +154,19 @@ namespace KalosfideAPI.CLF
         /// Crée un document de synthèse à partir des documents de la liste. Fixe le NoGroupe des documents de la liste.
         /// L'objet retourné contient un DocCLF contenant uniquement le No et la Date de la synthèse créée.
         /// </summary>
+        /// <param name="site"></param>
+        /// <param name="client"></param>
         /// <param name="docCLFs"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<RetourDeService<DocCLF>> Synthèse(List<DocCLF> docCLFs, string type);
+        Task<RetourDeService<DocCLF>> Synthèse(Site site, Role client, List<DocCLF> docCLFs, string type);
+
+        /// <summary>
+        /// Retourne la liste par client des bilans (nombre et total des montants) des documents par type.
+        /// </summary>
+        /// <param name="site"></param>
+        /// <returns></returns>
+        Task<List<CLFClientBilanDocs>> ClientsAvecBilanDocuments(Site site);
 
         /// <summary>
         /// Retourne un CLFDocs contenant la liste des résumés des documents envoyés du site
@@ -166,7 +186,7 @@ namespace KalosfideAPI.CLF
         /// <param name="paramsFiltre">définit le nombre de documents à retourner et les conditions de type et de Date</param>
         /// <param name="client"></param>
         /// <returns></returns>
-        Task<CLFDocs> Résumés(ParamsFiltreDoc paramsFiltre, Client client);
+        Task<CLFDocs> Résumés(ParamsFiltreDoc paramsFiltre, Role client);
 
         /// <summary>
         /// Retourne un CLFDocs qui contient le Client du document et un Documents contenant le document avec ses lignes
@@ -176,6 +196,23 @@ namespace KalosfideAPI.CLF
         /// <param name="type"></param>
         /// <returns></returns>
         Task<CLFDocs> Document(Site site, KeyUidRnoNo keyDocument, string type);
+
+        /// <summary>
+        /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.
+        /// </summary>
+        /// <param name="paramsChercheDoc">key du site, no et type du document</param>
+        /// <returns>un CLFChercheDoc contenant la key et le nom du client et la date si le document recherché existe, vide sinon</returns>
+        Task<CLFChercheDoc> ChercheDocument(ParamsChercheDoc paramsChercheDoc);
+
+        /// <summary>
+        /// Retourne un CLFDocs contenant la liste des résumés des documents envoyés à l'utilisateur
+        /// depuis sa dernière déconnection (bons de commande pour les sites dont l'utilisateur est fournisseur,
+        /// bons de livraison et factures pour les sites dont l'utilisateur est client).
+        /// La liste est dans l'ordre des dates.
+        /// </summary>
+        /// <param name="utilisateur">inclut les roles avec leurs site</param>
+        /// <returns></returns>
+        Task<CLFDocs> NouveauxDocs(Utilisateur utilisateur);
 
     }
 }

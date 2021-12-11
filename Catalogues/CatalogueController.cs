@@ -3,15 +3,13 @@ using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Roles;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Sites;
 using KalosfideAPI.Utiles;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
+using System;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Catalogues
@@ -23,21 +21,19 @@ namespace KalosfideAPI.Catalogues
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class CatalogueController : BaseController
+    public class CatalogueController : AvecCarteController
     {
         private readonly ICatalogueService _service;
         private readonly IUtileService _utile;
-        private readonly IUtilisateurService _utilisateurService;
         private readonly ISiteService _siteService;
 
         public CatalogueController(ICatalogueService service,
             IUtileService utile,
             IUtilisateurService utilisateurService,
             ISiteService siteService
-            ) : base()
+            ) : base(utilisateurService)
         {
             _service = service;
-            _utilisateurService = utilisateurService;
             _utile = utile;
             _siteService = siteService;
         }
@@ -46,151 +42,64 @@ namespace KalosfideAPI.Catalogues
 
         [HttpGet("/api/catalogue/complet")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> Complet([FromQuery] KeyUidRno keySite)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            if (carteUtilisateur.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carteUtilisateur.Erreur;
             }
 
-            bool estFournisseur = await carte.EstActifEtAMêmeUidRno(keySite.KeyParam);
-            if (!estFournisseur)
-            {
-                return Forbid();
-            }
-
-            Catalogue catalogue = await _service.Complet(keySite);
-            if (catalogue == null)
-            {
-                return NotFound();
-            }
+            Catalogue catalogue = await _service.Complet(carteUtilisateur.Role.Site);
 
             return Ok(catalogue);
         }
 
         [HttpGet("/api/catalogue/disponible")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
         public async Task<IActionResult> Disponible([FromQuery] KeyUidRno keySite)
         {
-            Catalogue catalogue = await _service.Disponibles(keySite);
-            if (catalogue == null)
+            CarteUtilisateur carteUtilisateur = await CréeCarteUsager(keySite);
+            if (carteUtilisateur.Erreur != null)
             {
-                return NotFound();
+                return carteUtilisateur.Erreur;
             }
+
+            Catalogue catalogue = await _service.Disponibles(carteUtilisateur.Role.Site);
 
             return Ok(catalogue);
         }
 
-        [HttpGet("/api/catalogue/obsolete")]
+        /// <summary>
+        /// Retourne un ContexteCatalogue
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        [HttpGet("/api/catalogue/etat")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
-        public async Task<IActionResult> Obsolète([FromQuery] KeyParam param)
+        public async Task<IActionResult> Etat([FromQuery] KeyUidRno keySite)
         {
-
-            Site site = await _siteService.Lit(param);
-            if (site == null)
+            CarteUtilisateur carte = await CréeCarteUsager(keySite);
+            if (carte.Erreur != null)
             {
-                return NotFound();
+                return carte.Erreur;
             }
 
-            return Ok(await _service.Obsolète(site, param.Date));
+            return Ok(new ContexteCatalogue(carte.Role.Site));
         }
 
         #endregion
 
         #region Modification
-
-        /// <summary>
-        /// modèle de vérification pour exécuter une action du fournisseur
-        /// </summary>
-        /// <param name="keyOuVueCommande"></param>
-        /// <param name="action"></param>
-        /// <returns></returns>
-        private async Task<IActionResult> ActionFournisseur(AKeyUidRno keySite,
-            DVérifieEtatSite vérifieEtatSite, DActionPossible actionPossible, DAction action)
-        {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
-            {
-                // fausse carte
-                return Forbid();
-            }
-
-            if (!await carte.EstActifEtAMêmeUidRno(keySite.KeyParam))
-            {
-                // pas le fournisseur
-                return Forbid();
-            }
-
-            Site site = await _siteService.Lit(keySite.KeyParam);
-            if (site == null)
-            {
-                return NotFound();
-            }
-
-            vérifieEtatSite(site);
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            await actionPossible(site);
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
-
-            RetourDeService retour = await action(site);
-
-            return SaveChangesActionResult(retour);
-        }
-
-        private void VérifieEtatSiteCommence(Site site)
-        {
-            if (site.Etat != TypeEtatSite.Ouvert)
-            {
-                ErreurDeModel.AjouteAModelState(ModelState, "EtatSiteIncorrect");
-            }
-        }
-        private void VérifieEtatSiteTermine(Site site)
-        {
-            if (site.Etat != TypeEtatSite.Catalogue)
-            {
-                ErreurDeModel.AjouteAModelState(ModelState, "EtatSiteIncorrect");
-            }
-        }
-        private Task CommencerPossible(Site site)
-        {
-            return Task.CompletedTask;
-        }
-        private async Task TerminerPossible(Site site)
-        {
-            // impossible de quitter l'état Catalogue si le site n'a pas de produits
-            int produits = await _utile.NbDisponibles(site);
-            if (produits == 0)
-            {
-                ErreurDeModel.AjouteAModelState(ModelState, "catalogueVide");
-            }
-        }
-
-        private async Task<RetourDeService> Commencer(Site site)
-        {
-            return await _siteService.ChangeEtat(site, TypeEtatSite.Catalogue);
-        }
-        private async Task<RetourDeService> Terminer(Site site)
-        {
-            await _service.ArchiveModifications(site);
-            return await _siteService.ChangeEtat(site, TypeEtatSite.Ouvert);
-        }
 
         /// <summary>
         /// Commence une modification du catalogue
@@ -200,11 +109,31 @@ namespace KalosfideAPI.Catalogues
         [HttpPost("/api/catalogue/commence")]
         [ProducesResponseType(201)] // created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Commence([FromQuery] KeyUidRno keySite)
         {
-            return await ActionFournisseur(keySite, VérifieEtatSiteCommence, CommencerPossible, Commencer);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+
+            Site site = carteUtilisateur.Role.Site;
+
+            if (!site.Ouvert)
+            {
+                return RésultatBadRequest("EtatSiteIncorrect");
+            }
+
+            RetourDeService<ArchiveSite> retour = await _siteService.CommenceEtatCatalogue(site);
+
+            if (retour.Ok)
+            {
+                return Ok(new ContexteCatalogue(site));
+            }
+            return SaveChangesActionResult(retour);
         }
 
         /// <summary>
@@ -215,11 +144,42 @@ namespace KalosfideAPI.Catalogues
         [HttpPost("/api/catalogue/termine")]
         [ProducesResponseType(201)] // created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Termine([FromQuery] KeyUidRno keySite)
         {
-            return await ActionFournisseur(keySite, VérifieEtatSiteTermine, TerminerPossible, Terminer);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+
+            Site site = carteUtilisateur.Role.Site;
+            if (site.Ouvert)
+            {
+                return RésultatBadRequest("EtatSiteIncorrect");
+            }
+            // impossible de quitter l'état Catalogue si le site n'a pas de produits
+            int produits = await _utile.NbDisponibles(site);
+            if (produits == 0)
+            {
+                return RésultatBadRequest("catalogueVide");
+            }
+            DateTime maintenant = DateTime.Now;
+            bool modifié = await _service.ArchiveModifications(site, maintenant);
+            DateTime? dateCatalogue = null;
+            if (modifié)
+            {
+                dateCatalogue = maintenant;
+            }
+            RetourDeService<ArchiveSite> retour = await _siteService.TermineEtatCatalogue(site, dateCatalogue);
+
+            if (retour.Ok)
+            {
+                return Ok(new ContexteCatalogue(site));
+            }
+            return SaveChangesActionResult(retour);
         }
 
         #endregion

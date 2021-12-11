@@ -18,51 +18,54 @@ namespace KalosfideAPI.Roles
     [ApiController]
     [ApiValidationFilter]
     [Authorize]
-    public class RoleController : KeyUidRnoController<Role, RoleVue>
+    public class RoleController : AvecCarteController
     {
-        private IRoleService _service { get => __service as IRoleService; }
+        private readonly IRoleService _service;
 
-        public RoleController(IRoleService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
+        public RoleController(IRoleService service, IUtilisateurService utilisateurService) : base(utilisateurService)
         {
-        }
-
-        protected override void FixePermissions()
-        {
+            _service = service;
         }
 
         [HttpPost]
         [ProducesResponseType(200)] // ok
         [ProducesResponseType(400)] // Bad request
-        [ProducesResponseType(403)] // forbidden
-        [ProducesResponseType(404)] // not found
-        public async Task<IActionResult> ChangeEtat([FromQuery] KeyUidRno param, [FromBody] string etat)
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        public async Task<IActionResult> ChangeEtat([FromQuery] KeyUidRno keyRole, [FromBody] string etat)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteUtilisateur();
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
             if (!TypeEtatRole.EstValide(etat))
             {
                 return BadRequest();
             }
 
-            var donnée = await _service.Lit(param.KeyParam);
-            if (donnée == null)
+            Role role = await _service.Lit(keyRole);
+            if (role == null)
             {
                 return NotFound();
             }
 
-            bool permis = (donnée.EstFournisseur && carte.EstAdministrateur) || (donnée.EstClient && await carte.EstActifEtAMêmeUidRno(donnée.SiteParam));
-            if (!permis)
+            string message = Role.EstFournisseur(role) && !carte.EstAdministrateur
+                ? "Seul un administrateur peut changer l'état d'un fournisseur."
+                : Role.EstClient(role) && !(await carte.EstFournisseurActif(role.Site))
+                    ? "Seul le fournisseur du site peut changer l'état d'un client d'un site."
+                    : null;
+            if (message != null)
             {
-                return Forbid();
+                return RésultatInterdit(message);
             }
 
-            var retour = await _service.ChangeEtat(donnée, etat);
-
-            return SaveChangesActionResult(retour);
+            RetourDeService<RoleEtat> retour = await _service.ChangeEtat(role, etat);
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+            return Ok(retour.Entité);
         }
     }
 }

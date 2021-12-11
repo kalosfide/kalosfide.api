@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Utiles;
@@ -21,8 +22,7 @@ namespace KalosfideAPI.CLF
             IUtileService utile,
             IUtilisateurService utilisateurService) : base(service, utile, utilisateurService)
         {
-            _type = "F";
-            _typeBon = "L";
+            _type = TypeClf.Facture;
         }
 
         #region Lecture
@@ -34,6 +34,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         [HttpGet("/api/facture/clients")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public new async Task<IActionResult> Clients([FromQuery] KeyUidRno keySite)
@@ -48,6 +49,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         [HttpGet("/api/facture/client")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public new async Task<IActionResult> Client([FromQuery] KeyUidRno keyClient)
@@ -56,19 +58,20 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Crée une facture à partir des livraisons dont le client est celui du clfDocs et le numéro l'un de ceux des documents du clfDocs.
+        /// Crée une facture à partir des livraisons d'un client dont le No est dans une liste.//
         /// Fixe le NoGroupe de ces livraisons. La réponse contient un DocCLF contenant uniquement le No et la Date de la facture créée.
         /// </summary>
-        /// <param name="clfDocs"></param>
+        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
         /// <returns></returns>
         [HttpPost("/api/facture/envoi")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Envoi(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> Envoi(ParamsSynthèse paramsSynthèse)
         {
-            return await Synthèse(clfDocs);
+            return await Synthèse(paramsSynthèse);
         }
 
         #endregion

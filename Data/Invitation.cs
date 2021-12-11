@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data.Constantes;
+using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
@@ -8,17 +9,14 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
-    public interface IInvitationKey
+    public interface IInvitationKey: IKeyUidRno
     {
+        // key du site
 
         /// <summary>
         /// Email de l'utilisateur invité
         /// </summary>
         public string Email { get; set; }
-
-        // key du site
-        public string Uid { get; set; }
-        public int Rno { get; set; }
     }
 
     /// <summary>

@@ -3,13 +3,12 @@ using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Partages.KeyParams;
 using KalosfideAPI.Roles;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sites
@@ -19,159 +18,104 @@ namespace KalosfideAPI.Sites
     [Route("UidRno")]
     [ApiValidationFilter]
     [Authorize]
-    public class SiteController: KeyUidRnoController<Site, SiteVue>
+    public class SiteController: AvecCarteController
     {
-        private ISiteService _service { get => __service as ISiteService; }
+        private readonly ISiteService _service;
+        private readonly IRoleService _roleService;
 
-        public SiteController(ISiteService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
+        public SiteController(ISiteService service, IRoleService roleService, IUtilisateurService utilisateurService) : base(utilisateurService)
         {
+            _service = service;
+            _roleService = roleService;
         }
 
-        private async Task<bool> EditeInterdit(CarteUtilisateur carte, SiteVue vue)
-        {
-            return !carte.EstAdministrateur && !await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
-        }
-
-        protected override void FixePermissions()
-        {
-            dEditeInterdit = EditeInterdit;
-
-        }
-
-        [HttpGet("/api/site/lit")]
+        [HttpGet("/api/site/liste")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Lit([FromQuery] KeyUidRno param)
+        public async Task<IActionResult> Liste()
         {
-            return await base.Lit(param.KeyParam);
-        }
-
-        [HttpGet("/api/site/litNbs")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> LitNbs([FromQuery] KeyUidRno keySite)
-        {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
+            CarteUtilisateur carte = await CréeCarteAdministrateur();
+            if (carte.Erreur != null)
             {
-                // fausse carte
-                return Forbid();
+                return carte.Erreur;
             }
 
-            bool estAdministrateur = carte.EstAdministrateur;
-            bool estFournisseur = !estAdministrateur && await carte.EstActifEtAMêmeUidRno(keySite.KeyParam);
-            if (!estAdministrateur && !estFournisseur)
-            {
-                return Forbid();
-            }
-
-            Site site = await _service.Lit(keySite.KeyParam);
-            if (site == null)
-            {
-                return NotFound();
-            }
-
-            SiteVue vue = await _service.LitNbs(site);
-            if (vue == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(vue);
+            List<SiteVue> liste = await _service.ListeVues();
+            return Ok(liste);
         }
 
         /// <summary>
-        /// Reçoit une
+        /// Active ou désactive le Role du fournisseur du Site.
         /// </summary>
-        /// <param name="key"></param>
+        /// <param name="key">KeyUidRno d'un Site et du Role du fournisseur de ce Site</param>
+        /// <param name="activé">le Role est activé si true, désactivé sinon.</param>
         /// <returns></returns>
-        [HttpGet("/api/site/etat")]
+        [HttpPost("active")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
-        public async Task<IActionResult> Etat([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Active([FromQuery] KeyUidRno key, bool activé)
         {
-
-            SiteVue vue = await _service.Etat(keySite);
-            if (vue == null)
+            CarteUtilisateur carte = await CréeCarteAdministrateur();
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            Role role = await _roleService.Lit(key);
+            if (role == null)
             {
                 return NotFound();
             }
 
-            return Ok(vue);
+            RetourDeService<RoleEtat> retour = await _roleService.ChangeEtat(role, activé ? TypeEtatRole.Actif : TypeEtatRole.Inactif);
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+
+            return Ok(retour.Entité);
         }
 
-
-        [HttpPut("/api/site/etat")]
+        [HttpPost("ajoute")]
         [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Etat(SiteVue vue)
+        public async Task<IActionResult> Ajoute([FromBody] CréeSiteVue vue)
         {
-            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-            if (carte == null)
-            {
-                // fausse carte
-                return Forbid();
-            }
-
-            bool estAdministrateur = carte.EstAdministrateur;
-            bool estFournisseur = !estAdministrateur && await carte.EstActifEtAMêmeUidRno(vue.KeyParam);
-            if (!estAdministrateur && !estFournisseur)
-            {
-                return Forbid();
-            }
-
-            Site site = await _service.Lit(vue.KeyParam);
-            if (site == null)
-            {
-                return NotFound();
-            }
-
-            await _service.ValideChangeEtat(site, vue, ModelState, estAdministrateur);
+            CréeSiteVue.VérifieTrim(vue, ModelState);
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            return Ok(await _service.ChangeEtat(site, vue.Etat));
-        }
-
-        [HttpGet("/api/site/liste")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
-        public new async Task<IActionResult> Liste()
-        {
-            return await base.Liste();
-        }
-
-        [HttpPut("/api/site/edite")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Edite(SiteVue vue)
-        {
-            return await base.Edite(vue);
-        }
-
-        [HttpGet("/api/site/trouveParUrl/{url}")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(404)] // Not found
-        [AllowAnonymous]
-        public async Task<IActionResult> TrouveParUrl(string url)
-        {
-            SiteVue vue = await _service.TrouveVueParUrl(url);
-            if (vue == null)
+            CarteUtilisateur carte = await CréeCarteUtilisateur();
+            if (carte.Erreur != null)
             {
-                return NotFound();
+                return carte.Erreur;
             }
-            return Ok(vue);
+
+            Site site = await _service.TrouveParUrl(vue.Url);
+            if (site != null)
+            {
+                ErreurDeModel.AjouteAModelState(ModelState, "Url", "nomPris");
+                return BadRequest(ModelState);
+            }
+
+            RetourDeService<Role> retour = await _service.CréeRoleSite(carte.Utilisateur, vue);
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+
+            carte.AjouteRole(retour.Entité);
+            await _utilisateurService.AjouteCarteAResponse(Request.HttpContext.Response, carte);
+            Identifiant identifiant = await carte.Identifiant();
+            return new OkObjectResult(identifiant);
         }
 
         [HttpGet("/api/site/urlPrise/{Url}")]

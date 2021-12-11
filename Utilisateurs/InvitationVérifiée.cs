@@ -4,12 +4,15 @@ using System;
 
 namespace KalosfideAPI.Utilisateurs
 {
+    /// <summary>
+    /// Contient une Erreur ou l'Invitation, le Site et, ils existent, l'Utilisateur et le Client
+    /// </summary>
     public class InvitationVérifiée
     {
-        public IActionResult Result { get; set; }
+        public IActionResult Erreur { get; set; }
         public Site Site { get; set; }
         public Utilisateur Utilisateur { get; set; }
-        public Client Client { get; set; }
+        public Role Client { get; set; }
         public Invitation Invitation { get; set; }
 
         public bool AMêmeClient()

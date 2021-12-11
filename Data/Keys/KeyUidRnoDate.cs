@@ -5,10 +5,10 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data.Keys
 {
-    public class KeyUidRnoDate
+    public class KeyUidRnoDate : AKeyUidRno
     {
-        public string Uid { get; set; }
-        public int Rno { get; set; }
+        public override string Uid { get; set; }
+        public override int Rno { get; set; }
         public DateTime Date { get; set; }
     }
 }

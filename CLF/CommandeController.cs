@@ -23,116 +23,10 @@ namespace KalosfideAPI.CLF
             IUtileService utile,
             IUtilisateurService utilisateurService) : base(service, utile, utilisateurService)
         {
-            _type = "C";
+            _type = TypeClf.Commande;
         }
 
-        #region Client-Lecture
-
-        /// <summary>
-        /// Si le site est d'état Catalogue, retourne un contexte Catalogue: état site = Catalogue, date catalogue = DateNulle.
-        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
-        /// et si la date du catalogue utilisateur est postérieure à celle du catalogue de la bdd, les données utilisateur sont à jour,
-        /// retourne un contexte Ok: état site = ouvert, date catalogue = DataNulle.
-        /// Si le site est ouvert et si l'utilisateur a passé la date de son catalogue
-        /// et si la date du catalogue utilisateur est antérieure à celle du catalogue de la bdd
-        /// retourne un contexte Périmé: état site = ouvert, date catalogue = DataNulle.
-        /// Si le site est ouvert et si l'utilisateur n'a pas passé la date de son catalogue, il n'y pas de données utilisateur,
-        /// retourne un CLFDocs dont le champ Documents contient les données pour client de la dernière commande du client
-        /// </summary>
-        /// <param name="paramsKeyClient">key du client et date de son catalogue</param>
-        /// <returns></returns>
-        [HttpGet("/api/commande/enCours")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> EnCours([FromQuery] ParamsKeyClient paramsKeyClient)
-        {
-            vérificateur.Initialise(paramsKeyClient);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstClient();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
-
-            CLFDocs docs = await _service.CommandeEnCours(vérificateur.Site, paramsKeyClient, paramsKeyClient.DateCatalogue);
-
-            return Ok(docs);
-        }
-
-        #endregion
-
-        #region Action-Vérificateurs
-
-        /// <summary>
-        /// si l'utilisateur est un client, vérifie qu'il n'y a pas eu de livraison ou de modification de l'état du site ou du catalogue
-        /// depuis que l'utilisateur a chargé les données.
-        /// Si changé, fixe la date du catalogue du vérificateur à la valeur de celle en cours pour que l'action puisse retourner le contexte.
-        /// </summary>
-        private async Task<CLFDocs> EtatSiteChangé()
-        {
-            // cas d'un client
-            if (vérificateur.EstClient)
-            {
-                DateTime date = await _utile.DateCatalogue(vérificateur.Site);
-                // vérifie que le site est ouvert et que la catalogue n'est pas plus récent que la commande
-                if (vérificateur.Site.Etat != TypeEtatSite.Ouvert || vérificateur.DateCatalogue < date)
-                {
-                    vérificateur.DateCatalogue = date;
-                    return new CLFDocs
-                    {
-                        
-                        Site = new Site { Etat = vérificateur.Site.Etat },
-                        Catalogue = new Catalogues.Catalogue { Date = date }
-                    };
-                }
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Vérifie que la date de vérificateur.Doc est absente si l'utilisateur est le client et DateNulle.Date si l'utilisateur est le fournisseur
-        /// </summary>
-        private void CommandeModifiable()
-        {
-            DocCLF doc = vérificateur.DocCLF;
-            if (vérificateur.EstClient)
-            {
-                if (doc.Date.HasValue || vérificateur.KeyDoc.No == 0)
-                {
-                    vérificateur.Erreur = RésultatBadRequest("CommandeEnvoyéeOuVirtuelle");
-                    throw new VérificationException();
-                }
-            }
-            else
-            {
-                switch (doc.Type)
-                {
-                    case "C":
-                        if (doc.No != 0)
-                        {
-                            vérificateur.Erreur = RésultatBadRequest("CommandeNonVirtuelle");
-                            throw new VérificationException();
-                        }
-                        break;
-                    case "L":
-                        if (doc.Date.HasValue)
-                        {
-                            vérificateur.Erreur = RésultatBadRequest("LivraisonEnvoyée");
-                            throw new VérificationException();
-                        }
-                        break;
-                    case "F":
-                        vérificateur.Erreur = RésultatBadRequest("ModifieFacture");
-                        throw new VérificationException();
-                    default:
-                        break;
-                }
-            }
-        }
+        #region Vérificateurs
 
         /// <summary>
         /// Vérifie que vérificateur.DocCLF.Lignes ne contient pas déjà la ligne
@@ -159,15 +53,7 @@ namespace KalosfideAPI.CLF
                 vérificateur.Erreur = RésultatBadRequest("Produit");
                 throw new VérificationException();
             }
-            vérificateur.ArchiveProduit = produit.ArchiveProduits.OrderBy(a => a.Date).Last();
-        }
-
-        /// <summary>
-        /// lit le détail s'il existe
-        /// </summary>
-        private async Task LitLIgne()
-        {
-            vérificateur.LigneCLF = await _service.LigneCLFDeKey(vérificateur.KeyLigne, _type);
+            vérificateur.ArchiveProduit = produit.Archives.OrderBy(a => a.Date).Last();
         }
 
         /// <summary>
@@ -187,7 +73,7 @@ namespace KalosfideAPI.CLF
                     }
                     else
                     {
-                        // le fournisseur peut envoyer ALivrer seul défini
+                        // le fournisseur peut envoyer AFixer seul défini
                         if (!vérificateur.CLFLigne.AFixer.HasValue)
                         {
                             vérificateur.Erreur = RésultatBadRequest("QuantitéOuAFixerRequis");
@@ -218,9 +104,10 @@ namespace KalosfideAPI.CLF
         /// </summary>
         private void ChampsPrésentsValides()
         {
-            if (vérificateur.CLFLigne.TypeCommande != null && !TypeUnitéDeCommande.DemandeEstValide(vérificateur.CLFLigne.TypeCommande, vérificateur.ArchiveProduit.TypeCommande))
+            if (vérificateur.CLFLigne.TypeCommande != null
+                && !TypeUnitéDeCommande.DemandeEstValide(vérificateur.CLFLigne.TypeCommande, vérificateur.ArchiveProduit.TypeCommande))
             {
-                vérificateur.Erreur = RésultatBadRequest("invalide", "typeCommande");
+                vérificateur.Erreur = RésultatBadRequest("typeCommande", "Type invalide");
                 throw new VérificationException();
             }
 
@@ -230,7 +117,7 @@ namespace KalosfideAPI.CLF
                 code = QuantitéDef.Vérifie(vérificateur.CLFLigne.Quantité.Value);
                 if (code != null)
                 {
-                    vérificateur.Erreur = RésultatBadRequest(code, "quantité");
+                    vérificateur.Erreur = RésultatBadRequest("quantité", code);
                     throw new VérificationException();
                 }
             }
@@ -240,7 +127,7 @@ namespace KalosfideAPI.CLF
                 code = QuantitéDef.Vérifie(vérificateur.CLFLigne.AFixer.Value);
                 if (code != null)
                 {
-                    vérificateur.Erreur = RésultatBadRequest(code, "aFixer");
+                    vérificateur.Erreur = RésultatBadRequest("aFixer", code);
                     throw new VérificationException();
                 }
             }
@@ -249,75 +136,90 @@ namespace KalosfideAPI.CLF
 
         #endregion
 
-        #region Action-Commande
-        private async Task<IActionResult> CréeCommande(ParamsKeyClient paramsClient, bool copieLignes)
+        #region Client-Lecture
+
+        /// <summary>
+        /// Lecture par un client de sa dernière commande si le paramètre ne contient pas de date.
+        /// Vérification par un client que le catalogue chargé avec cette commande est toujours valide si le paramètre contient une date.
+        /// 
+        /// Si le site est d'état Catalogue, retourne une erreur Conflict contenant un ContexteCatalogue avec l'état Catalogue et une date égale à DateNulle.
+        /// Pour une vérification, si le site est ouvert et si la date du paramètre est antérieure à celle du catalogue de la bdd,
+        /// retourne une erreur Conflict contenant un ContexteCatalogue avec l'état Ouvert et la date du catalogue de la bdd.
+        /// </summary>
+        /// <param name="paramsKeyClient">key du client et date du catalogue de sa commande s'il l'a déjà chargée</param>
+        /// <returns>un CLFDocs dont le champ Documents contient le CLFDoc de la dernière commande du client pour une lecture,
+        /// un CLFDocs vide pour une vérification</returns>
+        [HttpGet("/api/commande/enCours")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> EnCours([FromQuery] ParamsKeyClient paramsKeyClient)
         {
-            vérificateur.Initialise(paramsClient);
+            vérificateur.Initialise(paramsKeyClient);
             try
             {
                 await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
+                await UtilisateurEstClient();
+                ContexteCatalogue();
             }
             catch (VérificationException)
             {
                 return vérificateur.Erreur;
             }
 
-            long noCommande;
-            DocCLF docACopier = null;
-            if (vérificateur.EstClient)
+            if (paramsKeyClient.DateCatalogue.HasValue)
             {
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                } 
-                DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.KeyClient, "C");
-                if (copieLignes)
-                {
-                    // la dernière commande doit exister et être envoyée
-                    if (dernièreCommande == null || !dernièreCommande.Date.HasValue)
-                    {
-                        return RésultatBadRequest("DerniereCommandeAbsenteOuPasEnvoyée");
-                    }
-                    docACopier = dernièreCommande;
-                }
-                else
-                {
-                    // la dernière commande doit ne pas exister ou être envoyée.
-                    if (!(dernièreCommande == null || dernièreCommande.Date.HasValue))
-                    {
-                        return RésultatBadRequest("DerniereCommandePrésenteEtPasEnvoyée");
-                    }
-                }
-                noCommande = dernièreCommande == null ? 1 : dernièreCommande.No + 1;
-            }
-            else
-            {
-                // il ne peut y avoir qu'une seule commande virtuelle pour le fournisseur
-                KeyUidRnoNo key = new KeyUidRnoNo
-                {
-                    Uid = vérificateur.KeyClient.Uid,
-                    Rno = vérificateur.KeyClient.Rno,
-                    No = 0
-                };
-                DocCLF commande = await _service.DocCLFDeKey(key, "C");
-                if (commande != null)
-                {
-                    return RésultatBadRequest("CommandeVirtuellePrésente");
-                }
-                if (copieLignes)
-                {
-                    docACopier = await _service.DernierDoc(vérificateur.KeyClient, "L");
-                    if (docACopier == null)
-                    {
-                        return RésultatBadRequest("PasDeDernièreLivraison");
-                    }
-                }
-                noCommande = 0;
+                // la commande en cours a déjà été chargée par l'application client qui vérifie seulement le contexte catalogue
+                // la vérification a réussi
+                // retourne un CLFDocs vide
+                return Ok(new CLFDocs());
             }
 
-            RetourDeService<CLFDoc> retour = await _service.AjouteBon(vérificateur.KeyClient, vérificateur.Site, "C", noCommande, docACopier);
+            CLFDocs docs = await _service.CommandeEnCours(paramsKeyClient);
+
+            return Ok(docs);
+        }
+
+        #endregion
+
+        #region Action-Commande
+
+        /// <summary>
+        /// Fixe la date du bon de commande du client défini par la clé.
+        /// Retourne un CLFDoc contenant uniquement cette date.
+        /// </summary>
+        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
+        /// <returns></returns>
+        [HttpPost("/api/commande/envoi")]
+        [ProducesResponseType(201)] // created
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Envoi([FromQuery] ParamsKeyClient paramsClient)
+        {
+            vérificateur.Initialise(paramsClient);
+            try
+            {
+                await ClientDeLAction();
+                await UtilisateurEstClientActifOuNouveau();
+                ContexteCatalogue();
+            }
+            catch (VérificationException)
+            {
+                return vérificateur.Erreur;
+            }
+
+            DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.Client, TypeClf.Commande);
+            // la dernière commande doit exister et ne pas être envoyée
+            if (dernièreCommande == null || dernièreCommande.Date.HasValue)
+            {
+                return RésultatBadRequest("DerniereCommandeAbsenteOuEnvoyée");
+            }
+
+            RetourDeService<CLFDoc> retour = await _service.EnvoiCommande(vérificateur.Site, dernièreCommande);
 
             if (retour.Ok)
             {
@@ -328,57 +230,6 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Fixe la date du bon de commande du client défini par la clé
-        /// </summary>
-        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
-        /// <returns></returns>
-        [HttpPost("/api/commande/envoi")]
-        [ProducesResponseType(201)] // created
-        [ProducesResponseType(400)] // Bad request
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Envoi([FromQuery] ParamsKeyClient paramsClient)
-        {
-            vérificateur.Initialise(paramsClient);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
-            if (vérificateur.EstClient)
-            {
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                }
-                DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.KeyClient, "C");
-                // la dernière commande doit exister et ne pas être envoyée
-                if (dernièreCommande == null || dernièreCommande.Date.HasValue)
-                {
-                    return RésultatBadRequest("DerniereCommandeAbsenteOuEnvoyée");
-                }
-
-                RetourDeService<CLFDoc> retour = await _service.EnvoiCommande(dernièreCommande);
-
-                if (retour.Ok)
-                {
-                    return Ok(retour.Entité);
-                }
-
-                return SaveChangesActionResult(retour);
-            }
-            else
-            {
-                return Forbid();
-            }
-        }
-
-        /// <summary>
         /// Crée une nouvelle commande vide pour le client défini par la clé
         /// </summary>
         /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
@@ -386,11 +237,12 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/nouveau")]
         [ProducesResponseType(201)] // created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Nouveau([FromQuery] ParamsKeyClient paramsClient)
         {
-            return await CréeCommande(paramsClient, false);
+            return await CréeBon(paramsClient, false);
         }
 
         /// <summary>
@@ -402,48 +254,29 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/clone")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Clone([FromQuery] ParamsKeyClient paramsClient)
         {
-            return await CréeCommande(paramsClient, true);
+            return await CréeBon(paramsClient, true);
         }
 
-
         /// <summary>
-        /// Supprime la commande.
+        /// Efface toutes les lignes du bon et si le bon est virtuel, supprime le bon.
         /// </summary>
-        /// <param name="paramsCommande"></param>
+        /// <param name="paramsBon"></param>
         /// <returns></returns>
         [HttpPost("/api/commande/efface")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Efface([FromQuery] ParamsKeyDoc paramsCommande)
+        public async Task<IActionResult> Efface([FromQuery] ParamsKeyDoc paramsBon)
         {
-            vérificateur.Initialise(paramsCommande);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
-                await DocExiste();
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                }
-                CommandeModifiable();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
-
-            RetourDeService retour = await _service.SupprimeCommande(vérificateur.DocCLF);
-
-            return SaveChangesActionResult(retour);
+            return await EffaceBon(paramsBon);
         }
 
         #endregion
@@ -453,6 +286,7 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/ajoute")]
         [ProducesResponseType(201)] // created
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
@@ -462,15 +296,11 @@ namespace KalosfideAPI.CLF
             try
             {
                 await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                }
+                await UtilisateurEstClientActifOuNouveauOuFournisseur();
+                ContexteCatalogue();
                 await DocExiste();
                 LigneNExistePas();
-                CommandeModifiable();
+                DocModifiable();
                 await PeutCommanderProduit();
                 ChampsInterditsAbsents();
                 ChampsRequisPrésents();
@@ -481,14 +311,8 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            ligne.Date = vérificateur.ArchiveProduit.Date;
 
-            RetourDeService<CLFLigne> retour = await _service.AjouteLigne(ligne);
-
-            if (retour.Ok)
-            {
-                return Ok(retour.Entité);
-            }
+            RetourDeService retour = await _service.AjouteLigneCommande(vérificateur.Site, ligne);
 
             return SaveChangesActionResult(retour);
         }
@@ -496,6 +320,7 @@ namespace KalosfideAPI.CLF
         [HttpPut("/api/commande/edite")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
@@ -505,14 +330,10 @@ namespace KalosfideAPI.CLF
             try
             {
                 await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                }
+                await UtilisateurEstClientActifOuNouveauOuFournisseur();
+                ContexteCatalogue();
                 await LigneExiste();
-                CommandeModifiable();
+                DocModifiable();
                 await PeutCommanderProduit();
                 ChampsInterditsAbsents();
                 ChampsPrésentsValides();
@@ -522,7 +343,7 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            RetourDeService<LigneCLF> retour = await _service.EditeLigne(vérificateur.LigneCLF, ligne);
+            RetourDeService retour = await _service.EditeLigne(vérificateur.LigneCLF, ligne);
 
             return SaveChangesActionResult(retour);
         }
@@ -530,6 +351,7 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/fixe")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
@@ -541,32 +363,13 @@ namespace KalosfideAPI.CLF
         [HttpDelete("/api/commande/supprime")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Supprime([FromQuery] ParamsKeyLigne paramsLigne)
+        public new async Task<IActionResult> Supprime([FromQuery] ParamsSupprimeLigne paramsSupprime)
         {
-            vérificateur.Initialise(paramsLigne);
-            try
-            {
-                await ClientDeLAction();
-                await UtilisateurEstClientOuFournisseur();
-                CLFDocs contexte = await EtatSiteChangé();
-                if (contexte != null)
-                {
-                    return Conflict(contexte);
-                }
-                await LigneExiste();
-                CommandeModifiable();
-            }
-            catch (VérificationException)
-            {
-                return vérificateur.Erreur;
-            }
-
-            RetourDeService retour = await _service.SupprimeLigne(vérificateur.LigneCLF);
-
-            return SaveChangesActionResult(retour);
+            return await base.Supprime(paramsSupprime);
         }
 
         /// <summary>
@@ -577,12 +380,13 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/copie1")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Copie1([FromQuery] KeyUidRnoNo2 keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, _type);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeClf.Commande);
             return await Action(keyLigne, action);
         }
 
@@ -594,29 +398,31 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/copieD")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> CopieD([FromQuery] KeyUidRnoNo keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, _type);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeClf.Commande);
             return await Action(keyDoc, action);
         }
 
         /// <summary>
-        /// Copie la valeur de Quantité dans AFixer pour chaque ligne des documents 
+        /// Copie la valeur de Quantité dans AFixer pour chaque ligne des documents d'un client dont le No est dans une liste
         /// dont le client est celui du clfDocs et le numéro l'un de ceux des documents du clfDocs
         /// </summary>
-        /// <param name="clfDocs"></param>
+        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
         /// <returns></returns>
         [HttpPost("/api/commande/copieT")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> CopieT(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> CopieT(ParamsSynthèse paramsSynthèse)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, _type);
-            return await Action(clfDocs, action);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeClf.Commande);
+            return await Action(paramsSynthèse, action);
         }
 
         /// <summary>
@@ -627,12 +433,13 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/annule1")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Annule1([FromQuery] KeyUidRnoNo2 keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, _type);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeClf.Commande);
             return await Action(keyLigne, action);
         }
 
@@ -644,29 +451,30 @@ namespace KalosfideAPI.CLF
         [HttpPost("/api/commande/annuleD")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> AnnuleD([FromQuery] KeyUidRnoNo keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, _type);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeClf.Commande);
             return await Action(keyDoc, action);
         }
 
         /// <summary>
-        /// Annule la valeur de AFixer pour chaque ligne des documents 
-        /// dont le client est celui du clfDocs et le numéro l'un de ceux des documents du clfDocs
+        /// Annule la valeur de AFixer pour chaque ligne des documents d'un client dont le No est dans une liste
         /// </summary>
-        /// <param name="clfDocs"></param>
+        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
         /// <returns></returns>
         [HttpPost("/api/commande/annuleT")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> AnnuleT(CLFDocsSynthèse clfDocs)
+        public async Task<IActionResult> AnnuleT(ParamsSynthèse paramsSynthèse)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, _type);
-            return await Action(clfDocs, action);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeClf.Commande);
+            return await Action(paramsSynthèse, action);
         }
 
         #endregion

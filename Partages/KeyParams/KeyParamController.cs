@@ -2,48 +2,17 @@
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Mvc;
-using System;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Partages.KeyParams
 {
-    public abstract class KeyParamController<T, TVue, TParam> : BaseController where T : AKeyBase where TVue : AKeyBase where TParam : KeyParam
+    public abstract class KeyParamController<T, TVue> : AvecCarteController where T : AKeyBase where TVue : AKeyBase
     {
-        protected IKeyParamService<T, TVue, TParam> __service;
+        protected IKeyParamService<T, TVue> __service;
 
-        protected IUtilisateurService _utilisateurService;
-
-        /// <summary>
-        /// si présent et vrai pour une donnée, interdit les actions d'écriture sur la donnée
-        /// </summary>
-        protected DInterdiction<T> dEcritVerrouillé;
-
-        /// <summary>
-        /// si présent et vrai pour une carte d'utilisateur et une donnée, interdit d'ajouter la donnée
-        /// </summary>
-        protected DInterdictionCarte<TVue> dAjouteInterdit;
-        protected DInterdictionCarte<TVue> dEditeInterdit;
-        protected DInterdictionCarte<KeyParam> dSupprimeInterdit;
-        protected DInterdictionCarte<KeyParam> dLitInterdit;
-        protected DInterdictionCarte<KeyParam> dListeInterdit;
-
-        public KeyParamController(IKeyParamService<T, TVue, TParam> service, IUtilisateurService utilisateurService)
+        public KeyParamController(IKeyParamService<T, TVue> service, IUtilisateurService utilisateurService) : base(utilisateurService)
         {
             __service = service;
-            _utilisateurService = utilisateurService;
-        }
-
-        protected abstract void FixePermissions();
-
-        /// <summary>
-        /// par défaut toutes les actions sont interdites
-        /// </summary>
-        /// <param name="carte"></param>
-        /// <param name="param"></param>
-        /// <returns></returns>
-        protected Task<bool> Interdiction(CarteUtilisateur carte, KeyParam param)
-        {
-            return Task.FromResult(true);
         }
 
         /// <summary>
@@ -56,32 +25,18 @@ namespace KalosfideAPI.Partages.KeyParams
         /// <summary>
         /// ajoute la donnée définie par la vue
         /// </summary>
+        /// <param name="carte">Carte utilisateur comportant une erreur si l'ajout n'est pas autorisé</param>
         /// <param name="vue">contient tous les champs pour créer une donnée</param>
         /// <returns></returns>
-        public async Task<IActionResult> Ajoute(TVue vue)
+        protected async Task<IActionResult> Ajoute(CarteUtilisateur carte, TVue vue)
         {
-            if (dAjouteInterdit != null)
+            if (carte.Erreur != null)
             {
-                CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-                if (carte == null)
-                {
-                    // fausse carte
-                    return Forbid();
-                }
-
-                if (await dAjouteInterdit(carte, vue))
-                {
-                    return Forbid();
-                }
+                return carte.Erreur;
             }
 
             await FixeKeyParamAjout(vue);
             T donnée = __service.CréeDonnée(vue);
-
-            if (dEcritVerrouillé != null && await dEcritVerrouillé(donnée))
-            {
-                return Conflict();
-            }
 
             DValideModel<T> dValideAjoute = __service.DValideAjoute();
             if (dValideAjoute != null)
@@ -97,46 +52,30 @@ namespace KalosfideAPI.Partages.KeyParams
 
             if (retour.Ok)
             {
-                return CreatedAtAction(nameof(Lit), vue);
+                return StatusCode(201, vue.KeyParam);
             }
 
             return SaveChangesActionResult(retour);
         }
 
         /// <summary>
-        /// remplace la donnée ayant la même clé que la vue par la donnée définie par la vue
+        /// Modifie une donnée par les champs présents dans la vue
         /// </summary>
-        /// <param name="vue">contient tous les champs pour créer une donnée</param>
+        /// <param name="carte">Carte utilisateur comportant une erreur si l'édition n'est pas autorisée</param>
+        /// <param name="donnée">donnée à modifier si elle existe</param>
+        /// <param name="vue">contient les champs à modifier dans la donnée</param>
         /// <returns></returns>
-        public async Task<IActionResult> Edite(TVue vue)
+        protected async Task<IActionResult> Edite(CarteUtilisateur carte, T donnée, TVue vue)
         {
-            // vérifie les droits de l'utilisateur
-            if (dEditeInterdit != null)
+            if (carte.Erreur != null)
             {
-                CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-                if (carte == null)
-                {
-                    // fausse carte
-                    return Forbid();
-                }
-
-                if (await dEditeInterdit(carte, vue))
-                {
-                    return Forbid();
-                }
+                return carte.Erreur;
             }
 
             // vérifie l'existence de la donnée
-            T donnée = await __service.Lit(vue.KeyParam as TParam);
             if (donnée == null)
             {
                 return NotFound();
-            }
-
-            // vérifie que l'écriture est possible
-            if (dEcritVerrouillé != null && await dEcritVerrouillé(donnée))
-            {
-                return Conflict();
             }
 
             // vérifie que les valeurs à changer sont valides
@@ -156,32 +95,22 @@ namespace KalosfideAPI.Partages.KeyParams
             return SaveChangesActionResult(retour);
         }
 
-        public async Task<IActionResult> Supprime(TParam param)
+        /// <summary>
+        /// Supprime une donnée.
+        /// </summary>
+        /// <param name="carte">Carte utilisateur comportant une erreur si l'édition n'est pas autorisée</param>
+        /// <param name="donnée">donnée à supprimer si elle existe</param>
+        /// <returns></returns>
+        protected async Task<IActionResult> Supprime(CarteUtilisateur carte, T donnée)
         {
-            if (dSupprimeInterdit != null)
+            if (carte.Erreur != null)
             {
-                CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-                if (carte == null)
-                {
-                    // fausse carte
-                    return Forbid();
-                }
-
-                if (await dSupprimeInterdit(carte, param))
-                {
-                    return Forbid();
-                }
+                return carte.Erreur;
             }
 
-            var donnée = await __service.Lit(param);
             if (donnée == null)
             {
                 return NotFound();
-            }
-
-            if (dEcritVerrouillé != null && await dEcritVerrouillé(donnée))
-            {
-                return Conflict();
             }
 
             DValideModel<T> dValideSupprime = __service.DValideSupprime();
@@ -197,67 +126,6 @@ namespace KalosfideAPI.Partages.KeyParams
             var retour = await __service.Supprime(donnée);
 
             return SaveChangesActionResult(retour);
-        }
-
-        protected async Task<IActionResult> Lit(Func<TParam, Task<object>> litObjet, TParam param)
-        {
-            if (dLitInterdit != null)
-            {
-                CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-                if (carte == null)
-                {
-                    // fausse carte
-                    return Forbid();
-                }
-
-                if (await dLitInterdit(carte, param))
-                {
-                    return Forbid();
-                }
-            }
-
-            object objet = await litObjet(param);
-            if (objet == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(objet);
-        }
-        public async Task<IActionResult> Lit(TParam param)
-        {
-            return await Lit(async (p) => await __service.LitVue(p), param);
-        }
-
-        protected async Task<IActionResult> Liste(Func<Task<object>> litListe, KeyParam param)
-        {
-            if (dListeInterdit != null)
-            {
-                CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(HttpContext.User);
-                if (carte == null)
-                {
-                    // fausse carte
-                    return Forbid();
-                }
-
-                if (await dListeInterdit(carte, param))
-                {
-                    return Forbid();
-                }
-            }
-
-           object objet = await litListe();
-            if (objet == null)
-            {
-                return NotFound();
-            }
-
-            return Ok(objet);
-        }
-
-        public async Task<IActionResult> Liste()
-        {
-            return await Liste(async () => await __service.ListeVue(null), null);
         }
 
     }

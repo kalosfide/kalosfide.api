@@ -19,20 +19,6 @@ namespace KalosfideAPI.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128)
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
-            modelBuilder.Entity("KalosfideAPI.Data.Administrateur", b =>
-                {
-                    b.Property<string>("Uid")
-                        .HasColumnType("nvarchar(20)")
-                        .HasMaxLength(20);
-
-                    b.Property<int>("Rno")
-                        .HasColumnType("int");
-
-                    b.HasKey("Uid", "Rno");
-
-                    b.ToTable("Administrateurs");
-                });
-
             modelBuilder.Entity("KalosfideAPI.Data.ApplicationUser", b =>
                 {
                     b.Property<string>("Id")
@@ -114,7 +100,6 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Nom")
-                        .IsRequired()
                         .HasColumnType("nvarchar(200)")
                         .HasMaxLength(200);
 
@@ -123,34 +108,6 @@ namespace KalosfideAPI.Migrations
                     b.HasIndex("Uid", "Rno", "No");
 
                     b.ToTable("ArchiveCatégories");
-                });
-
-            modelBuilder.Entity("KalosfideAPI.Data.ArchiveClient", b =>
-                {
-                    b.Property<string>("Uid")
-                        .HasColumnType("nvarchar(20)")
-                        .HasMaxLength(20);
-
-                    b.Property<int>("Rno")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Adresse")
-                        .HasColumnType("nvarchar(500)")
-                        .HasMaxLength(500);
-
-                    b.Property<string>("Nom")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(200)")
-                        .HasMaxLength(200);
-
-                    b.HasKey("Uid", "Rno", "Date");
-
-                    b.HasIndex("Uid", "Rno");
-
-                    b.ToTable("ArchiveClients");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.ArchiveProduit", b =>
@@ -209,9 +166,29 @@ namespace KalosfideAPI.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Adresse")
+                        .HasColumnType("nvarchar(500)")
+                        .HasMaxLength(500);
+
                     b.Property<string>("Etat")
                         .HasColumnType("nvarchar(1)")
                         .HasMaxLength(1);
+
+                    b.Property<string>("FormatNomFichierCommande")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierFacture")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierLivraison")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nom")
+                        .HasColumnType("nvarchar(200)")
+                        .HasMaxLength(200);
+
+                    b.Property<string>("Ville")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Uid", "Rno", "Date");
 
@@ -232,27 +209,8 @@ namespace KalosfideAPI.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Adresse")
-                        .HasColumnType("nvarchar(500)")
-                        .HasMaxLength(500);
-
-                    b.Property<string>("Etat")
-                        .HasColumnType("nvarchar(1)")
-                        .HasMaxLength(1);
-
-                    b.Property<string>("FormatNomFichierCommande")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FormatNomFichierFacture")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FormatNomFichierLivraison")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Nom")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(200)")
-                        .HasMaxLength(200);
+                    b.Property<bool?>("Ouvert")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Titre")
                         .HasColumnType("nvarchar(200)")
@@ -261,9 +219,6 @@ namespace KalosfideAPI.Migrations
                     b.Property<string>("Url")
                         .HasColumnType("nvarchar(200)")
                         .HasMaxLength(200);
-
-                    b.Property<string>("Ville")
-                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Uid", "Rno", "Date");
 
@@ -288,6 +243,9 @@ namespace KalosfideAPI.Migrations
                     b.Property<int?>("NoDernierRole")
                         .HasColumnType("int");
 
+                    b.Property<int?>("SessionId")
+                        .HasColumnType("int");
+
                     b.HasKey("Uid", "Date");
 
                     b.HasIndex("Uid");
@@ -307,6 +265,9 @@ namespace KalosfideAPI.Migrations
                     b.Property<long>("No")
                         .HasColumnType("bigint");
 
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasColumnType("nvarchar(200)")
@@ -318,31 +279,6 @@ namespace KalosfideAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("Catégories");
-                });
-
-            modelBuilder.Entity("KalosfideAPI.Data.Client", b =>
-                {
-                    b.Property<string>("Uid")
-                        .HasColumnType("nvarchar(20)")
-                        .HasMaxLength(20);
-
-                    b.Property<int>("Rno")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Adresse")
-                        .HasColumnType("nvarchar(500)")
-                        .HasMaxLength(500);
-
-                    b.Property<string>("Nom")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(200)")
-                        .HasMaxLength(200);
-
-                    b.HasKey("Uid", "Rno");
-
-                    b.HasIndex("Nom");
-
-                    b.ToTable("Clients");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.DocCLF", b =>
@@ -416,6 +352,20 @@ namespace KalosfideAPI.Migrations
                     b.ToTable("Invitation");
                 });
 
+            modelBuilder.Entity("KalosfideAPI.Data.InvitationSite", b =>
+                {
+                    b.Property<string>("Uid")
+                        .HasColumnType("nvarchar(20)")
+                        .HasMaxLength(20);
+
+                    b.Property<int>("Rno")
+                        .HasColumnType("int");
+
+                    b.HasKey("Uid", "Rno");
+
+                    b.ToTable("InvitationsSite");
+                });
+
             modelBuilder.Entity("KalosfideAPI.Data.LigneCLF", b =>
                 {
                     b.Property<string>("Uid")
@@ -438,14 +388,14 @@ namespace KalosfideAPI.Migrations
                     b.Property<long>("No2")
                         .HasColumnType("bigint");
 
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Type")
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<decimal?>("AFixer")
                         .HasColumnType("decimal(8,3)");
-
-                    b.Property<DateTime>("Date")
-                        .HasColumnType("datetime2");
 
                     b.Property<decimal?>("Quantité")
                         .HasColumnType("decimal(8,3)");
@@ -454,13 +404,49 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("nvarchar(1)")
                         .HasMaxLength(1);
 
-                    b.HasKey("Uid", "Rno", "No", "Uid2", "Rno2", "No2", "Type");
+                    b.HasKey("Uid", "Rno", "No", "Uid2", "Rno2", "No2", "Date", "Type");
+
+                    b.HasIndex("Uid2", "Rno2", "No2");
 
                     b.HasIndex("Uid", "Rno", "No", "Type");
 
-                    b.HasIndex("Uid2", "Rno2", "No2", "Date");
-
                     b.ToTable("Lignes");
+                });
+
+            modelBuilder.Entity("KalosfideAPI.Data.NouveauSite", b =>
+                {
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(256)")
+                        .HasMaxLength(256);
+
+                    b.Property<string>("Adresse")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Nom")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Titre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(200)")
+                        .HasMaxLength(200);
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(200)")
+                        .HasMaxLength(200);
+
+                    b.Property<string>("Ville")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Email");
+
+                    b.ToTable("NouveauxSites");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.Produit", b =>
@@ -477,6 +463,9 @@ namespace KalosfideAPI.Migrations
 
                     b.Property<long>("CategorieNo")
                         .HasColumnType("bigint");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Etat")
                         .ValueGeneratedOnAdd()
@@ -527,11 +516,29 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("Rno")
                         .HasColumnType("int");
 
+                    b.Property<string>("Adresse")
+                        .HasColumnType("nvarchar(500)")
+                        .HasMaxLength(500);
+
                     b.Property<string>("Etat")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(1)")
                         .HasMaxLength(1)
-                        .HasDefaultValue("N");
+                        .HasDefaultValue("A");
+
+                    b.Property<string>("FormatNomFichierCommande")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierFacture")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierLivraison")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Nom")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(200)")
+                        .HasMaxLength(200);
 
                     b.Property<int>("SiteRno")
                         .HasColumnType("int");
@@ -539,6 +546,9 @@ namespace KalosfideAPI.Migrations
                     b.Property<string>("SiteUid")
                         .HasColumnType("nvarchar(20)")
                         .HasMaxLength(20);
+
+                    b.Property<string>("Ville")
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Uid", "Rno");
 
@@ -558,29 +568,13 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("Rno")
                         .HasColumnType("int");
 
-                    b.Property<string>("Adresse")
-                        .HasColumnType("nvarchar(500)")
-                        .HasMaxLength(500);
+                    b.Property<DateTime?>("DateCatalogue")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("Etat")
+                    b.Property<bool>("Ouvert")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(1)")
-                        .HasMaxLength(1)
-                        .HasDefaultValue("O");
-
-                    b.Property<string>("FormatNomFichierCommande")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FormatNomFichierFacture")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("FormatNomFichierLivraison")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Nom")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(200)")
-                        .HasMaxLength(200);
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Titre")
                         .HasColumnType("nvarchar(200)")
@@ -590,12 +584,7 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("nvarchar(200)")
                         .HasMaxLength(200);
 
-                    b.Property<string>("Ville")
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Uid", "Rno");
-
-                    b.HasIndex("Nom");
 
                     b.HasIndex("Url");
 
@@ -613,6 +602,11 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("nvarchar(1)")
                         .HasMaxLength(1)
                         .HasDefaultValue("N");
+
+                    b.Property<int>("SessionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("UserId")
                         .HasColumnType("nvarchar(450)");
@@ -757,19 +751,10 @@ namespace KalosfideAPI.Migrations
                     b.ToTable("AspNetUserTokens");
                 });
 
-            modelBuilder.Entity("KalosfideAPI.Data.Administrateur", b =>
-                {
-                    b.HasOne("KalosfideAPI.Data.Role", "Role")
-                        .WithOne()
-                        .HasForeignKey("KalosfideAPI.Data.Administrateur", "Uid", "Rno")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("KalosfideAPI.Data.ArchiveCatégorie", b =>
                 {
                     b.HasOne("KalosfideAPI.Data.Catégorie", "Catégorie")
-                        .WithMany("ArchiveCatégories")
+                        .WithMany("Archives")
                         .HasForeignKey("Uid", "Rno", "No")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -778,7 +763,7 @@ namespace KalosfideAPI.Migrations
             modelBuilder.Entity("KalosfideAPI.Data.ArchiveProduit", b =>
                 {
                     b.HasOne("KalosfideAPI.Data.Produit", "Produit")
-                        .WithMany("ArchiveProduits")
+                        .WithMany("Archives")
                         .HasForeignKey("Uid", "Rno", "No")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -793,10 +778,19 @@ namespace KalosfideAPI.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("KalosfideAPI.Data.ArchiveSite", b =>
+                {
+                    b.HasOne("KalosfideAPI.Data.Site", "Site")
+                        .WithMany("Archives")
+                        .HasForeignKey("Uid", "Rno")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("KalosfideAPI.Data.ArchiveUtilisateur", b =>
                 {
                     b.HasOne("KalosfideAPI.Data.Utilisateur", "Utilisateur")
-                        .WithMany("Etats")
+                        .WithMany("Archives")
                         .HasForeignKey("Uid")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -811,18 +805,9 @@ namespace KalosfideAPI.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("KalosfideAPI.Data.Client", b =>
-                {
-                    b.HasOne("KalosfideAPI.Data.Role", "Role")
-                        .WithOne()
-                        .HasForeignKey("KalosfideAPI.Data.Client", "Uid", "Rno")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("KalosfideAPI.Data.DocCLF", b =>
                 {
-                    b.HasOne("KalosfideAPI.Data.Client", "Client")
+                    b.HasOne("KalosfideAPI.Data.Role", "Client")
                         .WithMany("Docs")
                         .HasForeignKey("Uid", "Rno")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -840,11 +825,6 @@ namespace KalosfideAPI.Migrations
                         .WithMany("Lignes")
                         .HasForeignKey("Uid", "Rno", "No", "Type")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("KalosfideAPI.Data.ArchiveProduit", "ArchiveProduit")
-                        .WithMany("Lignes")
-                        .HasForeignKey("Uid2", "Rno2", "No2", "Date")
                         .IsRequired();
                 });
 

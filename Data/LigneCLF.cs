@@ -1,10 +1,5 @@
 ﻿using KalosfideAPI.Data.Keys;
 using System;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
 using KalosfideAPI.Data.Constantes;
@@ -44,21 +39,24 @@ namespace KalosfideAPI.Data
         public override long No2 { get; set; }
 
         /// <summary>
-        /// 'C' ou 'L' ou 'F'.
+        /// Quand une ligne est ajoutée à un bon, elle a la date du catalogue au moment de l'ajout.
+        /// Quand un bon de commande est envoyé, ses lignes prennent la date du catalogue au moment de l'envoi.
+        /// Quand une synthèse est enregistrée, sa date est fixée et les lignes du bon virtuel éventuel sont
+        /// incorporées dans la synthèse avec la date de la synthèse et les lignes des autres bons avec la date qu'ils ont déjà.
+        /// </summary>
+        public override DateTime Date { get; set; }
+
+        /// <summary>
+        /// L'une des constantes TypeCLF.Commande ou TypeCLF.Livraison ou TypeCLF.Facture
         /// </summary>
         public string Type { get; set; }
 
         // données
 
-        /// <summary>
-        /// Date de la dernière archive du produit antérieure à la création de la ligne.
-        /// </summary>
-        public DateTime Date { get; set; }
-
 
         /// <summary>
         /// Présent uniquement si le CLFDoc est une commande.
-        /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
+        /// Indique si Quantité est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
         /// Si absent, la valeur par défaut du type de commande associée au TypeMesure du Produit est utilisée.
         /// </summary>
         public string TypeCommande { get; set; }
@@ -77,7 +75,6 @@ namespace KalosfideAPI.Data
         // navigation
         virtual public DocCLF Doc { get; set; }
         virtual public Produit Produit { get; set; }
-        virtual public ArchiveProduit ArchiveProduit { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
@@ -92,6 +89,7 @@ namespace KalosfideAPI.Data
             entité.Property(ligne => ligne.Uid2).HasMaxLength(LongueurMax.UId);
             entité.Property(ligne => ligne.Rno2).IsRequired();
             entité.Property(ligne => ligne.No2).IsRequired();
+            entité.Property(ligne => ligne.Date).IsRequired();
             entité.Property(ligne => ligne.Type).IsRequired();
 
             entité.HasKey(ligne => new
@@ -102,6 +100,7 @@ namespace KalosfideAPI.Data
                 ligne.Uid2,
                 ligne.Rno2,
                 ligne.No2,
+                ligne.Date,
                 ligne.Type
             });
 
@@ -122,19 +121,15 @@ namespace KalosfideAPI.Data
                 .HasPrincipalKey(produit => new { produit.Uid, produit.Rno, produit.No })
                 .OnDelete(DeleteBehavior.ClientSetNull);
 
-            entité
-                .HasOne(ligne => ligne.ArchiveProduit)
-                .WithMany(ap => ap.Lignes)
-                .HasForeignKey(ligne => new { ligne.Uid2, ligne.Rno2, ligne.No2, ligne.Date })
-                .HasPrincipalKey(produit => new { produit.Uid, produit.Rno, produit.No, produit.Date })
-                .OnDelete(DeleteBehavior.ClientSetNull);
-
             entité.ToTable("Lignes");
         }
 
+        /// <summary>
+        /// Crée une copie avec une autre clé de client.
+        /// </summary>
         public static LigneCLF Clone(string uid, int rno, LigneCLF ligne)
         {
-            return new LigneCLF
+            LigneCLF copie = new LigneCLF
             {
                 Uid = uid,
                 Rno = rno,
@@ -148,6 +143,29 @@ namespace KalosfideAPI.Data
                 Quantité = ligne.Quantité,
                 AFixer = ligne.AFixer
             };
+            return copie;
+        }
+
+        /// <summary>
+        /// Crée une copie avec une autre date.
+        /// </summary>
+        public static LigneCLF Clone(DateTime date, LigneCLF ligne)
+        {
+            LigneCLF copie = new LigneCLF
+            {
+                Uid = ligne.Uid,
+                Rno = ligne.Rno,
+                No = ligne.No,
+                Uid2 = ligne.Uid2,
+                Rno2 = ligne.Rno2,
+                No2 = ligne.No2,
+                Type = ligne.Type,
+                Date = date,
+                TypeCommande = ligne.TypeCommande,
+                Quantité = ligne.Quantité,
+                AFixer = ligne.AFixer
+            };
+            return copie;
         }
     }
 }

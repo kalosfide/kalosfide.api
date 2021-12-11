@@ -1,4 +1,5 @@
-﻿using KalosfideAPI.Data.Constantes;
+﻿using KalosfideAPI.Catégories;
+using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveCatégorie: AKeyUidRnoNo, IKeyArchive
+    public class ArchiveCatégorie: AKeyUidRnoNo, IAvecDate, ICatégorieData
     {
         // key
         [Required]
@@ -23,7 +24,6 @@ namespace KalosfideAPI.Data
         public DateTime Date { get; set; }
 
         // données
-        [Required]
         [MinLength(10), MaxLength(200)]
         public string Nom { get; set; }
 
@@ -41,7 +41,7 @@ namespace KalosfideAPI.Data
 
             entité
                 .HasOne(archive => archive.Catégorie)
-                .WithMany(catégorie => catégorie.ArchiveCatégories)
+                .WithMany(catégorie => catégorie.Archives)
                 .HasForeignKey(archive => new { archive.Uid, archive.Rno, archive.No })
                 .HasPrincipalKey(catégorie => new { catégorie.Uid, catégorie.Rno, catégorie.No });
 

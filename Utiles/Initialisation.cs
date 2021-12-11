@@ -8,6 +8,7 @@ namespace KalosfideAPI.Utiles
         public static void ConfigureServices(IServiceCollection services)
         {
             services.AddScoped<IUtileService, UtileService>();
+            services.AddScoped<IEnvoieEmailService, EnvoieEmailService>();
         }
 
     }

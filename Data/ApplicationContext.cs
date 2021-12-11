@@ -26,10 +26,10 @@ namespace KalosfideAPI.Data
             Data.Site.CréeTable(builder);
             Data.ArchiveSite.CréeTable(builder);
 
-            Data.Administrateur.CréeTable(builder);
-            Data.Client.CréeTable(builder);
-            Data.ArchiveClient.CréeTable(builder);
             Data.Invitation.CréeTable(builder);
+
+            Data.NouveauSite.CréeTable(builder);
+            Data.InvitationSite.CréeTable(builder);
 
             // Tables de données
             Data.Catégorie.CréeTable(builder);
@@ -52,9 +52,8 @@ namespace KalosfideAPI.Data
         public DbSet<Site> Site { get; set; }
         public DbSet<ArchiveSite> ArchiveSite { get; set; }
 
-        public DbSet<Administrateur> Administrateur { get; set; }
-        public DbSet<Client> Client { get; set; }
-        public DbSet<ArchiveClient> ArchiveClient { get; set; }
+        public DbSet<NouveauSite> NouveauxSites { get; set; }
+
         public DbSet<Invitation> Invitation { get; set; }
 
         public DbSet<Catégorie> Catégorie { get; set; }

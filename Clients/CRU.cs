@@ -7,14 +7,13 @@ using System.Threading.Tasks;
 namespace KalosfideAPI.Clients
 {
     /// <summary>
-    /// CRU = Client Role Utilisateur
+    /// RU = { Role, Utilisateur } d'un client
     /// </summary>
-    public class CRU
+    public class RU
     {
-        public Client Client { get; set; }
         public Role Role { get; set; }
         public DateTime DateEtat { get; set; }
         public Utilisateur Utilisateur { get; set; }
-        public bool AvecCommandes { get; set; }
+        public bool AvecDocuments { get; set; }
     }
 }

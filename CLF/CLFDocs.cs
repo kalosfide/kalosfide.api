@@ -1,6 +1,8 @@
 ﻿using KalosfideAPI.Catalogues;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Roles;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,33 +10,24 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.CLF
 {
+    [JsonObject(MemberSerialization.OptIn)]
     public class CLFDocs
     {
-        /// <summary>
-        /// Envoyé avec Etat seulement pour vérifier s'il faut recharger le stock
-        /// </summary>
-        public Site Site { get; set; }
+        [JsonProperty]
+        public List<CLFDoc> ApiDocs { get; set; }
 
         /// <summary>
-        /// Envoyé avec Date seulement pour vérifier s'il faut recharger le stock
+        /// Tarif à apliquer à certaines lignes.
+        /// Présent si
         /// </summary>
-        public Catalogue Catalogue { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public Catalogue Tarif { get; set; }
 
         /// <summary>
-        /// Le Client reçu avec les documents à affecter à une synthèse ne contient que la clé.
+        /// Client des documents.
         /// </summary>
-        public Client Client { get; set; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public RoleData Client { get; set; }
 
-        /// <summary>
-        /// Reçu avec les documents contenant seulement leur numéros pour les affecter à une synthèse.
-        /// Envoyé avec les lignes ou le résumé.
-        /// </summary>
-        public List<CLFDoc> Documents { get; set; }
-    }
-
-    public class CLFDocsSynthèse
-    {
-        public KeyUidRno KeyClient { get; set; }
-        public List<long> NoDocs { get; set; }
     }
 }

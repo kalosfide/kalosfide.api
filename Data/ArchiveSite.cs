@@ -7,7 +7,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveSite : AKeyUidRno, IKeyArchive
+    public class ArchiveSite : AKeyUidRno, IAvecDate
     {
         // key
         [Required]
@@ -24,34 +24,13 @@ namespace KalosfideAPI.Data
         [MaxLength(200)]
         public string Titre { get; set; }
 
-        [Required]
-        [MaxLength(200)]
-        public string Nom { get; set; }
-        [MaxLength(500)]
-        public string Adresse { get; set; }
-
         /// <summary>
-        /// Ville de signature des documents
+        /// Vrai quand il n'y a pas de modification du catalogue en cours.
         /// </summary>
-        public string Ville { get; set; }
+        public bool? Ouvert { get; set; }
 
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierCommande { get; set; }
-
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierLivraison { get; set; }
-
-        /// <summary>
-        /// Chaîne de caractère où {no} représente le numéro du document et {client} le nom du client 
-        /// </summary>
-        public string FormatNomFichierFacture { get; set; }
-
-        [StringLength(1)]
-        public string Etat { get; set; }
+        // navigation
+        public virtual Site Site { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
@@ -66,6 +45,12 @@ namespace KalosfideAPI.Data
             });
 
             entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno });
+
+            entité
+                .HasOne(a => a.Site)
+                .WithMany(s => s.Archives)
+                .HasForeignKey(a => new { a.Uid, a.Rno })
+                .HasPrincipalKey(s => new { s.Uid, s.Rno });
 
             entité.ToTable("ArchiveSites");
         }

@@ -19,7 +19,7 @@ namespace KalosfideAPI.Démarrage
         public static void ConfigureServices(IServiceCollection services, IConfiguration configuration)
         {
             // Get options from app settings
-            var jwtAppSettingOptions = configuration.GetSection(nameof(JwtFabriqueOptions));
+            IConfigurationSection jwtAppSettingOptions = configuration.GetSection(nameof(JwtFabriqueOptions));
 
             string SecretKey = jwtAppSettingOptions[nameof(SecretKey)];
             SymmetricSecurityKey _signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(SecretKey));

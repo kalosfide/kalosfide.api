@@ -6,12 +6,14 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Utilisateurs
 {
-    public class DevenirClientVue: IClient, ICréeCompteVue
+    public class DevenirClientVue: IRoleData, ICréeCompteVue
     {
         public string Email { get; set; }
         public string Password { get; set; }
         public string Nom { get; set; }
         public string Adresse { get; set; }
+        public string Ville { get; set; }
         public string Code { get; set; }
+        public string Etat { get; set; }
     }
 }

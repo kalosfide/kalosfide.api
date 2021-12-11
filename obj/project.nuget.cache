@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "u5r5OyRsf1TLkgIhXr9fbdFH1ZXeNfv2MruvX4uHGTADuW3xGUpegv7PKhEkVLulDeQgFCXqVujXN6OVGiosHQ==",
+  "dgSpecHash": "QiAgNdaZwa49mzq1bxEaWxaC7dxPgX2zYGfCFqRi19inDViu9jrZxOazYVCNgglt3om6B/P/4u7VdqT1mgUgLw==",
   "success": true,
   "projectFilePath": "C:\\Users\\François Bonnefoi\\Kalosfide\\kalosfide.api\\kalosfide.api\\KalosfideAPI.csproj",
   "expectedPackageFiles": [
@@ -185,7 +185,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xdocument\\4.3.0\\system.xml.xdocument.4.3.0.nupkg.sha512",
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xmldocument\\4.3.0\\system.xml.xmldocument.4.3.0.nupkg.sha512",
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xmlserializer\\4.3.0\\system.xml.xmlserializer.4.3.0.nupkg.sha512",
-    "C:\\Users\\François Bonnefoi\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\3.1.2\\microsoft.aspnetcore.app.ref.3.1.2.nupkg.sha512"
+    "C:\\Users\\François Bonnefoi\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\3.1.13\\microsoft.netcore.app.host.win-x64.3.1.13.nupkg.sha512"
   ],
   "logs": []
 }

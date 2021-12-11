@@ -1,14 +1,16 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using KalosfideAPI.Data.Constantes;
+using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class Produit: Keys.AKeyUidRnoNo
+    public class Produit: AKeyUidRnoNo, IAvecDate
     {
         // key
         [Required]
@@ -50,9 +52,15 @@ namespace KalosfideAPI.Data
 
         [StringLength(1)]
         public string Etat { get; set; }
+        /// <summary>
+        /// Date de la création jusqu'à fin de la modification de catalogue où ce produit est créé.
+        /// Date de la fin de la modification de catalogue où ce produit a été ajouté ou modifié.
+        /// C'est aussi celle de la dernière archive de ce produit.
+        /// </summary>
+        public DateTime Date { get; set; }
 
         // navigation
-        virtual public ICollection<ArchiveProduit> ArchiveProduits { get; set; }
+        virtual public ICollection<ArchiveProduit> Archives { get; set; }
         virtual public Catégorie Catégorie { get; set; }
 
         virtual public ICollection<LigneCLF> Lignes { get; set; }

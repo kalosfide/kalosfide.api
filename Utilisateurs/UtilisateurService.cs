@@ -2,7 +2,6 @@
 using KalosfideAPI.Partages;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.WebUtilities;
 using System;
 using System.Linq;
@@ -10,12 +9,12 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Sites;
 using System.Security.Claims;
 using System.Text;
-using KalosfideAPI.Roles;
-using KalosfideAPI.Clients;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Utiles;
 
 namespace KalosfideAPI.Utilisateurs
 {
@@ -24,60 +23,57 @@ namespace KalosfideAPI.Utilisateurs
     {
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IRoleService _roleService;
-        protected readonly ISiteService _siteService;
-        private readonly IClientService _clientService;
-        private readonly IDataProtector _protector;
+        private readonly IJwtFabrique _jwtFabrique;
+        private readonly IEnvoieEmailService _emailService;
 
         public UtilisateurService(
             ApplicationContext context,
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            ISiteService siteService,
-            IRoleService roleService,
-            IClientService clientService,
-            IDataProtectionProvider dataProtectionProvider
+            IJwtFabrique jwtFabrique,
+            IEnvoieEmailService emailService
             ) : base(context)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _siteService = siteService;
-            _roleService = roleService;
-            _clientService = clientService;
-            _protector = dataProtectionProvider.CreateProtector("Kalosfide.devenir.client");
+            _jwtFabrique = jwtFabrique;
+            _emailService = emailService;
         }
 
-        #region Validation
+        #region Recherche
 
-        public async Task<bool> NomUnique(string nom)
-        {
-            var doublon = await _context.Users.Where(s => s.UserName == nom).FirstOrDefaultAsync();
-            return doublon == null;
-        }
-
-        #endregion // Validation
-
-        public async Task<ApplicationUser> TrouveParId(string userId)
+        /// <summary>
+        /// Cherche un ApplicationUser à partir de son Id.
+        /// </summary>
+        /// <param name="userId">Id de l'ApplicationUser recherché</param>
+        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
+        public async Task<ApplicationUser> ApplicationUserDeUserId(string userId)
         {
             return await _userManager.FindByIdAsync(userId);
         }
 
-        public async Task<ApplicationUser> TrouveParNom(string userName)
-        {
-            return await _userManager.FindByNameAsync(userName);
-        }
-
-        public async Task<ApplicationUser> TrouveParEmail(string eMail)
+        /// <summary>
+        /// Cherche un ApplicationUser à partir de son Email.
+        /// </summary>
+        /// <param name="eMail">Email de l'ApplicationUser recherché</param>
+        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
+        public async Task<ApplicationUser> ApplicationUserDeEmail(string eMail)
         {
             return await _userManager.FindByEmailAsync(eMail);
         }
 
-        public async Task<ApplicationUser> ApplicationUserVérifié(string userName, string password)
+        /// <summary>
+        /// Cherche un ApplicationUser à partir de son Email et vérifie son mot de passe.
+        /// </summary>
+        /// <param name="eMail">email de l'ApplicationUser recherché</param>
+        /// <param name="password">mot de passe à vérifier</param>
+        /// <returns>l'ApplicationUser trouvé si le mot de passe correspond à l'email, ou null.</returns>
+        public async Task<ApplicationUser> ApplicationUserVérifié(string eMail, string password)
         {
-            if (!string.IsNullOrEmpty(userName) && !string.IsNullOrEmpty(password))
+            if (!string.IsNullOrEmpty(eMail) && !string.IsNullOrEmpty(password))
             {
                 // get the user to verifty
-                ApplicationUser user = await _userManager.FindByNameAsync(userName);
+                ApplicationUser user = await _userManager.FindByNameAsync(eMail);
 
                 if (user != null)
                 {
@@ -93,134 +89,260 @@ namespace KalosfideAPI.Utilisateurs
             return await Task.FromResult<ApplicationUser>(null);
         }
 
-#pragma warning disable IDE0060 // Supprimer le paramètre inutilisé
-        private Task SendEmailAsync(string adresse, string objet, string corps)
-#pragma warning restore IDE0060 // Supprimer le paramètre inutilisé
+        /// <summary>
+        /// Cherche un Utilisateur à partir de son ApplicationUser.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns>l'Utilisateur trouvé qui inclut ses Roles qui incluent leurs Site, ou null.</returns>
+        public async Task<Utilisateur> UtilisateurDeApplicationUser(ApplicationUser user)
         {
-            return Task.CompletedTask;
+            return await _context.Utilisateur.Where(utilisateur => utilisateur.UserId == user.Id)
+                .Include(utilisateur => utilisateur.Roles)
+                .ThenInclude(role => role.Site)
+                .FirstOrDefaultAsync();
         }
+
+        /// <summary>
+        /// Cherche un Utilisateur à partir de son Uid.
+        /// </summary>
+        /// <param name="uid"></param>
+        /// <returns>l'Utilisateur trouvé qui inclut son ApplicationUser, ou null.</returns>
+        public async Task<Utilisateur> UtilisateurDeUid(string uid)
+        {
+            Utilisateur utilisateur = await _context.Utilisateur.FindAsync(uid);
+            if (utilisateur != null)
+            {
+                ApplicationUser applicationUser = await _context.Users.FindAsync(utilisateur.UserId);
+                utilisateur.ApplicationUser = applicationUser;
+            }
+            return utilisateur;
+        }
+
+        /// <summary>
+        /// Cherche un Role à partir de sa KeyUidRno.
+        /// </summary>
+        /// <param name="iKeyRole">objet ayant l'Uid et le Rno du Role recherché</param>
+        /// <returns>le Role trouvé qui inclut son Site, ou null.</returns>
+        public async Task<Role> RoleDeKey(IKeyUidRno iKeyRole)
+        {
+            Role role = await _context.Role
+                .Where(r => r.Uid == iKeyRole.Uid && r.Rno == iKeyRole.Rno)
+                .Include(r => r.Site)
+                .FirstOrDefaultAsync();
+            return role;
+        }
+
+        #endregion // Recherche
+
+        #region CarteUtilisateur
+
+        /// <summary>
+        /// Crée une CarteUtilisateur à partir d'un ApplicationUser.
+        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites et leurs Archives.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns>la CarteUtilisateur créée</returns>
+        public async Task<CarteUtilisateur> CréeCarteUtilisateur(ApplicationUser user)
+        {
+            Utilisateur utilisateur = await _context.Utilisateur.Where(u => u.UserId == user.Id)
+                .Include(u => u.Roles).ThenInclude(r => r.Site)
+                .Include(u => u.Roles).ThenInclude(r => r.Archives)
+                .FirstAsync();
+            utilisateur.ApplicationUser = user;
+
+            CarteUtilisateur carte = new CarteUtilisateur(_context);
+            await carte.FixeUtilisateur(utilisateur);
+            return carte;
+        }
+
+        /// <summary>
+        /// Crée une CarteUtilisateur à partir des Claims envoyées avec une requête Http.
+        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites.
+        /// </summary>
+        /// <param name="httpContext">le HttpContext de la requête</param>
+        /// <returns>la CarteUtilisateur créée, ou null si les Claims ne sont pas valide</returns>
+        public async Task<CarteUtilisateur> CréeCarteUtilisateur(HttpContext httpContext)
+        {
+            CarteUtilisateur carte = new CarteUtilisateur(_context);
+            ClaimsPrincipal user = httpContext.User;
+            IEnumerable<Claim> claims = user.Identities.FirstOrDefault()?.Claims;
+            if (claims == null || claims.Count() == 0)
+            {
+                return carte;
+            }
+            string userId = claims.Where(c => c.Type == JwtClaims.UserId).First()?.Value;
+            string userName = claims.Where(c => c.Type == JwtClaims.UserName).First()?.Value;
+            string uid = claims.Where(c => c.Type == JwtClaims.UtilisateurId).First()?.Value;
+            int sessionId = int.Parse(claims.Where(c => c.Type == JwtClaims.SessionId).First()?.Value);
+
+            Utilisateur utilisateur = await _context.Utilisateur
+                .Include(u => u.Roles).ThenInclude(r => r.Site)
+                .Where(u => u.UserId != null && u.UserId == userId && u.Uid == uid)
+                .FirstOrDefaultAsync();
+            if (utilisateur == null)
+            {
+                return carte;
+            }
+            ApplicationUser applicationUser = utilisateur.ApplicationUser;
+            if (userName != applicationUser.UserName)
+            {
+                // fausse carte
+                return carte;
+            }
+
+            await carte.FixeUtilisateur(utilisateur);
+            carte.SessionId = sessionId;
+
+            return carte;
+        }
+
+        /// <summary>
+        /// Ajoute un header contenant le jeton identifiant de la carte à la response d'une requête de connection
+        /// </summary>
+        /// <param name="httpResponse"></param>
+        /// <param name="carte"></param>
+        /// <returns></returns>
+        public async Task AjouteCarteAResponse(HttpResponse httpResponse, CarteUtilisateur carte)
+        {
+            JwtRéponse jwtRéponse = await _jwtFabrique.CréeReponse(carte);
+            string header = JsonSerializer.Serialize(jwtRéponse);
+            httpResponse.Headers.Add(JwtFabrique.NomJwtRéponse, header);
+        }
+
+        #endregion // CarteUtilisateur
+
+        #region Ajout Suppression
+
+        /// <summary>
+        /// Ajoute à la bdd un nouvel Utilisateur et fixe son UserId si l'ApplicationUser paramétre n'est pas null.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        private async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ApplicationUser user)
+        {
+            // recherche la première valeur libre dans la liste dans l'ordre croissant des valeurs numériques des Uid des utilisateurs existants
+            string[] uids = await _context.Utilisateur.Select(u => u.Uid).ToArrayAsync();
+            int[] valeurs = uids.Select(u => int.Parse(u)).OrderBy(l => l).ToArray();
+            int nb = valeurs.Length;
+            // si la première valeur (d'index 1 - 1) est 1, 1 n'est pas libre
+            // si la première valeur (d'index 1 - 1) n'est pas 1, 1 est libre
+            // si la valeur suivante (d'index 2 - 1) est 2, 2 n'est pas libre
+            // si la valeur suivante (d'index 2 - 1) n'est pas 2, 2 est libre
+            // etc.
+            // la première valeur libre suit la dernière valeur d'index égal à valeur - 1
+            int valeur = 1;
+            for (; valeur <= nb && valeur == valeurs[valeur - 1]; valeur++)
+            {
+            }
+            string uid = valeur.ToString();
+
+            Utilisateur utilisateur = new Utilisateur
+            {
+                Uid = uid,
+                Etat = TypeEtatUtilisateur.Nouveau,
+            };
+            if (user != null)
+            {
+                utilisateur.UserId = user.Id;
+            }
+            ArchiveUtilisateur archive = new ArchiveUtilisateur
+            {
+                Uid = uid,
+                Etat = TypeEtatUtilisateur.Nouveau,
+                Date = DateTime.Now
+            };
+            _context.Utilisateur.Add(utilisateur);
+            _context.ArchiveUtilisateur.Add(archive);
+            return await SaveChangesAsync(utilisateur);
+        }
+
+        /// <summary>
+        /// Ajoute à la bdd un nouvel Utilisateur sans ApplicationUser.
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        public async Task<RetourDeService<Utilisateur>> CréeUtilisateur()
+        {
+            return await CréeUtilisateur((ApplicationUser)null);
+        }
+
+        /// <summary>
+        /// Ajoute à la bdd un nouvel Utilisateur et son ApplicationUser à partir de son Email et de son mot de passe.
+        /// </summary>
+        /// <param name="vue">objet ayant l'Email et le Password de l'utilisateur à créer</param>
+        /// <returns></returns>
+        public async Task<RetourDeService<ApplicationUser>> CréeUtilisateur(ICréeCompteVue vue)
+        {
+            ApplicationUser applicationUser = new ApplicationUser
+            {
+                UserName = vue.Email,
+                Email = vue.Email,
+            };
+            try
+            {
+                var identityResult = await _userManager.CreateAsync(applicationUser, vue.Password);
+                if (!identityResult.Succeeded)
+                {
+                    return new RetourDeService<ApplicationUser>(identityResult);
+                }
+
+                RetourDeService<Utilisateur> retour = await CréeUtilisateur(applicationUser);
+                if (!retour.Ok)
+                {
+                    return new RetourDeService<ApplicationUser>(retour);
+                }
+
+                applicationUser.Utilisateur = retour.Entité;
+                return new RetourDeService<ApplicationUser>(applicationUser);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return new RetourDeService<ApplicationUser>(TypeRetourDeService.ConcurrencyError);
+            }
+            catch (Exception)
+            {
+                return new RetourDeService<ApplicationUser>(TypeRetourDeService.Indéterminé);
+            }
+        }
+
+        /// <summary>
+        /// Supprime dans la bdd un Utilisateur et son ApplicationUser s'il en a un.
+        /// </summary>
+        /// <param name="utilisateur">Utilisateur</param>
+        /// <returns></returns>
+        public async Task<RetourDeService> Supprime(Utilisateur utilisateur)
+        {
+            string userId = utilisateur.UserId;
+            _context.Utilisateur.Remove(utilisateur);
+            RetourDeService retour = await SaveChangesAsync();
+            if (!retour.Ok || userId == null)
+            {
+                return retour;
+            }
+
+            ApplicationUser applicationUser = await _userManager.FindByIdAsync(userId);
+            await _userManager.DeleteAsync(applicationUser);
+            _context.Remove(applicationUser);
+            return await SaveChangesAsync();
+        }
+
+        #endregion // Ajout Suppression
+
+        #region Compte
 
         public async Task EnvoieEmailConfirmeCompte(ApplicationUser user)
         {
             string objet = "Confirmation de votre compte " + ClientApp.Nom;
             string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            string url = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeEmail) + "?id=" + user.Id + "&code=" + code + "&email=" + user.Email;
-            string message = "Veuillez confirmer votre compte en cliquant sur ce lien: <a href=\"" + url + "\">" + url + "</a>";
-
-            await SendEmailAsync(user.Email, objet, message);
-        }
-
-        public async Task EnvoieEmailRéinitialiseMotDePasse(ApplicationUser user)
-        {
-            string objet = "Mot de passe oublié";
-            string token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            string url = ClientApp.Url(ClientApp.Compte, ClientApp.RéinitialiseMotDePasse) + "?id=" + user.Id + "&code=" + code;
-            string message = "Vous pourrez mettre à jour votre mot de passe en cliquant sur ce lien: <a href=\"" + url + "\">" + url + "</a>";
-
-            await SendEmailAsync(user.Email, objet, message);
-        }
-
-        public async Task EnvoieEmailChangeEmail(ApplicationUser user, string nouvelEmail)
-        {
-            string objet = "Changement d'adresse email";
-            string token = await _userManager.GenerateChangeEmailTokenAsync(user, nouvelEmail);
-            string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            string url = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeChangeEmail) + "?id=" + user.Id + "&code=" + code + "&email=" + nouvelEmail;
-            string message = "Le changement de votre adresse mail sera confirmé en cliquant sur ce lien: <a href=\"" + url + "\">" + url + "</a>";
-
-            await SendEmailAsync(user.Email, objet, message);
-        }
-
-
-        public async Task<Invitation> TrouveInvitation(IInvitationKey key)
-        {
-            return await _context.Invitation
-                .Where(i => i.Email == key.Email && i.Uid == key.Uid && i.Rno == key.Rno)
-                .FirstOrDefaultAsync();
-        }
-
-        /// <summary>
-        /// Trouve le client défini par la clé. Retourne null si le client n'existe pas ou n'appartient pas au site ou a déjà un compte
-        /// </summary>
-        /// <param name="site"></param>
-        /// <param name="uidClient"></param>
-        /// <param name="rnoClient"></param>
-        /// <returns></returns>
-        public async Task<Client> TrouveClientDansSite(Site site, string uidClient, int rnoClient)
-        {
-            Client client = await _context.Client
-                .Include(c => c.Role)
-                .Where(c => c.Uid == uidClient && c.Rno == rnoClient && c.Role.SiteUid == site.Uid && c.Role.SiteRno == site.Rno)
-                .FirstOrDefaultAsync();
-            return client;
-        }
-
-        public async Task EnvoieEmailDevenirClient(Invitation invitation, InvitationVérifiée vérifiée)
-        {
-            string objet = "Devenir client de " + vérifiée.Site.Titre;
-            string texte = JsonSerializer.Serialize(invitation);
-            string token = _protector.Protect(texte); // Cryptage.Encrypte();
-            string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-            string url = ClientApp.Url(ClientApp.DevenirClient) + "?code=" + code;
-            string message = "Vous pouvez devenir client de " + vérifiée.Site.Titre + " en cliquant sur ce lien: <a href=\"" + url + "\">" + url + "</a>";
-
-            await SendEmailAsync(invitation.Email, objet, message);
-        }
-
-        public async Task<RetourDeService<Invitation>> RemplaceInvitation(Invitation enregistrée, Invitation invitation)
-        {
-            if (enregistrée != null)
+            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeEmail);
+            Dictionary<string, string> urlParams = new Dictionary<string, string>
             {
-                _context.Invitation.Remove(enregistrée);
-                RetourDeService<Invitation> retourSupprime = await SaveChangesAsync(enregistrée);
-                if (!retourSupprime.Ok)
-                {
-                    return retourSupprime;
-                }
-            }
-            _context.Invitation.Add(invitation);
-            return await SaveChangesAsync(invitation);
-        }
+                { "email", user.Email }
+            };
 
-        public Invitation DécodeInvitation(string code)
-        {
-            byte[] décodé = WebEncoders.Base64UrlDecode(code);
-            string token = Encoding.UTF8.GetString(décodé);
-            Invitation invitation;
-            try
-            {
-                string x = _protector.Unprotect(token);
-                invitation = JsonSerializer.Deserialize<Invitation>(x); // Cryptage.Décrypte<Invitation>(token);
-            }
-            catch (Exception)
-            {
-                invitation = null;
-            }
-            return invitation;
-        }
+            string message = "Veuillez confirmer votre compte";
 
-        public async Task<Client> ClientInvité(string uid, int rno)
-        {
-            Client client = await _context.Client
-                .Include(c => c.Role)
-                .Where(c => c.Uid == uid && c.Rno == rno)
-                .FirstOrDefaultAsync();
-            return client;
-        }
-
-        public async Task<bool> RéinitialiseMotDePasse(ApplicationUser user, string code, string motDePasse)
-        {
-            string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            IdentityResult result = await _userManager.ResetPasswordAsync(user, token, motDePasse);
-            return result.Succeeded;
-        }
-
-        public async Task<bool> ChangeMotDePasse(ApplicationUser user, string motDePasse, string nouveauMotDePasse)
-        {
-            IdentityResult result = await _userManager.ChangePasswordAsync(user, motDePasse, nouveauMotDePasse);
-            return result.Succeeded;
+            await _emailService.EnvoieEmail(user.Email, objet, message, urlBase, token, urlParams);
         }
 
         /// <summary>
@@ -243,6 +365,48 @@ namespace KalosfideAPI.Utilisateurs
 
         }
 
+        public async Task EnvoieEmailRéinitialiseMotDePasse(ApplicationUser user)
+        {
+            string objet = "Mot de passe oublié";
+            string token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.RéinitialiseMotDePasse);
+            Dictionary<string, string> urlParams = new Dictionary<string, string>
+            {
+                { "id", user.Id }
+            };
+            string message = "Vous pourrez mettre à jour votre mot de passe";
+
+            await _emailService.EnvoieEmail(user.Email, objet, message, urlBase, token, urlParams);
+        }
+
+        public async Task<bool> RéinitialiseMotDePasse(ApplicationUser user, string code, string motDePasse)
+        {
+            string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            IdentityResult result = await _userManager.ResetPasswordAsync(user, token, motDePasse);
+            return result.Succeeded;
+        }
+
+        public async Task<bool> ChangeMotDePasse(ApplicationUser user, string motDePasse, string nouveauMotDePasse)
+        {
+            IdentityResult result = await _userManager.ChangePasswordAsync(user, motDePasse, nouveauMotDePasse);
+            return result.Succeeded;
+        }
+
+        public async Task EnvoieEmailChangeEmail(ApplicationUser user, string nouvelEmail)
+        {
+            string objet = "Changement d'adresse email";
+            string token = await _userManager.GenerateChangeEmailTokenAsync(user, nouvelEmail);
+            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeChangeEmail);
+            Dictionary<string, string> urlParams = new Dictionary<string, string>
+            {
+                { "id", user.Id },
+                { "email", user.Email }
+            };
+            string message = "Le changement de votre adresse mail sera confirmé";
+
+            await _emailService.EnvoieEmail(nouvelEmail, objet, message, urlBase, token, urlParams);
+        }
+
         public async Task<bool> ChangeEmail(ApplicationUser user, string nouvelEmail, string code)
         {
             string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
@@ -250,208 +414,96 @@ namespace KalosfideAPI.Utilisateurs
             return result.Succeeded;
         }
 
-        public async Task Connecte(ApplicationUser user, bool persistant)
+        #endregion // Compte
+
+        /// <summary>
+        /// Trouve l'invitation enregistrée ayant le même email
+        /// </summary>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        public async Task<Invitation> TrouveInvitation(IInvitationKey key)
         {
-            await _signInManager.SignInAsync(user, persistant);
+            return await _context.Invitation
+                .Where(i => i.Email == key.Email && i.Uid == key.Uid && i.Rno == key.Rno)
+                .FirstOrDefaultAsync();
         }
 
-        public async Task Déconnecte()
+        public async Task<RetourDeService<Invitation>> EnvoieEmailDevenirClient(Invitation invitation, InvitationVérifiée vérifiée)
         {
+            string objet = "Devenir client de " + vérifiée.Site.Titre;
+            string urlBase = ClientApp.Url(ClientApp.DevenirClient);
+            string message = "Vous pouvez devenir client de " + vérifiée.Site.Titre;
+
+            await _emailService.EnvoieEmail<Invitation>(invitation.Email, objet, message, urlBase, invitation, null);
+
+            if (vérifiée.Invitation != null)
+            {
+                _context.Invitation.Remove(vérifiée.Invitation);
+                RetourDeService<Invitation> retourSupprime = await SaveChangesAsync(vérifiée.Invitation);
+                if (!retourSupprime.Ok)
+                {
+                    return retourSupprime;
+                }
+            }
+            _context.Invitation.Add(invitation);
+            return await SaveChangesAsync(invitation);
+        }
+
+        public Invitation DécodeInvitation(string code)
+        {
+            return _emailService.DécodeCodeDeEmail<Invitation>(code);
+        }
+
+        public async Task Connecte(CarteUtilisateur carteUtilisateur)
+        {
+            Utilisateur utilisateur = carteUtilisateur.Utilisateur;
+            // persistant est false car l'utilisateur doit s'authentifier à chaque accès
+            await _signInManager.SignInAsync(utilisateur.ApplicationUser, false);
+            // lit et augmente le sessionId de l'utilisateur
+            int sessionId = utilisateur.SessionId;
+            if (sessionId < 0)
+            {
+                // l'utilisateur s'est déconnecté lors de sa dernière session
+                // et son SessionId a été changé en son opposé
+                sessionId = -sessionId;
+            }
+            sessionId = sessionId + 1;
+            // fixe le sessionId de l'utilisateur et de la carte
+            utilisateur.SessionId = sessionId;
+            _context.Utilisateur.Update(utilisateur);
+            ArchiveUtilisateur archive = new ArchiveUtilisateur
+            {
+                Uid = utilisateur.Uid,
+                Date = DateTime.Now,
+                SessionId = sessionId
+            };
+            _context.ArchiveUtilisateur.Add(archive);
+            await _context.SaveChangesAsync();
+            carteUtilisateur.SessionId = sessionId;
+        }
+
+        public async Task Déconnecte(CarteUtilisateur carteUtilisateur)
+        {
+            Utilisateur utilisateur = carteUtilisateur.Utilisateur;
             await _signInManager.SignOutAsync();
-        }
-
-        public async Task<CarteUtilisateur> CréeCarteUtilisateur(ApplicationUser user)
-        {
-            Utilisateur utilisateur = await _context.Utilisateur.Where(u => u.UserId == user.Id)
-                .Include(u => u.Roles).ThenInclude(r => r.Site)
-                .FirstOrDefaultAsync();
-
-            CarteUtilisateur carte = new CarteUtilisateur(_context);
-            await carte.FixeUtilisateur(utilisateur);
-            return carte;
-        }
-
-        public async Task<CarteUtilisateur> CréeCarteUtilisateur(ClaimsPrincipal user)
-        {
-            IEnumerable<Claim> claims = user.Identities.FirstOrDefault()?.Claims;
-            if (claims == null || claims.Count() == 0)
+            // change le sessionId de l'utilisateur en son opposé
+            utilisateur.SessionId = -utilisateur.SessionId;
+            _context.Utilisateur.Update(utilisateur);
+            ArchiveUtilisateur archive = new ArchiveUtilisateur
             {
-                return null;
-            }
-            string userId = claims.Where(c => c.Type == JwtClaims.UserId).First()?.Value;
-            string userName = claims.Where(c => c.Type == JwtClaims.UserName).First()?.Value;
-            string uid = claims.Where(c => c.Type == JwtClaims.UtilisateurId).First()?.Value;
-
-            Utilisateur utilisateur = await _context.Utilisateur
-                .Include(u => u.Roles).ThenInclude(r => r.Site)
-                .Where(u => u.UserId != null && u.UserId == userId && u.Uid == uid)
-                .FirstOrDefaultAsync();
-            if (utilisateur == null)
-            {
-                return null;
-            }
-            ApplicationUser applicationUser = utilisateur.ApplicationUser;
-            if (userName != applicationUser.UserName)
-            {
-                // fausse carte
-                return null;
-            }
-            CarteUtilisateur carte = new CarteUtilisateur(_context);
-            await carte.FixeUtilisateur(utilisateur);
-
-            return carte;
-        }
-
-        public bool VérifieTrimCréeSiteVue(ICréeSiteVue vue)
-        {
-            if (vue.Url == null)
-            {
-                return false;
-            }
-            vue.Url = vue.Url.Trim();
-            if (vue.Url.Length == 0)
-            {
-                return false;
-            }
-            if (vue.Titre == null)
-            {
-                return false;
-            }
-            vue.Titre = vue.Titre.Trim();
-            if (vue.Titre.Length == 0)
-            {
-                return false;
-            }
-            if (vue.Nom == null)
-            {
-                return false;
-            }
-            vue.Nom = vue.Nom.Trim();
-            if (vue.Nom.Length == 0)
-            {
-                return false;
-            }
-            if (vue.Adresse == null)
-            {
-                return false;
-            }
-            vue.Adresse = vue.Adresse.Trim();
-            if (vue.Adresse.Length == 0)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        public async Task<RetourDeService<Role>> CréeRoleSite(string uid, ICréeSiteVue vue)
-        {
-            int rno = (await _roleService.DernierNo(uid)) + 1;
-
-            Role role = new Role
-            {
-                Uid = uid,
-                Rno = rno,
-                SiteUid = uid,
-                SiteRno = rno,
-                Etat = TypeEtatRole.Nouveau
+                Uid = utilisateur.Uid,
+                Date = DateTime.Now,
+                SessionId = utilisateur.SessionId,
+                NoDernierRole = carteUtilisateur.NoDernierRole
             };
-            _roleService.AjouteSansSauver(role);
-            Site site = new Site
-            {
-                Uid = uid,
-                Rno = rno,
-                Url = vue.Url,
-                Titre = vue.Titre,
-                Nom = vue.Nom,
-                Adresse = vue.Adresse,
-                Ville = vue.Ville,
-                Etat = TypeEtatSite.Catalogue
-            };
-            _siteService.AjouteSansSauver(site);
-            role.Site = site;
-
-            return await SaveChangesAsync(role);
+            _context.ArchiveUtilisateur.Add(archive);
+            await _context.SaveChangesAsync();
         }
 
-        public bool VérifieTrimDevenirClientVue(DevenirClientVue vue)
-        {
-            if (vue.Nom == null)
-            {
-                return false;
-            }
-            vue.Nom = vue.Nom.Trim();
-            if (vue.Nom.Length == 0)
-            {
-                return false;
-            }
-            if (vue.Adresse == null)
-            {
-                return false;
-            }
-            vue.Adresse = vue.Adresse.Trim();
-            if (vue.Adresse.Length == 0)
-            {
-                return false;
-            }
-            return true;
-        }
-
-        public async Task<bool> VérifieNomPris(Site site, string Nom, Client clientInvité)
-        {
-            Client client = await _context.Client
-                .Include(c => c.Role)
-                .Where(c => c.Role.SiteUid == site.Uid && c.Role.SiteRno == site.Rno && c.Nom == Nom)
-                .FirstOrDefaultAsync();
-            return client != null && (clientInvité == null || clientInvité.Uid != client.Uid || clientInvité.Rno != client.Rno);
-        }
-
-        public async Task<RetourDeService> CréeRoleClient(Site site, Utilisateur utilisateur, Client clientInvité, DevenirClientVue vue)
-        {
-            RetourDeService<Client> retourClient = await _clientService.Ajoute(utilisateur, site, vue);
-            if (!retourClient.Ok || clientInvité == null)
-            {
-                return retourClient;
-            }
-            string uid = retourClient.Entité.Uid;
-            int rno = retourClient.Entité.Rno;
-
-            List<DocCLF> anciensDocs = await _context.Docs
-                .Where(d => d.Uid == clientInvité.Uid && d.Rno == clientInvité.Rno)
-                .ToListAsync();
-            if (anciensDocs.Count == 0)
-            {
-                return retourClient;
-            }
-            List<DocCLF> nouveauxDocs = anciensDocs
-                .Select(d => DocCLF.Clone(uid, rno, d))
-                .ToList();
-            List<LigneCLF> anciennesLignes = await _context.Lignes
-                .Where(l => l.Uid == clientInvité.Uid && l.Rno == clientInvité.Rno)
-                .ToListAsync();
-            if (anciennesLignes.Count == 0)
-            {
-                return retourClient;
-            }
-            List<LigneCLF> nouvellesLignes = anciennesLignes
-                .Select(l => LigneCLF.Clone(uid, rno, l))
-                .ToList();
-            _context.Docs.AddRange(nouveauxDocs);
-            var r = await SaveChangesAsync();
-            if (r.Ok)
-            {
-                _context.Lignes.AddRange(nouvellesLignes);
-                r = await SaveChangesAsync();
-            }
-            await _clientService.SupprimeSansSauver(clientInvité);
-            _context.Role.Remove(clientInvité.Role);
-            await SaveChangesAsync();
-            return retourClient;
-        }
-
-        public async Task<List<InvitationVue>> Invitations(Site site)
+        public async Task<List<InvitationVue>> Invitations(AKeyUidRno keySite)
         {
             List<Invitation> invitations = await _context.Invitation
-                .Where(i => i.Uid == site.Uid && i.Rno == site.Rno)
+                .Where(i => i.Uid == keySite.Uid && i.Rno == keySite.Rno)
                 .ToListAsync();
             return invitations
                 .Select(i => new InvitationVue(i))
@@ -464,111 +516,6 @@ namespace KalosfideAPI.Utilisateurs
             return await SaveChangesAsync(invitation);
         }
 
-        public async Task<RetourDeService<ApplicationUser>> CréeUtilisateur(ICréeCompteVue vue)
-        {
-            ApplicationUser applicationUser = new ApplicationUser
-            {
-                UserName = vue.Email,
-                Email = vue.Email,
-            };
-            try
-            {
-                var identityResult = await _userManager.CreateAsync(applicationUser, vue.Password);
-                if (!identityResult.Succeeded)
-                {
-                    return new RetourDeService<ApplicationUser>(identityResult);
-                }
-
-                Utilisateur utilisateur = await CréeUtilisateurSansSauver();
-                utilisateur.UserId = applicationUser.Id;
-
-                await _context.SaveChangesAsync();
-                applicationUser.Utilisateur = utilisateur;
-                return new RetourDeService<ApplicationUser>(applicationUser);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return new RetourDeService<ApplicationUser>(TypeRetourDeService.ConcurrencyError);
-            }
-            catch (Exception)
-            {
-                return new RetourDeService<ApplicationUser>(TypeRetourDeService.Indéterminé);
-            }
-        }
-
-        public async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ApplicationUser applicationUser, string password)
-        {
-            try
-            {
-                var identityResult = await _userManager.CreateAsync(applicationUser, password);
-                if (!identityResult.Succeeded)
-                {
-                    return new RetourDeService<Utilisateur>(identityResult);
-                }
-
-                Utilisateur utilisateur = await CréeUtilisateurSansSauver();
-                utilisateur.UserId = applicationUser.Id;
-
-                await _context.SaveChangesAsync();
-                return new RetourDeService<Utilisateur>(utilisateur);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return new RetourDeService<Utilisateur>(TypeRetourDeService.ConcurrencyError);
-            }
-            catch (Exception)
-            {
-                return new RetourDeService<Utilisateur>(TypeRetourDeService.Indéterminé);
-            }
-        }
-
-        public async Task<RetourDeService<Utilisateur>> CréeUtilisateur()
-        {
-            Utilisateur utilisateur = await CréeUtilisateurSansSauver();
-            await _context.SaveChangesAsync();
-            return new RetourDeService<Utilisateur>(utilisateur);
-        }
-
-        public async Task<Utilisateur> CréeUtilisateurSansSauver()
-        {
-            List<long> x = await _context.Utilisateur.Select(u => long.Parse(u.Uid)).ToListAsync();
-            long Max = x.Count == 0 ? 1 : x.Max() + 1;
-
-            Utilisateur utilisateur = new Utilisateur
-            {
-                Uid = Max.ToString(),
-                Etat = TypeEtatUtilisateur.Nouveau,
-            };
-            _context.Utilisateur.Add(utilisateur);
-            ArchiveUtilisateur changement = new ArchiveUtilisateur
-            {
-                Uid = utilisateur.Uid,
-                Etat = TypeEtatUtilisateur.Nouveau,
-                Date = DateTime.Now
-            };
-            _context.ArchiveUtilisateur.Add(changement);
-            return utilisateur;
-        }
-
-        public async Task<Utilisateur> Lit(string id)
-        {
-            Utilisateur utilisateur = await _context.Utilisateur.FindAsync(id);
-            if (utilisateur != null)
-            {
-                ApplicationUser applicationUser = await _context.Users.FindAsync(utilisateur.UserId);
-                utilisateur.ApplicationUser = applicationUser;
-            }
-            return utilisateur;
-        }
-
-        public async Task<Utilisateur> UtilisateurDeUser(string userId)
-        {
-            return await _context.Utilisateur.Where(utilisateur => utilisateur.UserId == userId)
-                .Include(utilisateur => utilisateur.Roles)
-                .ThenInclude(role => role.Site)
-                .FirstOrDefaultAsync();
-        }
-
         public async Task<List<Utilisateur>> Lit()
         {
             return await _context.Utilisateur
@@ -576,49 +523,6 @@ namespace KalosfideAPI.Utilisateurs
                 .ToListAsync();
         }
 
-        public async Task<RetourDeService<Utilisateur>> Supprime(Utilisateur utilisateur)
-        {
-            ApplicationUser applicationUser = await _userManager.FindByIdAsync(utilisateur.UserId);
-            await _userManager.DeleteAsync(applicationUser);
-            _context.Remove(applicationUser);
-            return await SaveChangesAsync(utilisateur);
-        }
-
-        public async Task<RetourDeService<Utilisateur>> ChangeEtat(Utilisateur utilisateur, string état)
-        {
-            utilisateur.Etat = état;
-            _context.Utilisateur.Update(utilisateur);
-            ArchiveUtilisateur changement = new ArchiveUtilisateur
-            {
-                Uid = utilisateur.Uid,
-                Date = DateTime.Now,
-                Etat = état
-            };
-            _context.ArchiveUtilisateur.Add(changement);
-            try
-            {
-                await _context.SaveChangesAsync();
-                return new RetourDeService<Utilisateur>(utilisateur);
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                return new RetourDeService<Utilisateur>(TypeRetourDeService.ConcurrencyError);
-            }
-            catch (Exception)
-            {
-                return new RetourDeService<Utilisateur>(TypeRetourDeService.Indéterminé);
-            }
-        }
-
-        public async Task<bool> UserNamePris(string userName)
-        {
-            return await _context.Users.Where(user => user.UserName == userName).AnyAsync();
-        }
-
-        public async Task<bool> EmailPris(string eMail)
-        {
-            return await _context.Users.Where(user => user.Email == eMail).AnyAsync();
-        }
     }
 
 }

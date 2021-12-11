@@ -1,14 +1,16 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using KalosfideAPI.Data.Constantes;
+using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class Catégorie : Keys.AKeyUidRnoNo
+    public class Catégorie : AKeyUidRnoNo, IAvecDate
     {
         // key
         [Required]
@@ -24,8 +26,15 @@ namespace KalosfideAPI.Data
         [MinLength(10), MaxLength(200)]
         public string Nom { get; set; }
 
+        /// <summary>
+        /// Date de la création jusqu'à fin de la modification de catalogue où cette catégorie est créé.
+        /// Date de la fin de la modification de catalogue où cette catégorie a été ajouté ou modifié.
+        /// C'est aussi celle de la dernière archive de cette catégorie.
+        /// </summary>
+        public DateTime Date { get; set; }
+
         // navigation
-        virtual public ICollection<ArchiveCatégorie> ArchiveCatégories { get; set; }
+        virtual public ICollection<ArchiveCatégorie> Archives { get; set; }
         virtual public Site Site { get; set; }
         virtual public ICollection<Produit> Produits { get; set; }
 

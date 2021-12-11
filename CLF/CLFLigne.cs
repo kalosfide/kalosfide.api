@@ -8,40 +8,11 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.CLF
 {
-    public interface ICLFLigneData
-    {
-        // données
-
-        /// <summary>
-        /// Date de la commande.
-        /// Présent si la ligne est dans une livraison ou une facture et le produit a changé de prix.
-        /// </summary>
-        DateTime? Date { get; set; }
-
-
-        /// <summary>
-        /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
-        /// Si absent, la valeur par défaut de type de commande associée au TypeMesure du Produit est utilisée.
-        /// </summary>
-        string TypeCommande { get; set; }
-
-        /// <summary>
-        /// Quantité du produit
-        /// </summary>
-        decimal? Quantité { get; set; }
-
-        /// <summary>
-        /// Quantité du produit à fixer pour le document de synthèse parent du document de la ligne.
-        /// Supprimé quand le document de synthèse a été envoyé.
-        /// </summary>
-        decimal? AFixer { get; set; }
-
-    }
 
     /// <summary>
     /// Objet envoyé
     /// </summary>
-    public class CLFLigneData : ICLFLigneData
+    public class CLFLigneData
     {
 
         /// <summary>
@@ -55,7 +26,7 @@ namespace KalosfideAPI.CLF
         /// Date de la commande.
         /// Présent si la ligne est dans une livraison ou une facture et le produit a changé de prix.
         /// </summary>
-        public DateTime? Date { get; set; }
+        public DateTime Date { get; set; }
 
 
         /// <summary>
@@ -76,13 +47,32 @@ namespace KalosfideAPI.CLF
         /// </summary>
         public decimal? AFixer { get; set; }
 
+        public static CLFLigneData LigneData(LigneCLF ligneCLF)
+        {
+            CLFLigneData data = new CLFLigneData
+            {
+                No = ligneCLF.No2,
+                Date = ligneCLF.Date,
+                TypeCommande = ligneCLF.TypeCommande,
+                Quantité = ligneCLF.Quantité,
+            };
+            return data;
+        }
+
+        public static CLFLigneData LigneDataAvecAFixer(LigneCLF ligneCLF)
+        {
+            CLFLigneData data = CLFLigneData.LigneData(ligneCLF);
+            data.AFixer = ligneCLF.AFixer;
+            return data;
+        }
+
     }
 
 
     /// <summary>
     /// Objet reçu
     /// </summary>
-    public class CLFLigne : AKeyUidRnoNo2, ICLFLigneData
+    public class CLFLigne : AKeyUidRnoNo2
     {
         /// <summary>
         /// Uid du Role et du Client du client et de la Commande
@@ -120,7 +110,7 @@ namespace KalosfideAPI.CLF
         /// Date de la commande.
         /// Présent si la ligne est dans une livraison ou une facture et le produit a changé de prix.
         /// </summary>
-        public DateTime? Date { get; set; }
+        public override DateTime Date { get; set; }
 
 
         /// <summary>
@@ -137,13 +127,11 @@ namespace KalosfideAPI.CLF
         public decimal? Quantité { get; set; }
 
         /// <summary>
+        /// Présent uniquement
         /// Quantité du produit à fixer pour le document de synthèse parent du document de la ligne.
         /// Supprimé quand le document de synthèse a été envoyé.
         /// </summary>
         public decimal? AFixer { get; set; }
-
-        public CLFDoc CLFDoc { get; set; }
-        public ArchiveProduit Produit { get; set; }
 
     }
 }

@@ -17,7 +17,8 @@ namespace KalosfideAPI.Démarrage
             services.AddDbContext<ApplicationContext>(options =>
                 options
                 .UseLazyLoadingProxies()
-                .UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+                .UseSqlServer(configuration.GetConnectionString("DefaultConnection"))
+                .EnableSensitiveDataLogging());
         }
 
 #pragma warning disable IDE0060 // Supprimer le paramètre inutilisé

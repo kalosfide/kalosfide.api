@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Partages.KeyParams
 {
-    public interface IKeyParamService<T, TVue, TParam> : IBaseService<T> where T: AKeyBase where TVue: AKeyBase where TParam: KeyParam
+    public interface IKeyParamService<T, TVue> : IBaseService<T> where T: AKeyBase where TVue: AKeyBase
     {
         /// <summary>
         /// validateur qui ajoute au ModelState les éventuelles erreurs de la donnée
@@ -23,7 +23,7 @@ namespace KalosfideAPI.Partages.KeyParams
         /// <returns></returns>
         DValideModel<T> DValideEdite();
         /// <summary>
-        /// validateur qui ajoute une erreur au ModelState la donnée n'est pas supprimable
+        /// validateur qui ajoute une erreur au ModelState si la donnée n'est pas supprimable
         /// </summary>
         /// <param name="donnée"></param>
         /// <param name="modelState"></param>
@@ -33,17 +33,14 @@ namespace KalosfideAPI.Partages.KeyParams
         TVue CréeVue(T donnée);
         T CréeDonnée(TVue vue);
         T CréeDonnéeEditéeComplète(TVue vue, T donnéePourComplèter);
-        void CopieVueDansDonnée(T donnée, TVue vue);
 
         void AjouteSansSauver(T donnée);
+        void AjouteSansSauver(T donnée, DateTime date);
         Task<RetourDeService<T>> Ajoute(T donnée);
+        Task<RetourDeService<T>> Ajoute(T donnée, DateTime date);
         void EditeSansSauver(T donnée, TVue vue);
         Task<RetourDeService<T>> Edite(T donnée, TVue nouveau);
-        Task SupprimeSansSauver(T donnée);
+        void SupprimeSansSauver(T donnée);
         Task<RetourDeService<T>> Supprime(T donnée);
-
-        Task<T> Lit(TParam param);
-        Task<TVue> LitVue(TParam param);
-        Task<List<TVue>> ListeVue(TParam param);
     }
 }

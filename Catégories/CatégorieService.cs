@@ -6,6 +6,7 @@ using KalosfideAPI.Partages.KeyParams;
 using KalosfideAPI.Produits;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,9 +14,16 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Catégories
 {
-    class GèreArchive : Partages.KeyParams.GéreArchiveUidRnoNo<Catégorie, CatégorieVue, ArchiveCatégorie>
+    class GèreArchive : GéreArchiveUidRnoNo<Catégorie, CatégorieVue, ArchiveCatégorie>
     {
-        public GèreArchive(DbSet<Catégorie> dbSet, DbSet<ArchiveCatégorie> dbSetArchive) : base(dbSet, dbSetArchive)
+        public GèreArchive(
+            DbSet<Catégorie> dbSet,
+            IIncludableQueryable<Catégorie, ICollection<ArchiveCatégorie>> query,
+            Func<Catégorie, ICollection<ArchiveCatégorie>> archives,
+            DbSet<ArchiveCatégorie> dbSetArchive,
+            IIncludableQueryable<ArchiveCatégorie, Catégorie> queryArchive,
+            Func<ArchiveCatégorie, Catégorie> donnée
+            ) : base(dbSet, query, archives, dbSetArchive, queryArchive, donnée)
         {
         }
 
@@ -24,6 +32,10 @@ namespace KalosfideAPI.Catégories
             return new ArchiveCatégorie();
         }
 
+        protected override void CopieArchiveDansArchive(ArchiveCatégorie de, ArchiveCatégorie vers)
+        {
+            if (de.Nom != null) { vers.Nom = de.Nom; }
+        }
         protected override void CopieDonnéeDansArchive(Catégorie donnée, ArchiveCatégorie archive)
         {
             archive.Nom = donnée.Nom;
@@ -47,7 +59,10 @@ namespace KalosfideAPI.Catégories
         public CatégorieService(ApplicationContext context) : base(context)
         {
             _dbSet = _context.Catégorie;
-            _géreArchive = new GèreArchive(_dbSet, _context.ArchiveCatégorie);
+            _géreArchive = new GèreArchive(
+                _dbSet, _dbSet.Include(catégorie => catégorie.Archives), (Catégorie catégorie) => catégorie.Archives,
+                _context.ArchiveCatégorie, _context.ArchiveCatégorie.Include(a => a.Catégorie), (ArchiveCatégorie archive) => archive.Catégorie
+                );
             _inclutRelations = Complète;
             dValideAjoute = ValideAjoute;
             dValideEdite = ValideEdite;
@@ -68,7 +83,7 @@ namespace KalosfideAPI.Catégories
         {
             if (await NomPris(donnée.Nom))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "nomPris", "nom");
+                ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }
         }
 
@@ -76,7 +91,7 @@ namespace KalosfideAPI.Catégories
         {
             if (await NomPrisParAutre(donnée, donnée.Nom))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "nomPris", "nom");
+                ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }
         }
 
@@ -91,17 +106,17 @@ namespace KalosfideAPI.Catégories
             }
         }
 
-        public override void CopieVueDansDonnée(Catégorie donnée, CatégorieVue vue)
+        protected override void CopieVueDansDonnée(CatégorieVue de, Catégorie vers)
         {
-            if (vue.Nom != null)
+            if (de.Nom != null)
             {
-                donnée.Nom = vue.Nom;
+                vers.Nom = de.Nom;
             }
         }
 
-        public override void CopieVuePartielleDansDonnée(Catégorie donnée, CatégorieVue vue, Catégorie donnéePourComplèter)
+        protected override void CopieVuePartielleDansDonnée(CatégorieVue de, Catégorie vers, Catégorie pourComplèter)
         {
-            donnée.Nom = vue.Nom ?? donnéePourComplèter.Nom;
+            vers.Nom = de.Nom ?? pourComplèter.Nom;
         }
 
         public override Catégorie CréeDonnée()
@@ -116,51 +131,25 @@ namespace KalosfideAPI.Catégories
 
         public override CatégorieVue CréeVue(Catégorie donnée)
         {
-            CatégorieVue vue = new CatégorieVue
-            {
-                Nom = donnée.Nom,
-                NbProduits = donnée.Produits.Count
-            };
-            vue.CopieKey(donnée.KeyParam);
-            return vue;
+            return new CatégorieVue(donnée);
         }
 
-        public CatégorieData CréeCatégorieData(ArchiveCatégorie archive)
-        {
-            CatégorieData catégorieData = new CatégorieData
-            {
-                No = archive.No,
-                Nom = archive.Nom
-            };
-            return catégorieData;
-        }
-
-        public CatégorieData CréeCatégorieDataAvecDate(ArchiveCatégorie archive)
-        {
-            CatégorieData catégorieData = new CatégorieData
-            {
-                No = archive.No,
-                Nom = archive.Nom,
-                Date = archive.Date
-            };
-            return catégorieData;
-        }
-
-        public async Task<List<CatégorieData>> CatégorieDatas(AKeyUidRno aKeySite, List<ProduitData> produits)
+        public async Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogue(AKeyUidRno aKeySite)
         {
             List<Catégorie> catégories = await _context.Catégorie
                 .Where(c => aKeySite.Uid == c.Uid && aKeySite.Rno == c.Rno)
                 .ToListAsync();
-            if (produits != null)
-            {
-                catégories = catégories
-                .Where(c => produits.Where(p => p.CategorieNo == c.No).Any())
-                .ToList();
-            }
-            List<CatégorieData> datas = catégories
-                .Select(c => new CatégorieData { No = c.No, Nom = c.Nom })
-                .ToList();
-            return datas;
+            return catégories.Select(c => CatégorieDeCatalogue.SansDate(c)).ToList();
+        }
+
+        public async Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogueDesDisponibles(AKeyUidRno aKeySite)
+        {
+            List<Catégorie> catégories = await _context.Catégorie
+                .Where(c => aKeySite.Uid == c.Uid && aKeySite.Rno == c.Rno)
+                .Include(c => c.Produits)
+                .Where(c => c.Produits.Where(p => p.Etat==TypeEtatProduit.Disponible).Any())
+                .ToListAsync();
+            return catégories.Select(c => CatégorieDeCatalogue.SansDate(c)).ToList();
         }
 
     }

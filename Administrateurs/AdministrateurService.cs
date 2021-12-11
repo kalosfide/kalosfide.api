@@ -1,35 +1,26 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Partages;
 using KalosfideAPI.Partages.KeyParams;
+using KalosfideAPI.Roles;
+using KalosfideAPI.Utilisateurs;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Administrateurs
 {
-    public class AdministrateurService : KeyUidRnoService<Administrateur, AdministrateurVue>, IAdministrateurService
+    public class AdministrateurService : RoleService, IAdministrateurService
     {
-        public AdministrateurService(ApplicationContext context) : base(context)
-        {
-            _dbSet = context.Administrateur;
-        }
+        private readonly IUtilisateurService _utilisateurService;
 
-        public override void CopieVueDansDonnée(Administrateur donnée, AdministrateurVue vue)
+        public AdministrateurService(
+            ApplicationContext context,
+            IUtilisateurService utilisateurService
+        ) : base(context)
         {
-        }
-
-        public override void CopieVuePartielleDansDonnée(Administrateur donnée, AdministrateurVue vue, Administrateur donnéePourComplèter)
-        {
-        }
-
-        public override Administrateur CréeDonnée()
-        {
-            return new Administrateur();
-        }
-
-        public override AdministrateurVue CréeVue(Administrateur donnée)
-        {
-            AdministrateurVue vue = new AdministrateurVue();
-            vue.CopieKey(donnée.KeyParam);
-            return vue;
+            _utilisateurService = utilisateurService;
         }
     }
 }

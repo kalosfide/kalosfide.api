@@ -9,9 +9,8 @@ namespace KalosfideAPI.Catégories
 {
     public interface ICatégorieService: IKeyUidRnoNoService<Catégorie, CatégorieVue>
     {
-        CatégorieData CréeCatégorieData(ArchiveCatégorie archive);
-        CatégorieData CréeCatégorieDataAvecDate(ArchiveCatégorie archive);
-        Task<List<CatégorieData>> CatégorieDatas(AKeyUidRno aKeySite, List<ProduitData> produits);
+        Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogue(AKeyUidRno aKeySite);
+        Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogueDesDisponibles(AKeyUidRno aKeySite);
         Task<bool> NomPris(string nom);
         Task<bool> NomPrisParAutre(AKeyUidRnoNo key, string nom);
     }

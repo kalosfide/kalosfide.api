@@ -25,6 +25,12 @@ namespace KalosfideAPI.Data
         /// </summary>
         public int? NoDernierRole { get; set; }
 
+        /// <summary>
+        /// à mettre à jour à chaque connection et déconection de l'utilisateur
+        /// à vérifier à chaque action de l'utilisateur
+        /// </summary>
+        public int? SessionId { get; set; }
+
         // navigation
         virtual public Utilisateur Utilisateur { get; set; }
 
@@ -43,7 +49,7 @@ namespace KalosfideAPI.Data
 
             entité
                 .HasOne(eu => eu.Utilisateur)
-                .WithMany(u => u.Etats)
+                .WithMany(u => u.Archives)
                 .HasForeignKey(eu => eu.Uid)
                 .HasPrincipalKey(u => u.Uid);
 
