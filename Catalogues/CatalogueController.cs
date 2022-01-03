@@ -45,15 +45,15 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Complet([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Complet([FromQuery] uint idSite)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.PasFermé);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
             }
 
-            Catalogue catalogue = await _service.Complet(carteUtilisateur.Role.Site);
+            Catalogue catalogue = await _service.Complet(idSite);
 
             return Ok(catalogue);
         }
@@ -63,15 +63,15 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Disponible([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Disponible([FromQuery] uint idSite)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteUsager(keySite);
-            if (carteUtilisateur.Erreur != null)
+            CarteUtilisateur carte = await CréeCarteUsager(idSite, EtatsRolePermis.PasFermé, EtatsRolePermis.PasFermé);
+            if (carte.Erreur != null)
             {
-                return carteUtilisateur.Erreur;
+                return carte.Erreur;
             }
 
-            Catalogue catalogue = await _service.Disponibles(carteUtilisateur.Role.Site);
+            Catalogue catalogue = await _service.Disponibles(idSite);
 
             return Ok(catalogue);
         }
@@ -86,15 +86,15 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Etat([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Etat([FromQuery] uint idSite)
         {
-            CarteUtilisateur carte = await CréeCarteUsager(keySite);
+            CarteUtilisateur carte = await CréeCarteUsager(idSite, EtatsRolePermis.PasFermé, EtatsRolePermis.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
             }
 
-            return Ok(new ContexteCatalogue(carte.Role.Site));
+            return Ok(new ContexteCatalogue(carte.Site));
         }
 
         #endregion
@@ -104,7 +104,7 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// Commence une modification du catalogue
         /// </summary>
-        /// <param name="keySite"></param>
+        /// <param name="idSite">Id du site</param>
         /// <returns></returns>
         [HttpPost("/api/catalogue/commence")]
         [ProducesResponseType(201)] // created
@@ -112,26 +112,26 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Commence([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Commence([FromQuery] uint idSite)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
             }
 
-            Site site = carteUtilisateur.Role.Site;
+            Site site = carteUtilisateur.Site;
 
             if (!site.Ouvert)
             {
-                return RésultatBadRequest("EtatSiteIncorrect");
+                return RésultatBadRequest("Ouverture incorrecte");
             }
 
             RetourDeService<ArchiveSite> retour = await _siteService.CommenceEtatCatalogue(site);
 
             if (retour.Ok)
             {
-                return Ok(new ContexteCatalogue(site));
+                return RésultatCréé(new ContexteCatalogue(site));
             }
             return SaveChangesActionResult(retour);
         }
@@ -139,7 +139,7 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// Termine la modification du catalogue
         /// </summary>
-        /// <param name="keySite"></param>
+        /// <param name="idSite">Id du site</param>
         /// <returns></returns>
         [HttpPost("/api/catalogue/termine")]
         [ProducesResponseType(201)] // created
@@ -147,21 +147,23 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Termine([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Termine([FromQuery] uint idSite)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(keySite);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
             }
 
-            Site site = carteUtilisateur.Role.Site;
-            if (site.Ouvert)
+            Site site = carteUtilisateur.Fournisseur.Site;
+
+            if (!site.Ouvert)
             {
-                return RésultatBadRequest("EtatSiteIncorrect");
+                return RésultatBadRequest("Ouverture incorrecte");
             }
+
             // impossible de quitter l'état Catalogue si le site n'a pas de produits
-            int produits = await _utile.NbDisponibles(site);
+            int produits = await _utile.NbDisponibles(site.Id);
             if (produits == 0)
             {
                 return RésultatBadRequest("catalogueVide");
@@ -177,7 +179,7 @@ namespace KalosfideAPI.Catalogues
 
             if (retour.Ok)
             {
-                return Ok(new ContexteCatalogue(site));
+                return RésultatCréé(new ContexteCatalogue(site));
             }
             return SaveChangesActionResult(retour);
         }

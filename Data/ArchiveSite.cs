@@ -7,14 +7,9 @@ using System.ComponentModel.DataAnnotations;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveSite : AKeyUidRno, IAvecDate
+    public class ArchiveSite : AvecIdUint, ISiteDataAnnulable, IAvecDate
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
+
         [Required]
         public DateTime Date { get; set; }
 
@@ -39,18 +34,17 @@ namespace KalosfideAPI.Data
 
             entité.HasKey(donnée => new
             {
-                donnée.Uid,
-                donnée.Rno,
+                donnée.Id,
                 donnée.Date
             });
 
-            entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno });
+            entité.HasIndex(donnée => donnée.Id);
 
             entité
                 .HasOne(a => a.Site)
                 .WithMany(s => s.Archives)
-                .HasForeignKey(a => new { a.Uid, a.Rno })
-                .HasPrincipalKey(s => new { s.Uid, s.Rno });
+                .HasForeignKey(a => a.Id)
+                .HasPrincipalKey(s => s.Id);
 
             entité.ToTable("ArchiveSites");
         }

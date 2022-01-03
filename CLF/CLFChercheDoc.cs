@@ -11,13 +11,10 @@ namespace KalosfideAPI.CLF
     public class CLFChercheDoc
     {
         /// <summary>
-        /// Uid du client
+        /// Id du client
         /// </summary>
-        public string Uid { get; set; }
-        /// <summary>
-        /// Rno du client
-        /// </summary>
-        public long Rno { get; set; }
+        public uint Id { get; set; }
+
         /// <summary>
         /// Nom du client
         /// </summary>

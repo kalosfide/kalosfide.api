@@ -23,7 +23,7 @@ namespace KalosfideAPI.CLF
             IUtileService utile,
             IUtilisateurService utilisateurService) : base(service, utile, utilisateurService)
         {
-            _type = TypeClf.Commande;
+            _type = TypeCLF.Commande;
         }
 
         #region Vérificateurs
@@ -34,7 +34,7 @@ namespace KalosfideAPI.CLF
         private void LigneNExistePas()
         {
             List<LigneCLF> lignes = new List<LigneCLF>(vérificateur.DocCLF.Lignes);
-            LigneCLF ligne = lignes.Find(l => l.No2 == vérificateur.KeyLigne.No2);
+            LigneCLF ligne = lignes.Find(l => l.ProduitId == vérificateur.KeyLigne.ProduitId);
             if (ligne != null)
             {
                 vérificateur.Erreur = RésultatBadRequest("LigneExiste");
@@ -47,8 +47,8 @@ namespace KalosfideAPI.CLF
         /// </summary>
         private async Task PeutCommanderProduit()
         {
-            Produit produit = await _utile.Produit(vérificateur.Site, vérificateur.KeyLigne.No2);
-            if (produit == null || produit.Etat != TypeEtatProduit.Disponible)
+            Produit produit = await _utile.Produit(vérificateur.KeyLigne.ProduitId);
+            if (produit == null || !produit.Disponible)
             {
                 vérificateur.Erreur = RésultatBadRequest("Produit");
                 throw new VérificationException();
@@ -104,12 +104,6 @@ namespace KalosfideAPI.CLF
         /// </summary>
         private void ChampsPrésentsValides()
         {
-            if (vérificateur.CLFLigne.TypeCommande != null
-                && !TypeUnitéDeCommande.DemandeEstValide(vérificateur.CLFLigne.TypeCommande, vérificateur.ArchiveProduit.TypeCommande))
-            {
-                vérificateur.Erreur = RésultatBadRequest("typeCommande", "Type invalide");
-                throw new VérificationException();
-            }
 
             string code;
             if (vérificateur.CLFLigne.Quantité.HasValue)
@@ -161,7 +155,7 @@ namespace KalosfideAPI.CLF
             try
             {
                 await ClientDeLAction();
-                await UtilisateurEstClient();
+                await UtilisateurEstClientActifOuNouveau();
                 ContexteCatalogue();
             }
             catch (VérificationException)
@@ -177,7 +171,7 @@ namespace KalosfideAPI.CLF
                 return Ok(new CLFDocs());
             }
 
-            CLFDocs docs = await _service.CommandeEnCours(paramsKeyClient);
+            CLFDocs docs = await _service.CommandeEnCours(paramsKeyClient.Id);
 
             return Ok(docs);
         }
@@ -212,7 +206,7 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.Client, TypeClf.Commande);
+            DocCLF dernièreCommande = await _service.DernierDoc(paramsClient.Id, TypeCLF.Commande);
             // la dernière commande doit exister et ne pas être envoyée
             if (dernièreCommande == null || dernièreCommande.Date.HasValue)
             {
@@ -223,7 +217,7 @@ namespace KalosfideAPI.CLF
 
             if (retour.Ok)
             {
-                return Ok(retour.Entité);
+                return RésultatCréé(retour.Entité);
             }
 
             return SaveChangesActionResult(retour);
@@ -384,9 +378,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Copie1([FromQuery] KeyUidRnoNo2 keyLigne)
+        public async Task<IActionResult> Copie1([FromQuery] KeyLigneSansType keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeClf.Commande);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeCLF.Commande);
             return await Action(keyLigne, action);
         }
 
@@ -401,9 +395,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> CopieD([FromQuery] KeyUidRnoNo keyDoc)
+        public async Task<IActionResult> CopieD([FromQuery] KeyDocSansType keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeClf.Commande);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeCLF.Commande);
             return await Action(keyDoc, action);
         }
 
@@ -421,7 +415,7 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> CopieT(ParamsSynthèse paramsSynthèse)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeClf.Commande);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeCLF.Commande);
             return await Action(paramsSynthèse, action);
         }
 
@@ -437,9 +431,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Annule1([FromQuery] KeyUidRnoNo2 keyLigne)
+        public async Task<IActionResult> Annule1([FromQuery] KeyLigneSansType keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeClf.Commande);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeCLF.Commande);
             return await Action(keyLigne, action);
         }
 
@@ -454,9 +448,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> AnnuleD([FromQuery] KeyUidRnoNo keyDoc)
+        public async Task<IActionResult> AnnuleD([FromQuery] KeyDocSansType keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeClf.Commande);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeCLF.Commande);
             return await Action(keyDoc, action);
         }
 
@@ -473,7 +467,7 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> AnnuleT(ParamsSynthèse paramsSynthèse)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeClf.Commande);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeCLF.Commande);
             return await Action(paramsSynthèse, action);
         }
 

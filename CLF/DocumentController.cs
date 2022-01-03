@@ -27,23 +27,23 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne la liste par client des bilans (nombre et total des montants) des documents par type.
         /// </summary>
-        /// <param name="keySite"></param>
+        /// <param name="idSite"></param>
         /// <returns></returns>
         [HttpGet("/api/document/bilans")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Bilans([FromQuery] KeyUidRno keySite)
+        public async Task<IActionResult> Bilans([FromQuery] uint idSite)
         {
-            // la liste est demandée par le fournisseur, paramsFiltre a la clé du site
-            CarteUtilisateur carte = await CréeCarteFournisseur(keySite);
+            // la liste est demandée par le fournisseur
+            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, EtatsRolePermis.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
             }
 
-            List<CLFClientBilanDocs> bilans = await _service.ClientsAvecBilanDocuments(carte.Role.Site);
+            List<CLFClientBilanDocs> bilans = await _service.ClientsAvecBilanDocuments(carte.Fournisseur.Site);
 
             return Ok(bilans);
         }
@@ -61,7 +61,7 @@ namespace KalosfideAPI.CLF
         public async Task<IActionResult> ListeC([FromQuery] ParamsFiltreDoc paramsFiltre)
         {
             // la liste est demandée par le client, paramsFiltre a la clé du client
-            vérificateur.Initialise(paramsFiltre);
+            vérificateur.Initialise(paramsFiltre.Id);
             try
             {
                 await ClientDeLAction();
@@ -91,13 +91,13 @@ namespace KalosfideAPI.CLF
         public async Task<IActionResult> ListeF([FromQuery] ParamsFiltreDoc paramsFiltre)
         {
             // la liste est demandée par le fournisseur, paramsFiltre a la clé du site
-            CarteUtilisateur carte = await CréeCarteFournisseur(paramsFiltre);
+            CarteUtilisateur carte = await CréeCarteFournisseur(paramsFiltre.Id, EtatsRolePermis.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
             }
 
-            CLFDocs clfDocs = await _service.Résumés(paramsFiltre, carte.Role.Site);
+            CLFDocs clfDocs = await _service.Résumés(paramsFiltre, carte.Fournisseur.Site);
 
             return Ok(clfDocs);
         }
@@ -128,7 +128,7 @@ namespace KalosfideAPI.CLF
             return Ok(clfDocs);
         }
 
-        private async Task<IActionResult> Document(KeyUidRnoNo keyDocSansType, string type)
+        private async Task<IActionResult> Document(KeyDocSansType keyDocSansType, TypeCLF type)
         {
             if (keyDocSansType is null)
             {
@@ -166,9 +166,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Commande([FromQuery] KeyUidRnoNo keyDocument)
+        public async Task<IActionResult> Commande([FromQuery] KeyDocSansType keyDocument)
         {
-            return await Document(keyDocument, TypeClf.Commande);
+            return await Document(keyDocument, TypeCLF.Commande);
         }
 
         /// <summary>
@@ -181,9 +181,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Livraison([FromQuery] KeyUidRnoNo keyDocument)
+        public async Task<IActionResult> Livraison([FromQuery] KeyDocSansType keyDocument)
         {
-            return await Document(keyDocument, TypeClf.Livraison);
+            return await Document(keyDocument, TypeCLF.Livraison);
         }
 
         /// <summary>
@@ -196,16 +196,16 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Facture([FromQuery] KeyUidRnoNo keyDocument)
+        public async Task<IActionResult> Facture([FromQuery] KeyDocSansType keyDocument)
         {
-            return await Document(keyDocument, TypeClf.Facture);
+            return await Document(keyDocument, TypeCLF.Facture);
         }
 
         /// <summary>
         /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.
         /// </summary>
-        /// <param name="paramsChercheDoc">key du site, no et type du document</param>
-        /// <returns>un CLFChercheDoc contenant la key et le nom du client et la date si le document recherché existe, vide sinon</returns>
+        /// <param name="paramsChercheDoc">Contient l'Id du site, no et type du document</param>
+        /// <returns>un CLFChercheDoc contenant l'Id et le nom du client et la date si le document recherché existe, vide sinon</returns>
         [HttpGet("/api/document/cherche")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
@@ -214,13 +214,13 @@ namespace KalosfideAPI.CLF
         public async Task<IActionResult> Cherche([FromQuery] ParamsChercheDoc paramsChercheDoc)
         {
             // paramsChercheDoc a la clé du site
-            CarteUtilisateur carte = await CréeCarteFournisseur(paramsChercheDoc);
+            CarteUtilisateur carte = await CréeCarteFournisseur(paramsChercheDoc.SiteId, EtatsRolePermis.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
             }
             // seuls les type livraison et facture sont autorisés
-            if (paramsChercheDoc.Type == TypeClf.Commande)
+            if (paramsChercheDoc.Type == TypeCLF.Commande)
             {
                 return BadRequest();
             }

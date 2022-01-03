@@ -1,19 +1,14 @@
 ﻿using KalosfideAPI.Data;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Partages.KeyParams;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sites
 {
-    public interface ISiteService : IKeyUidRnoService<Site, SiteVue>
+    public interface ISiteService : IAvecIdUintService<Site, ISiteData, SiteAEditer>
     {
-        Task<List<SiteVue>> ListeVues();
 
-        Task<RetourDeService<Role>> CréeRoleSite(Utilisateur utilisateur, ICréeSiteVue vue);
+        GèreArchiveSite GèreArchiveSite { get; }
 
         /// <summary>
         /// Enregistre le commencement de la modification du catalogue du site.
@@ -31,7 +26,7 @@ namespace KalosfideAPI.Sites
         Task<RetourDeService<ArchiveSite>> TermineEtatCatalogue(Site site, DateTime? dateCatalogue);
 
         Task<Site> TrouveParUrl(string url);
-        Task<Site> TrouveParKey(string Uid, int Rno);
+        Task<Site> TrouveParId(uint id);
 
         /// <summary>
         /// Vérifie s'il existe un Site ayant une certaine Url.
@@ -41,12 +36,12 @@ namespace KalosfideAPI.Sites
         Task<bool> UrlPrise(string url);
 
         /// <summary>
-        /// Vérifie s'il existe un Site autre que celui défini par la KeyUidRno ayant une certaine Url.
+        /// Vérifie s'il existe un Site autre que celui défini par l'Id ayant une certaine Url.
         /// </summary>
         /// <param name="url">Url du Site à rechercher</param>
-        /// <param name="key">Objet ayant la KeyUidRno d'un Site</param>
+        /// <param name="id">Id d'un Site</param>
         /// <returns>true s'il existe un Site ayant cette Url</returns>
-        Task<bool> UrlPriseParAutre(AKeyUidRno key, string url);
+        Task<bool> UrlPriseParAutre(uint id, string url);
 
         /// <summary>
         /// Vérifie s'il existe un Site ayant un certain Titre.
@@ -56,11 +51,11 @@ namespace KalosfideAPI.Sites
         Task<bool> TitrePris(string titre);
 
         /// <summary>
-        /// Vérifie s'il existe un Site autre que celui défini par la KeyUidRno ayant un certain Titre.
+        /// Vérifie s'il existe un Site autre que celui défini par l'Id ayant un certain Titre.
         /// </summary>
         /// <param name="titre">Titre du Site à rechercher</param>
-        /// <param name="key">Objet ayant la KeyUidRno d'un Site</param>
+        /// <param name="id">Id d'un Site</param>
         /// <returns>true s'il existe un Site ayant ce Titre</returns>
-        Task<bool> TitrePrisParAutre(AKeyUidRno key, string titre);
+        Task<bool> TitrePrisParAutre(uint id, string titre);
     }
 }

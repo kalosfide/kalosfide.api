@@ -19,17 +19,17 @@ using KalosfideAPI.Utiles;
 namespace KalosfideAPI.Utilisateurs
 {
 
-    public class UtilisateurService : BaseService<Utilisateur>, IUtilisateurService
+    public class UtilisateurService : BaseService, IUtilisateurService
     {
-        private readonly SignInManager<ApplicationUser> _signInManager;
-        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<Utilisateur> _signInManager;
+        private readonly UserManager<Utilisateur> _userManager;
         private readonly IJwtFabrique _jwtFabrique;
         private readonly IEnvoieEmailService _emailService;
 
         public UtilisateurService(
             ApplicationContext context,
-            UserManager<ApplicationUser> userManager,
-            SignInManager<ApplicationUser> signInManager,
+            UserManager<Utilisateur> userManager,
+            SignInManager<Utilisateur> signInManager,
             IJwtFabrique jwtFabrique,
             IEnvoieEmailService emailService
             ) : base(context)
@@ -43,37 +43,46 @@ namespace KalosfideAPI.Utilisateurs
         #region Recherche
 
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Id.
+        /// Cherche un Utilisateur à partir de son Id.
         /// </summary>
-        /// <param name="userId">Id de l'ApplicationUser recherché</param>
-        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
-        public async Task<ApplicationUser> ApplicationUserDeUserId(string userId)
+        /// <param name="id">Id de l'Utilisateur recherché</param>
+        /// <returns>l'Utilisateur trouvé, ou null.</returns>
+        public async Task<Utilisateur> UtilisateurDeId(string id)
         {
-            return await _userManager.FindByIdAsync(userId);
+            return await _userManager.FindByIdAsync(id);
         }
 
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Email.
+        /// Cherche un Utilisateur à partir de son Email.
         /// </summary>
-        /// <param name="eMail">Email de l'ApplicationUser recherché</param>
-        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
-        public async Task<ApplicationUser> ApplicationUserDeEmail(string eMail)
+        /// <param name="eMail">Email de l'Utilisateur recherché</param>
+        /// <returns>l'Utilisateur trouvé, ou null.</returns>
+        public async Task<Utilisateur> UtilisateurDeEmail(string eMail)
         {
-            return await _userManager.FindByEmailAsync(eMail);
+            Utilisateur utilisateur = await _userManager.FindByEmailAsync(eMail);
+            if (utilisateur != null)
+            {
+                Utilisateur avecRoles = await _context.Utilisateur
+                    .Where(u => u.Id == utilisateur.Id)
+                    .Include(u => u.Fournisseurs)
+                    .Include(u => u.Clients)
+                    .FirstAsync();
+            }
+            return utilisateur;
         }
 
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Email et vérifie son mot de passe.
+        /// Cherche un Utilisateur à partir de son Email et vérifie son mot de passe.
         /// </summary>
-        /// <param name="eMail">email de l'ApplicationUser recherché</param>
+        /// <param name="eMail">email de l'Utilisateur recherché</param>
         /// <param name="password">mot de passe à vérifier</param>
-        /// <returns>l'ApplicationUser trouvé si le mot de passe correspond à l'email, ou null.</returns>
-        public async Task<ApplicationUser> ApplicationUserVérifié(string eMail, string password)
+        /// <returns>l'Utilisateur trouvé si le mot de passe correspond à l'email, ou null.</returns>
+        public async Task<Utilisateur> UtilisateurVérifié(string eMail, string password)
         {
             if (!string.IsNullOrEmpty(eMail) && !string.IsNullOrEmpty(password))
             {
                 // get the user to verifty
-                ApplicationUser user = await _userManager.FindByNameAsync(eMail);
+                Utilisateur user = await _userManager.FindByNameAsync(eMail);
 
                 if (user != null)
                 {
@@ -86,50 +95,39 @@ namespace KalosfideAPI.Utilisateurs
             }
 
             // Credentials are invalid, or account doesn't exist
-            return await Task.FromResult<ApplicationUser>(null);
+            return await Task.FromResult<Utilisateur>(null);
         }
 
         /// <summary>
-        /// Cherche un Utilisateur à partir de son ApplicationUser.
+        /// Trouve dans la bdd l'Utilisateur incluant ses Fournisseurs et ses Clients correspondant à un Utilisateur retourné par le UserManager.
         /// </summary>
-        /// <param name="user"></param>
-        /// <returns>l'Utilisateur trouvé qui inclut ses Roles qui incluent leurs Site, ou null.</returns>
-        public async Task<Utilisateur> UtilisateurDeApplicationUser(ApplicationUser user)
+        /// <param name="user">Utilisateur retourné par le UserManager</param>
+        /// <returns>l'Utilisateur trouvé qui inclut ses Fournisseurs et ses Clients.</returns>
+        public async Task<Utilisateur> UtilisateurAvecRoles(Utilisateur user)
         {
-            return await _context.Utilisateur.Where(utilisateur => utilisateur.UserId == user.Id)
-                .Include(utilisateur => utilisateur.Roles)
-                .ThenInclude(role => role.Site)
+            return await _context.Utilisateur.Where(utilisateur => utilisateur.Id == user.Id)
+                .Include(utilisateur => utilisateur.Fournisseurs)
+                .Include(utilisateur => utilisateur.Clients)
                 .FirstOrDefaultAsync();
         }
 
         /// <summary>
-        /// Cherche un Utilisateur à partir de son Uid.
+        /// Cherche un Utilisateur à partir de son Email et, s'il existe, vérifie s'il est usager d'un Site.
         /// </summary>
-        /// <param name="uid"></param>
-        /// <returns>l'Utilisateur trouvé qui inclut son ApplicationUser, ou null.</returns>
-        public async Task<Utilisateur> UtilisateurDeUid(string uid)
+        /// <param name="email">Email de l'Utilisateur à chercher</param>
+        /// <param name="idSite">Id d'un Site</param>
+        /// <returns>true, si l'Utilisateur existe et est usager du Site; false, sinon.</returns>
+        public async Task<bool> UtilisateurDeEmailEstUsagerDeSite(string email, uint idSite)
         {
-            Utilisateur utilisateur = await _context.Utilisateur.FindAsync(uid);
-            if (utilisateur != null)
+            Utilisateur utilisateur = await _context.Utilisateur.Where(utilisateur => utilisateur.Email == email)
+                .Include(utilisateur => utilisateur.Fournisseurs)
+                .Include(utilisateur => utilisateur.Clients)
+                .FirstOrDefaultAsync();
+            if (utilisateur == null)
             {
-                ApplicationUser applicationUser = await _context.Users.FindAsync(utilisateur.UserId);
-                utilisateur.ApplicationUser = applicationUser;
+                return false;
             }
-            return utilisateur;
-        }
-
-        /// <summary>
-        /// Cherche un Role à partir de sa KeyUidRno.
-        /// </summary>
-        /// <param name="iKeyRole">objet ayant l'Uid et le Rno du Role recherché</param>
-        /// <returns>le Role trouvé qui inclut son Site, ou null.</returns>
-        public async Task<Role> RoleDeKey(IKeyUidRno iKeyRole)
-        {
-            Role role = await _context.Role
-                .Where(r => r.Uid == iKeyRole.Uid && r.Rno == iKeyRole.Rno)
-                .Include(r => r.Site)
-                .FirstOrDefaultAsync();
-            return role;
+            return Utilisateur.EstUsager(utilisateur, idSite);
         }
 
         #endregion // Recherche
@@ -137,18 +135,14 @@ namespace KalosfideAPI.Utilisateurs
         #region CarteUtilisateur
 
         /// <summary>
-        /// Crée une CarteUtilisateur à partir d'un ApplicationUser.
-        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites et leurs Archives.
+        /// Crée une CarteUtilisateur à partir d'un Utilisateur.
+        /// Fixe l'Utilisateur de la carte avec son Archives, avec ses Clients incluant leurs Archives et leur Site incluant son Fournisseur
+        /// et avec ses Fournisseurs incluant leurs Archives et leur Site.
         /// </summary>
-        /// <param name="user"></param>
+        /// <param name="utilisateur"></param>
         /// <returns>la CarteUtilisateur créée</returns>
-        public async Task<CarteUtilisateur> CréeCarteUtilisateur(ApplicationUser user)
+        public async Task<CarteUtilisateur> CréeCarteUtilisateur(Utilisateur utilisateur)
         {
-            Utilisateur utilisateur = await _context.Utilisateur.Where(u => u.UserId == user.Id)
-                .Include(u => u.Roles).ThenInclude(r => r.Site)
-                .Include(u => u.Roles).ThenInclude(r => r.Archives)
-                .FirstAsync();
-            utilisateur.ApplicationUser = user;
 
             CarteUtilisateur carte = new CarteUtilisateur(_context);
             await carte.FixeUtilisateur(utilisateur);
@@ -157,7 +151,8 @@ namespace KalosfideAPI.Utilisateurs
 
         /// <summary>
         /// Crée une CarteUtilisateur à partir des Claims envoyées avec une requête Http.
-        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites.
+        /// Fixe l'Utilisateur de la carte avec son Archives, avec ses Clients incluant leurs Archives et leur Site incluant son Fournisseur
+        /// et avec ses Fournisseurs incluant leurs Archives et leur Site.
         /// </summary>
         /// <param name="httpContext">le HttpContext de la requête</param>
         /// <returns>la CarteUtilisateur créée, ou null si les Claims ne sont pas valide</returns>
@@ -176,15 +171,13 @@ namespace KalosfideAPI.Utilisateurs
             int sessionId = int.Parse(claims.Where(c => c.Type == JwtClaims.SessionId).First()?.Value);
 
             Utilisateur utilisateur = await _context.Utilisateur
-                .Include(u => u.Roles).ThenInclude(r => r.Site)
-                .Where(u => u.UserId != null && u.UserId == userId && u.Uid == uid)
+                .Where(u => u.Id == userId)
                 .FirstOrDefaultAsync();
             if (utilisateur == null)
             {
                 return carte;
             }
-            ApplicationUser applicationUser = utilisateur.ApplicationUser;
-            if (userName != applicationUser.UserName)
+            if (userName != utilisateur.UserName)
             {
                 // fausse carte
                 return carte;
@@ -214,113 +207,57 @@ namespace KalosfideAPI.Utilisateurs
         #region Ajout Suppression
 
         /// <summary>
-        /// Ajoute à la bdd un nouvel Utilisateur et fixe son UserId si l'ApplicationUser paramétre n'est pas null.
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
-        private async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ApplicationUser user)
-        {
-            // recherche la première valeur libre dans la liste dans l'ordre croissant des valeurs numériques des Uid des utilisateurs existants
-            string[] uids = await _context.Utilisateur.Select(u => u.Uid).ToArrayAsync();
-            int[] valeurs = uids.Select(u => int.Parse(u)).OrderBy(l => l).ToArray();
-            int nb = valeurs.Length;
-            // si la première valeur (d'index 1 - 1) est 1, 1 n'est pas libre
-            // si la première valeur (d'index 1 - 1) n'est pas 1, 1 est libre
-            // si la valeur suivante (d'index 2 - 1) est 2, 2 n'est pas libre
-            // si la valeur suivante (d'index 2 - 1) n'est pas 2, 2 est libre
-            // etc.
-            // la première valeur libre suit la dernière valeur d'index égal à valeur - 1
-            int valeur = 1;
-            for (; valeur <= nb && valeur == valeurs[valeur - 1]; valeur++)
-            {
-            }
-            string uid = valeur.ToString();
-
-            Utilisateur utilisateur = new Utilisateur
-            {
-                Uid = uid,
-                Etat = TypeEtatUtilisateur.Nouveau,
-            };
-            if (user != null)
-            {
-                utilisateur.UserId = user.Id;
-            }
-            ArchiveUtilisateur archive = new ArchiveUtilisateur
-            {
-                Uid = uid,
-                Etat = TypeEtatUtilisateur.Nouveau,
-                Date = DateTime.Now
-            };
-            _context.Utilisateur.Add(utilisateur);
-            _context.ArchiveUtilisateur.Add(archive);
-            return await SaveChangesAsync(utilisateur);
-        }
-
-        /// <summary>
-        /// Ajoute à la bdd un nouvel Utilisateur sans ApplicationUser.
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
-        public async Task<RetourDeService<Utilisateur>> CréeUtilisateur()
-        {
-            return await CréeUtilisateur((ApplicationUser)null);
-        }
-
-        /// <summary>
-        /// Ajoute à la bdd un nouvel Utilisateur et son ApplicationUser à partir de son Email et de son mot de passe.
+        /// Ajoute à la bdd un nouvel Utilisateur à partir de son Email et de son mot de passe.
         /// </summary>
         /// <param name="vue">objet ayant l'Email et le Password de l'utilisateur à créer</param>
         /// <returns></returns>
-        public async Task<RetourDeService<ApplicationUser>> CréeUtilisateur(ICréeCompteVue vue)
+        public async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ICréeCompteVue vue)
         {
-            ApplicationUser applicationUser = new ApplicationUser
+            Utilisateur applicationUser = new Utilisateur
             {
                 UserName = vue.Email,
                 Email = vue.Email,
+                Etat = EtatUtilisateur.Nouveau
             };
             try
             {
-                var identityResult = await _userManager.CreateAsync(applicationUser, vue.Password);
+                IdentityResult identityResult = await _userManager.CreateAsync(applicationUser, vue.Password);
                 if (!identityResult.Succeeded)
                 {
-                    return new RetourDeService<ApplicationUser>(identityResult);
+                    return new RetourDeService<Utilisateur>(identityResult);
                 }
 
-                RetourDeService<Utilisateur> retour = await CréeUtilisateur(applicationUser);
-                if (!retour.Ok)
+                ArchiveUtilisateur archive = new ArchiveUtilisateur
                 {
-                    return new RetourDeService<ApplicationUser>(retour);
-                }
+                    Id = applicationUser.Id,
+                    Email = applicationUser.Email,
+                    Etat = EtatUtilisateur.Nouveau,
+                    Date = DateTime.Now
+                };
+                _context.ArchiveUtilisateur.Add(archive);
+                await SaveChangesAsync();
 
-                applicationUser.Utilisateur = retour.Entité;
-                return new RetourDeService<ApplicationUser>(applicationUser);
+                return new RetourDeService<Utilisateur>(applicationUser);
             }
             catch (DbUpdateConcurrencyException)
             {
-                return new RetourDeService<ApplicationUser>(TypeRetourDeService.ConcurrencyError);
+                return new RetourDeService<Utilisateur>(TypeRetourDeService.ConcurrencyError);
             }
             catch (Exception)
             {
-                return new RetourDeService<ApplicationUser>(TypeRetourDeService.Indéterminé);
+                return new RetourDeService<Utilisateur>(TypeRetourDeService.Indéterminé);
             }
         }
 
         /// <summary>
-        /// Supprime dans la bdd un Utilisateur et son ApplicationUser s'il en a un.
+        /// Supprime dans la bdd un Utilisateur
         /// </summary>
         /// <param name="utilisateur">Utilisateur</param>
         /// <returns></returns>
         public async Task<RetourDeService> Supprime(Utilisateur utilisateur)
         {
-            string userId = utilisateur.UserId;
-            _context.Utilisateur.Remove(utilisateur);
-            RetourDeService retour = await SaveChangesAsync();
-            if (!retour.Ok || userId == null)
-            {
-                return retour;
-            }
 
-            ApplicationUser applicationUser = await _userManager.FindByIdAsync(userId);
+            Utilisateur applicationUser = await _userManager.FindByIdAsync(utilisateur.Id);
             await _userManager.DeleteAsync(applicationUser);
             _context.Remove(applicationUser);
             return await SaveChangesAsync();
@@ -330,7 +267,7 @@ namespace KalosfideAPI.Utilisateurs
 
         #region Compte
 
-        public async Task EnvoieEmailConfirmeCompte(ApplicationUser user)
+        public async Task EnvoieEmailConfirmeCompte(Utilisateur user)
         {
             string objet = "Confirmation de votre compte " + ClientApp.Nom;
             string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
@@ -351,21 +288,21 @@ namespace KalosfideAPI.Utilisateurs
         /// <param name="user"></param>
         /// <param name="code"></param>
         /// <returns></returns>
-        public async Task<bool> EmailConfirmé(ApplicationUser user, string code)
+        public async Task<bool> EmailConfirmé(Utilisateur user, string code)
         {
             string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
             IdentityResult result = await _userManager.ConfirmEmailAsync(user, token);
             return result.Succeeded;
         }
 
-        public async Task ConfirmeEmailDirect(ApplicationUser user)
+        public async Task ConfirmeEmailDirect(Utilisateur user)
         {
             string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             await _userManager.ConfirmEmailAsync(user, token);
 
         }
 
-        public async Task EnvoieEmailRéinitialiseMotDePasse(ApplicationUser user)
+        public async Task EnvoieEmailRéinitialiseMotDePasse(Utilisateur user)
         {
             string objet = "Mot de passe oublié";
             string token = await _userManager.GeneratePasswordResetTokenAsync(user);
@@ -379,20 +316,20 @@ namespace KalosfideAPI.Utilisateurs
             await _emailService.EnvoieEmail(user.Email, objet, message, urlBase, token, urlParams);
         }
 
-        public async Task<bool> RéinitialiseMotDePasse(ApplicationUser user, string code, string motDePasse)
+        public async Task<bool> RéinitialiseMotDePasse(Utilisateur user, string code, string motDePasse)
         {
             string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
             IdentityResult result = await _userManager.ResetPasswordAsync(user, token, motDePasse);
             return result.Succeeded;
         }
 
-        public async Task<bool> ChangeMotDePasse(ApplicationUser user, string motDePasse, string nouveauMotDePasse)
+        public async Task<bool> ChangeMotDePasse(Utilisateur user, string motDePasse, string nouveauMotDePasse)
         {
             IdentityResult result = await _userManager.ChangePasswordAsync(user, motDePasse, nouveauMotDePasse);
             return result.Succeeded;
         }
 
-        public async Task EnvoieEmailChangeEmail(ApplicationUser user, string nouvelEmail)
+        public async Task EnvoieEmailChangeEmail(Utilisateur user, string nouvelEmail)
         {
             string objet = "Changement d'adresse email";
             string token = await _userManager.GenerateChangeEmailTokenAsync(user, nouvelEmail);
@@ -407,7 +344,7 @@ namespace KalosfideAPI.Utilisateurs
             await _emailService.EnvoieEmail(nouvelEmail, objet, message, urlBase, token, urlParams);
         }
 
-        public async Task<bool> ChangeEmail(ApplicationUser user, string nouvelEmail, string code)
+        public async Task<bool> ChangeEmail(Utilisateur user, string nouvelEmail, string code)
         {
             string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
             IdentityResult result = await _userManager.ChangeEmailAsync(user, nouvelEmail, token);
@@ -416,49 +353,37 @@ namespace KalosfideAPI.Utilisateurs
 
         #endregion // Compte
 
-        /// <summary>
-        /// Trouve l'invitation enregistrée ayant le même email
-        /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
-        public async Task<Invitation> TrouveInvitation(IInvitationKey key)
+        public async Task<RetourDeService> Connecte(Utilisateur utilisateur)
         {
-            return await _context.Invitation
-                .Where(i => i.Email == key.Email && i.Uid == key.Uid && i.Rno == key.Rno)
-                .FirstOrDefaultAsync();
-        }
-
-        public async Task<RetourDeService<Invitation>> EnvoieEmailDevenirClient(Invitation invitation, InvitationVérifiée vérifiée)
-        {
-            string objet = "Devenir client de " + vérifiée.Site.Titre;
-            string urlBase = ClientApp.Url(ClientApp.DevenirClient);
-            string message = "Vous pouvez devenir client de " + vérifiée.Site.Titre;
-
-            await _emailService.EnvoieEmail<Invitation>(invitation.Email, objet, message, urlBase, invitation, null);
-
-            if (vérifiée.Invitation != null)
+            // persistant est false car l'utilisateur doit s'authentifier à chaque accès
+            await _signInManager.SignInAsync(utilisateur, false);
+            // lit et augmente le sessionId de l'utilisateur
+            int sessionId = utilisateur.SessionId;
+            if (sessionId < 0)
             {
-                _context.Invitation.Remove(vérifiée.Invitation);
-                RetourDeService<Invitation> retourSupprime = await SaveChangesAsync(vérifiée.Invitation);
-                if (!retourSupprime.Ok)
-                {
-                    return retourSupprime;
-                }
+                // l'utilisateur s'est déconnecté lors de sa dernière session
+                // et son SessionId a été changé en son opposé
+                sessionId = -sessionId;
             }
-            _context.Invitation.Add(invitation);
-            return await SaveChangesAsync(invitation);
-        }
-
-        public Invitation DécodeInvitation(string code)
-        {
-            return _emailService.DécodeCodeDeEmail<Invitation>(code);
+            sessionId += 1;
+            // fixe le sessionId de l'utilisateur et de la carte
+            utilisateur.SessionId = sessionId;
+            _context.Utilisateur.Update(utilisateur);
+            ArchiveUtilisateur archive = new ArchiveUtilisateur
+            {
+                Id = utilisateur.Id,
+                Date = DateTime.Now,
+                SessionId = sessionId
+            };
+            _context.ArchiveUtilisateur.Add(archive);
+            return await SaveChangesAsync();
         }
 
         public async Task Connecte(CarteUtilisateur carteUtilisateur)
         {
             Utilisateur utilisateur = carteUtilisateur.Utilisateur;
             // persistant est false car l'utilisateur doit s'authentifier à chaque accès
-            await _signInManager.SignInAsync(utilisateur.ApplicationUser, false);
+            await _signInManager.SignInAsync(utilisateur, false);
             // lit et augmente le sessionId de l'utilisateur
             int sessionId = utilisateur.SessionId;
             if (sessionId < 0)
@@ -473,7 +398,7 @@ namespace KalosfideAPI.Utilisateurs
             _context.Utilisateur.Update(utilisateur);
             ArchiveUtilisateur archive = new ArchiveUtilisateur
             {
-                Uid = utilisateur.Uid,
+                Id = utilisateur.Id,
                 Date = DateTime.Now,
                 SessionId = sessionId
             };
@@ -491,35 +416,18 @@ namespace KalosfideAPI.Utilisateurs
             _context.Utilisateur.Update(utilisateur);
             ArchiveUtilisateur archive = new ArchiveUtilisateur
             {
-                Uid = utilisateur.Uid,
+                Id = utilisateur.Id,
                 Date = DateTime.Now,
                 SessionId = utilisateur.SessionId,
-                NoDernierRole = carteUtilisateur.NoDernierRole
+                IdDernierSite = carteUtilisateur.IdDernierSite
             };
             _context.ArchiveUtilisateur.Add(archive);
             await _context.SaveChangesAsync();
         }
 
-        public async Task<List<InvitationVue>> Invitations(AKeyUidRno keySite)
-        {
-            List<Invitation> invitations = await _context.Invitation
-                .Where(i => i.Uid == keySite.Uid && i.Rno == keySite.Rno)
-                .ToListAsync();
-            return invitations
-                .Select(i => new InvitationVue(i))
-                .ToList();
-        }
-
-        public async Task<RetourDeService<Invitation>> SupprimeInvitation(Invitation invitation)
-        {
-            _context.Invitation.Remove(invitation);
-            return await SaveChangesAsync(invitation);
-        }
-
         public async Task<List<Utilisateur>> Lit()
         {
             return await _context.Utilisateur
-                .Include(u => u.ApplicationUser)
                 .ToListAsync();
         }
 

@@ -23,7 +23,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// L'une des constantes TypeCLF.Commande ou TypeCLF.Livraison ou TypeCLF.Facture
         /// </summary>
-        protected string _type;
+        protected TypeCLF _type;
         protected readonly Vérificateur vérificateur;
 
         public CLFController(ICLFService service,
@@ -40,18 +40,17 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs dont le Documents contient les états de préparation des bons envoyés et sans synthèse de tous les clients.
         /// </summary>
-        /// <param name="keySite">key du site</param>
+        /// <param name="idSite">Id du site</param>
         /// <returns></returns>
-        protected async Task<IActionResult> Clients(KeyUidRno keySite)
+        protected async Task<IActionResult> Clients(uint idSite)
         {
-
-            Site site = await _utile.SiteDeKey(keySite);
-            if (site == null)
+            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
+            if (carte.Erreur != null)
             {
-                return NotFound();
+                return carte.Erreur;
             }
 
-            vérificateur.Site = site;
+            vérificateur.Site = carte.Fournisseur.Site;
             try
             {
                 ContexteCatalogue();
@@ -61,13 +60,8 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            CarteUtilisateur carte = await CréeCarteFournisseur(site);
-            if (carte.Erreur != null)
-            {
-                return carte.Erreur;
-            }
 
-            CLFDocs clfDocs = await _service.ClientsAvecBons(site, _type);
+            CLFDocs clfDocs = await _service.ClientsAvecBons(idSite, _type);
 
             return Ok(clfDocs);
         }
@@ -75,11 +69,11 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs dont le champ Documents contient les documents envoyés et sans synthèse du client avec les lignes
         /// </summary>
-        /// <param name="keyClient"></param>
+        /// <param name="idClient"></param>
         /// <returns></returns>
-        protected async Task<IActionResult> Client(KeyUidRno keyClient)
+        protected async Task<IActionResult> Client(uint idClient)
         {
-            vérificateur.Initialise(keyClient);
+            vérificateur.Initialise(idClient);
             try
             {
                 await ClientDeLAction();
@@ -91,7 +85,7 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            CLFDocs clfDocs = await _service.BonsDUnClient(vérificateur.Site, keyClient, _type);
+            CLFDocs clfDocs = await _service.BonsDUnClient(vérificateur.Site, idClient, _type);
 
             return Ok(clfDocs);
         }
@@ -105,7 +99,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task ClientDeLAction()
         {
-            Role client = await _utile.ClientRoleAvecSite(vérificateur.KeyClient);
+            Client client = await _utile.ClientAvecSite(vérificateur.IdClient);
             if (client == null)
             {
                 vérificateur.Erreur = NotFound();
@@ -113,9 +107,9 @@ namespace KalosfideAPI.CLF
             }
             vérificateur.Client = client;
 
-            if (client.Etat == TypeEtatRole.Inactif || client.Etat == TypeEtatRole.Fermé)
+            if (client.Etat == EtatRole.Fermé)
             {
-                vérificateur.Erreur = RésultatBadRequest("Client non actif");
+                vérificateur.Erreur = RésultatBadRequest("Client fermé");
                 throw new VérificationException();
             }
 
@@ -128,7 +122,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstFournisseur()
         {
-            CarteUtilisateur carte = await CréeCarteFournisseur(vérificateur.Site);
+            CarteUtilisateur carte = await CréeCarteFournisseur(vérificateur.Site.Id, EtatsRolePermis.Actif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -141,25 +135,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstClientActifOuNouveau()
         {
-            CarteUtilisateur carte = await CréeCarteClientDeClient(vérificateur.KeyClient);
-            if (carte.Erreur != null)
-            {
-                vérificateur.Erreur = carte.Erreur;
-                throw new VérificationException();
-            }
-            if (carte.Role.Etat == TypeEtatRole.Inactif)
-            {
-                vérificateur.Erreur = RésultatInterdit("Client inactif");
-                throw new VérificationException();
-            }
-        }
-
-        /// <summary>
-        /// Vérifie que l'utilisateur est le client du document
-        /// </summary>
-        protected async Task UtilisateurEstClient()
-        {
-            CarteUtilisateur carte = await CréeCarteClientDeClient(vérificateur.KeyClient);
+            CarteUtilisateur carte = await CréeCarteClientDeClient(vérificateur.IdClient, EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -172,21 +148,17 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstClientActifOuNouveauOuFournisseur()
         {
-            CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.KeyClient, vérificateur.Site);
+            CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.IdClient, vérificateur.Site.Id,
+                EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
                 throw new VérificationException();
             }
 
-            vérificateur.EstFournisseur = Role.EstFournisseur(carte.Role);
+            vérificateur.EstFournisseur = carte.Fournisseur != null;
             vérificateur.EstClient = !vérificateur.EstFournisseur;
 
-            if (vérificateur.EstClient && carte.Role.Etat == TypeEtatRole.Inactif)
-            {
-                vérificateur.Erreur = RésultatInterdit("Client inactif");
-                throw new VérificationException();
-            }
         }
 
         /// <summary>
@@ -194,38 +166,16 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstClientPasFerméOuFournisseur()
         {
-            CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.KeyClient, vérificateur.Site);
+            CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.IdClient, vérificateur.Site.Id,
+                EtatsRolePermis.Actif, EtatsRolePermis.PasFermé);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
                 throw new VérificationException();
             }
 
-            vérificateur.EstFournisseur = Role.EstFournisseur(carte.Role);
+            vérificateur.EstFournisseur = carte.Fournisseur != null;
             vérificateur.EstClient = !vérificateur.EstFournisseur;
-
-            if (vérificateur.EstClient && carte.Role.Etat == TypeEtatRole.Fermé)
-            {
-                vérificateur.Erreur = RésultatInterdit("Client compte fermé");
-                throw new VérificationException();
-            }
-        }
-
-        /// <summary>
-        /// Vérifie que l'utilisateur est le client du document ou le fournisseur du site
-        /// </summary>
-        protected async Task UtilisateurEstClientOuFournisseur()
-        {
-            CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.KeyClient, vérificateur.Site);
-            if (carte.Erreur != null)
-            {
-                vérificateur.Erreur = carte.Erreur;
-                throw new VérificationException();
-            }
-
-            vérificateur.EstFournisseur = Role.EstFournisseur(carte.Role);
-            vérificateur.EstClient = !vérificateur.EstFournisseur;
-
         }
 
         /// <summary>
@@ -305,7 +255,7 @@ namespace KalosfideAPI.CLF
             else
             {
                 // Le fournisseur ne peut modifier que les bons de commande ou de livraison virtuels
-                if (doc.Type == TypeClf.Facture)
+                if (doc.Type == TypeCLF.Facture)
                 {
                     vérificateur.Erreur = RésultatBadRequest("ModifieFacture");
                     throw new VérificationException();
@@ -342,15 +292,15 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            long noBon;
+            uint noBon;
             DocCLF docACopier = null;
             if (vérificateur.EstClient)
             {
-                if (_type != TypeClf.Commande)
+                if (_type != TypeCLF.Commande)
                 {
                     return RésultatInterdit("Un client ne peut créer que des bons de commande.");
                 }
-                DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.KeyClient, TypeClf.Commande);
+                DocCLF dernièreCommande = await _service.DernierDoc(vérificateur.IdClient, TypeCLF.Commande);
                 if (copieLignes)
                 {
                     // la dernière commande doit exister et être envoyée
@@ -373,10 +323,9 @@ namespace KalosfideAPI.CLF
             else
             {
                 // key du bon virtuel du client
-                KeyUidRnoNo key = new KeyUidRnoNo
+                KeyDocSansType key = new KeyDocSansType
                 {
-                    Uid = vérificateur.KeyClient.Uid,
-                    Rno = vérificateur.KeyClient.Rno,
+                    Id = vérificateur.IdClient,
                     No = 0
                 };
                 DocCLF bonVirtuel = await _service.DocCLFDeKey(key, _type);
@@ -389,7 +338,7 @@ namespace KalosfideAPI.CLF
                 {
                     // on ne peut copier les lignes que si la synthèse précédente a été réalisée à partir du seul bon virtuel
                     // c'est le cas s'il n'y a pas de bon ayant pour NoGroupe le No de cette synthèse
-                    docACopier = await _service.DernierDoc(vérificateur.KeyClient, TypeClf.TypeSynthèse(_type));
+                    docACopier = await _service.DernierDoc(vérificateur.IdClient, DocCLF.TypeSynthèse(_type));
                     if (docACopier == null)
                     {
                         return RésultatBadRequest("PasDeDernièreSynthèse");
@@ -402,7 +351,7 @@ namespace KalosfideAPI.CLF
                 noBon = 0;
             }
 
-            RetourDeService<DocCLF> retour = await _service.AjouteBon(vérificateur.KeyClient, vérificateur.Site, _type, noBon);
+            RetourDeService<DocCLF> retour = await _service.AjouteBon(vérificateur.IdClient, vérificateur.Site, _type, noBon);
 
             if (!retour.Ok)
             {
@@ -418,7 +367,7 @@ namespace KalosfideAPI.CLF
                 }
             }
 
-            return Ok(CLFDoc.DeNo(noBon));
+            return RésultatCréé(CLFDoc.DeNo(noBon));
         }
 
         /// <summary>
@@ -458,7 +407,7 @@ namespace KalosfideAPI.CLF
                 await DocExiste();
                 DocModifiable();
                 // vérifie que la ligne commandant le produit dont le No est le No2 du paramétre existe et fixe vérificateur.LigneCLF
-                LigneCLF ligne = vérificateur.DocCLF.Lignes.Where(l => l.No2 == paramsSupprime.No2).FirstOrDefault();
+                LigneCLF ligne = vérificateur.DocCLF.Lignes.Where(l => l.ProduitId == paramsSupprime.ProduitId).FirstOrDefault();
                 if (ligne == null)
                 {
                     return NotFound();
@@ -509,7 +458,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyLigne"></param>
         /// <param name="action"></param>
         /// <returns></returns>
-        protected async Task<IActionResult> Action(KeyUidRnoNo2 keyLigne, Func<LigneCLF, Task<RetourDeService>> action)
+        protected async Task<IActionResult> Action(KeyLigneSansType keyLigne, Func<LigneCLF, Task<RetourDeService>> action)
         {
             vérificateur.Initialise(keyLigne);
             try
@@ -536,7 +485,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyDocSansType"></param>
         /// <param name="action">retourne null si l'action est impossible</param>
         /// <returns></returns>
-        protected async Task<IActionResult> Action(KeyUidRnoNo keyDocSansType, Func<DocCLF, Task<RetourDeService>> action)
+        protected async Task<IActionResult> Action(KeyDocSansType keyDocSansType, Func<DocCLF, Task<RetourDeService>> action)
         {
             vérificateur.Initialise(keyDocSansType);
             try
@@ -561,12 +510,12 @@ namespace KalosfideAPI.CLF
         /// Exécute une action sur chaque ligne des documents d'un client dont le No est dans une liste.
         /// Retourne une erreur si l'un des documents n'est pas à synthétiser.
         /// </summary>
-        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
+        /// <param name="paramsSynthèse">contient l'Id du client et la liste des No des documents à synthétiser</param>
         /// <param name="action">retourne null si l'action est impossible</param>
         /// <returns></returns>
         protected async Task<IActionResult> Action(ParamsSynthèse paramsSynthèse, Func<List<DocCLF>, Task<RetourDeService>> action)
         {
-            vérificateur.Initialise(paramsSynthèse);
+            vérificateur.Initialise(paramsSynthèse.Id);
             try
             {
                 await ClientDeLAction();
@@ -579,7 +528,7 @@ namespace KalosfideAPI.CLF
             }
 
             // Lit la liste des documents synthétisables dont le No est dans la liste.
-            List<DocCLF> docs = await _service.DocumentsEnvoyésSansSynthèse(paramsSynthèse, TypeClf.TypeBon(_type));
+            List<DocCLF> docs = await _service.DocumentsEnvoyésSansSynthèse(paramsSynthèse, DocCLF.TypeBon(_type));
             if (docs.Count != paramsSynthèse.NoDocs.Count)
             {
                 // L'un des No de la liste ne correspond pas à un document synthétisable.
@@ -596,11 +545,11 @@ namespace KalosfideAPI.CLF
         /// L'objet retourné contient un DocCLF contenant uniquement le No et la Date de la synthèse créée.
         /// Retourne une erreur si l'un des documents n'est pas à synthétiser.
         /// </summary>
-        /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
+        /// <param name="paramsSynthèse">contient l'Id du client et la liste des No des documents à synthétiser</param>
         /// <returns></returns>
         protected async Task<IActionResult> Synthèse(ParamsSynthèse paramsSynthèse)
         {
-            vérificateur.Initialise(paramsSynthèse);
+            vérificateur.Initialise(paramsSynthèse.Id);
             try
             {
                 await ClientDeLAction();
@@ -618,14 +567,14 @@ namespace KalosfideAPI.CLF
             }
 
             // Lit la liste des documents synthétisables dont le No est dans la liste.
-            List<DocCLF> docs = await _service.DocumentsEnvoyésSansSynthèse(paramsSynthèse, TypeClf.TypeBon(_type));
+            List<DocCLF> docs = await _service.DocumentsEnvoyésSansSynthèse(paramsSynthèse, DocCLF.TypeBon(_type));
             if (docs.Count != paramsSynthèse.NoDocs.Count)
             {
                // L'un des No de la liste ne correspond pas à un document synthétisable.
                return RésultatBadRequest("DocumentsPasEnvoyésOuAvecSynthèse");
             }
 
-            RetourDeService<DocCLF> retour = await _service.Synthèse(vérificateur.Site, vérificateur.Client, docs, _type);
+            RetourDeService<DocCLF> retour = await _service.Synthèse(vérificateur.Site, paramsSynthèse.Id, docs, _type);
 
             if (retour.Ok)
             {

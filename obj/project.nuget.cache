@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "QiAgNdaZwa49mzq1bxEaWxaC7dxPgX2zYGfCFqRi19inDViu9jrZxOazYVCNgglt3om6B/P/4u7VdqT1mgUgLw==",
+  "dgSpecHash": "hXrlOaoO+3LTcP38KXk7WxE0UhAiYirlhrcBHXtC03Psx8BNYUWzT+AhNY+s7p/1OwaTF4hkMzuU6T/SSaSC2g==",
   "success": true,
   "projectFilePath": "C:\\Users\\François Bonnefoi\\Kalosfide\\kalosfide.api\\kalosfide.api\\KalosfideAPI.csproj",
   "expectedPackageFiles": [
@@ -184,8 +184,7 @@
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.readerwriter\\4.3.0\\system.xml.readerwriter.4.3.0.nupkg.sha512",
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xdocument\\4.3.0\\system.xml.xdocument.4.3.0.nupkg.sha512",
     "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xmldocument\\4.3.0\\system.xml.xmldocument.4.3.0.nupkg.sha512",
-    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xmlserializer\\4.3.0\\system.xml.xmlserializer.4.3.0.nupkg.sha512",
-    "C:\\Users\\François Bonnefoi\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\3.1.13\\microsoft.netcore.app.host.win-x64.3.1.13.nupkg.sha512"
+    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\system.xml.xmlserializer\\4.3.0\\system.xml.xmlserializer.4.3.0.nupkg.sha512"
   ],
   "logs": []
 }

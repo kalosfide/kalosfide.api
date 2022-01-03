@@ -23,12 +23,12 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// paramètre de la requête POST ou PUT ou DELETE
         /// </summary>
-        public AKeyUidRnoNo KeyDoc { get; set; }
+        public IKeyDocSansType KeyDoc { get; set; }
 
         /// <summary>
         /// paramètre de la requête POST ou PUT ou DELETE
         /// </summary>
-        public AKeyUidRnoNo2 KeyLigne { get; set; }
+        public IKeyLigneSansType KeyLigne { get; set; }
 
         /// <summary>
         /// paramètre de la requête POST ou PUT ou DELETE
@@ -38,12 +38,12 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// clé du client propriétaire de la commande
         /// </summary>
-        public AKeyUidRno KeyClient { get; set; }
+        public uint IdClient { get; set; }
 
         /// <summary>
         /// vue contenant les donnéees d'état du client
         /// </summary>
-        public Role Client { get; set; }
+        public Client Client { get; set; }
 
         /// <summary>
         /// site du client
@@ -102,26 +102,26 @@ namespace KalosfideAPI.CLF
         /// <param name="paramsCrée">contient la KeyUidRno du client et la date du catalogue de l'utilisateur</param>
         public void Initialise(ParamsKeyClient paramsCrée)
         {
-            KeyClient = paramsCrée;
+            IdClient = paramsCrée.Id;
             DateCatalogue = paramsCrée.DateCatalogue;
         }
 
         /// <summary>
-        /// Fixe KeyClient.
+        /// Fixe IdClient.
         /// </summary>
-        /// <param name="aKeyClient">objet ayant la même KeyUidRno que le client</param>
-        public void Initialise(AKeyUidRno aKeyClient)
+        /// <param name="idClient">objet ayant la même KeyUidRno que le client</param>
+        public void Initialise(uint idClient)
         {
-            KeyClient = aKeyClient;
+            IdClient = idClient;
         }
 
         /// <summary>
         /// Fixe KeyClient et KeyDoc.
         /// </summary>
         /// <param name="keyDocSansType">objet ayant la même KeyUidRnoNo que le document</param>
-        public void Initialise(KeyUidRnoNo keyDocSansType)
+        public void Initialise(KeyDocSansType keyDocSansType)
         {
-            KeyClient = AKeyUidRnoNo.KeyUidRno(keyDocSansType);
+            IdClient = keyDocSansType.Id;
             KeyDoc = keyDocSansType;
         }
 
@@ -131,29 +131,28 @@ namespace KalosfideAPI.CLF
         /// <param name="paramsSupprime">contient la KeyUidRnoNo du document et la date du catalogue de l'utilisateur</param>
         public void Initialise(ParamsKeyDoc paramsSupprime)
         {
-            KeyClient = AKeyUidRnoNo.KeyUidRno(paramsSupprime);
+            IdClient = paramsSupprime.Id;
             KeyDoc = paramsSupprime;
             DateCatalogue = paramsSupprime.DateCatalogue;
         }
-        public void Initialise(AKeyUidRnoNo2 keyLigne)
+        public void Initialise(KeyLigneSansType keyLigne)
         {
-            KeyClient = AKeyUidRnoNo2.KeyUidRno_1(keyLigne);
-            KeyDoc = AKeyUidRnoNo2.KeyUidRnoNo_1(keyLigne);
+            IdClient = keyLigne.Id;
+            KeyDoc = KeyLigneSansType.KeyDocSansType(keyLigne);
             KeyLigne = keyLigne;
         }
         public void Initialise(ParamsKeyLigne paramsKeyLigne)
         {
-            KeyClient = AKeyUidRnoNo2.KeyUidRno_1(paramsKeyLigne);
-            KeyDoc = AKeyUidRnoNo2.KeyUidRnoNo_1(paramsKeyLigne);
+            IdClient = paramsKeyLigne.Id;
+            KeyDoc = KeyLigneSansType.KeyDocSansType(paramsKeyLigne);
             KeyLigne = paramsKeyLigne;
             DateCatalogue = paramsKeyLigne.DateCatalogue;
         }
         public void Initialise(CLFLigne clfLigne)
         {
-            KeyClient = AKeyUidRnoNo2.KeyUidRno_1(clfLigne);
-            KeyDoc = AKeyUidRnoNo2.KeyUidRnoNo_1(clfLigne);
-            KeyLigne = new KeyUidRnoNo2();
-            KeyLigne.CopieKey(clfLigne);
+            IdClient = clfLigne.Id;
+            KeyDoc = clfLigne;
+            KeyLigne = clfLigne;
             CLFLigne = clfLigne;
         }
         public void Initialise(CLFLigne clfLigne, ParamsVide paramsLigne)

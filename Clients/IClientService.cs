@@ -1,102 +1,154 @@
 ﻿using KalosfideAPI.Data;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Roles;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Clients
 {
-    public interface IClientService: IRoleService
+    public interface IClientService: IAvecIdUintService<Client, ClientAAjouter, ClientAEditer>
     {
 
         /// <summary>
-        /// retourne la liste des vues contenant les donnéees d'état des clients non exclus du site défini par la clé
+        /// Retourne la liste des vues contenant les donnéees d'état des clients d'un site ayant un Etat permis
+        /// et n'ayant pas d'Utilisateur ou ayant un Utilisateur d'Etat permis.
         /// </summary>
-        /// <param name="aKeySite"></param>
+        /// <param name="idSite">Id du site</param>
+        /// <param name="étatsClientPermis">Array des EtatClient permis</param>
+        /// <param name="étatsUtilisateurPermis">Array des EtatUtilisateur permis</param>
         /// <returns></returns>
-        Task<List<ClientEtatVue>> ClientsDuSite(AKeyUidRno aKeySite);
+        Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, EtatRole[] étatsClientPermis, EtatUtilisateur[] étatsUtilisateurPermis);
 
         /// <summary>
         /// Retourne l'email de l'utilsateur si le client gère son compte
         /// </summary>
-        /// <param name="aKeyClient">objet ayant la clé du client</param>
+        /// <param name="idClient">objet ayant la clé du client</param>
         /// <returns>null si le client ne gère pas son compte</returns>
-        Task<string> Email(AKeyUidRno aKeyClient);
-
-        /// <summary>
-        /// retourne le nombre de clients non exclus du site
-        /// </summary>
-        /// <param name="aKeySite"></param>
-        /// <returns></returns>
-        Task<int> NbClients(AKeyUidRno aKeySite);
+        Task<string> Email(uint idClient);
 
         /// <summary>
         /// Retourne le client du site ayant le nom
         /// </summary>
-        /// <param name="akeySite"></param>
+        /// <param name="idSite"></param>
         /// <param name="nom"></param>
         /// <returns></returns>
-        Task<Role> ClientDeNom(AKeyUidRno akeySite, string nom);
+        Task<Client> ClientDeNom(uint idSite, string nom);
 
         /// <summary>
-        /// Ajoute à la bdd un nouveau Role et l'archive correspondante
+        /// Cherche un Client d'un site à partir de l'Email de son Utilisateur.
         /// </summary>
-        /// <param name="utilisateur"></param>
-        /// <param name="keySite"></param>
-        /// <param name="vue"></param>
+        /// <param name="idSite">Id d'un Site</param>
+        /// <param name="email">adresse email</param>
+        /// <returns>le Client trouvé, s'il y en a un; null, sinon.</returns>
+        Task<Client> ClientDeEmail(uint idSite, string email);
+
+        /// <summary>
+        /// Cherche dans la bdd l'Invitation à partir de son IInvitationKey (Id du Fournisseur, Email de l'invité).
+        /// </summary>
+        /// <param name="invitationKey">IInvitationKey (Id du Fournisseur, Email de l'invité)</param>
+        /// <returns>l'Invitation trouvée si elle existe; null sinon</returns>
+        Task<Invitation> LitInvitation(IInvitationKey invitationKey);
+
+        /// <summary>
+        /// Cherche dans la bdd une Invitation à prendre en charge un client.
+        /// </summary>
+        /// <param name="idClient">Id du Client recherché</param>
+        /// <returns>l'invitation trouvée avec le Client à prendre en charge, si elle existe; null, sinon.</returns>
+        Task<Invitation> InvitationDeClientId(uint idClient);
+
+        /// <summary>
+        /// Envoie un message à l'Email de l'invitation avec un lien contenant l'Invitation encodée.
+        /// </summary>
+        /// <param name="invitation">Invitation à envoyer</param>
+        /// <param name="fournisseur">Fournisseur qui envoie l'Invitation</param>
+        /// <param name="client">Client existant éventuel à prendre en charge par l'invité</param>
         /// <returns></returns>
-        Task<RetourDeService<Role>> Ajoute(Utilisateur utilisateur, AKeyUidRno keySite, IRoleData vue);
+        Task EnvoieEmailInvitation(Invitation invitation, Fournisseur fournisseur, Client client);
 
         /// <summary>
-        /// Ajoute à la bdd un nouveau Role et l'archive correspondante
+        /// Invitation contenue dans le code du lien envoyé dans le message email d'invitation.
         /// </summary>
-        /// <param name="utilisateur"></param>
-        /// <param name="keySite"></param>
-        /// <param name="vue"></param>
+        /// <param name="code"></param>
+        /// <returns>l'Invitation contenue dans le code, si le code est valide; null, sinon</returns>
+        Invitation DécodeInvitation(string code);
+
+        /// <summary>
+        /// Enregistre dans la bdd l'envoi d'une Invitation.
+        /// </summary>
+        /// <param name="invitation">Invitation envoyée</param>
+        /// <param name="enregistrée">enregistrement dans la bdd d'une Invitation précédente envoyée par le même Fournisseur au même Email</param>
         /// <returns></returns>
-        Task<RetourDeService<Role>> Ajoute(Utilisateur utilisateur, ClientVueAjoute vue);
+        Task<RetourDeService> EnregistreInvitation(Invitation invitation, Invitation enregistrée);
 
         /// <summary>
-        /// Crée un nouveau Role de Client et si il y a un ancien Client attribue ses archives et ses documents au role créé
+        /// Supprime une Invitation de la bdd.
         /// </summary>
-        /// <param name="site"></param>
-        /// <param name="utilisateur"></param>
-        /// <param name="clientInvité"></param>
-        /// <param name="vue"></param>
+        /// <param name="invitation">Invitation à supprimer</param>
         /// <returns></returns>
-        Task<RetourDeService> CréeRoleClient(Site site, Utilisateur utilisateur, Role clientInvité, IRoleData vue);
+        Task<RetourDeService> SupprimeInvitation(Invitation invitation);
 
         /// <summary>
-        /// Lit dans le bdd un Role avec Site et Utilisateur et éventuellement ApplicationUser
+        /// Vérifie qu'il y a dans la bdd une Invitation identique à une invitation transmise par l'UI.
         /// </summary>
-        /// <param name="uid">Uid du role à lire</param>
-        /// <param name="rno">Rno du role à lire</param>
+        /// <param name="invitation">Invitation transmise par l'UI</param>
+        /// <returns>l'invitation trouvée avec son Fournisseur incluant son Site et éventuellement le Client à prendre en charge
+        /// si elle existe; null sinon</returns>
+        Task<Invitation> InvitationEnregistrée(Invitation invitation);
+
+        /// <summary>
+        /// Liste des Invitations d'un Site sans leur Id qui est celle du Fournisseur
+        /// </summary>
+        /// <param name="idSite"></param>
         /// <returns></returns>
-        Task<Role> LitRole(string uid, int rno);
+        Task<List<InvitationVue>> InvitationsSansId(uint idSite);
 
         /// <summary>
-        /// Change l'Etat du Role en Actif et sauvegarde
+        /// Crée un nouveau Client et si il y a un ancien Client attribue ses archives et ses documents au client créé.
         /// </summary>
-        /// <param name="roleNonActif">Role d'état différent de Actif</param>
+        /// <param name="idSite">Id du Site</param>
+        /// <param name="idUtilisateur">Id de l'Utilisateur</param>
+        /// <param name="vue">Données du Client à créer</param>
+        /// <param name="clientInvité">Client créé par le fournisseur que le nouveau Client va prendre en charge</param>
+        /// <returns></returns>
+        Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue, Client clientInvité);
+
+        /// <summary>
+        /// Crée un nouveau Client.
+        /// </summary>
+        /// <param name="idSite">Id du Site</param>
+        /// <param name="idUtilisateur">Id de l'Utilisateur</param>
+        /// <param name="vue">Données du Client à créer</param>
+        /// <returns></returns>
+        Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue);
+
+        /// <summary>
+        /// Lit dans le bdd un Client avec Site et Utilisateur.
+        /// </summary>
+        /// <param name="idClient">Id du Client</param>
+        /// <returns></returns>
+        Task<Client> LitClient(uint idClient);
+
+        /// <summary>
+        /// Change l'Etat du Client en Actif et sauvegarde
+        /// </summary>
+        /// <param name="clientNonActif">Client d'état différent de Actif</param>
         /// <returns>RetourDeService d'un ClientEtatVue contenant uniquement la clé et la date de changement d'état</returns>
-        Task<RetourDeService<ClientEtatVue>> Active(Role roleNonActif);
+        Task<RetourDeService<ClientEtatVue>> Active(Client clientNonActif);
 
         /// <summary>
-        /// Supprime toutes les modifications apportées à la bdd depuis et y compris la création du Role sur Invitation
+        /// Supprime toutes les modifications apportées à la bdd depuis et y compris la création du Client sur Invitation
         /// </summary>
-        /// <param name="roleNouveau">Role qui a été créé en répondant à une Invitation</param>
-        /// <returns>RetourDeService d'un ClientEtatVue contenant un Role identique à celui que l'Invitation invitait à gérer s'il y en avait un, null sinon</returns>
-        new Task<RetourDeService<ClientEtatVue>> Supprime(Role roleNouveau);
+        /// <param name="clientNouveau">Client qui a été créé en répondant à une Invitation</param>
+        /// <returns>RetourDeService d'un ClientEtatVue contenant un Client identique à celui que l'Invitation invitait à gérer s'il y en avait un, null sinon</returns>
+        new Task<RetourDeService<ClientEtatVue>> Supprime(Client clientNouveau);
 
         /// <summary>
-        /// Si le Role a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé.
-        /// Si le Role a été créé par le fournisseur et est vide, supprime le Role.
-        /// Si le Role a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'état Fermé
+        /// Si le Client a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé.
+        /// Si le Client a été créé par le fournisseur et est vide, supprime le Client.
+        /// Si le Client a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'état Fermé
         /// quand le client se connectera ou quand le fournisseur chargera la liste des clients aprés 60 jours.
         /// </summary>
-        /// <param name="roleActif">Role d'état Actif</param>
-        /// <returns>RetourDeService d'un ClientEtatVue contenant uniquement la clé et la date de changement d'état ou null si le Role a été supprimé</returns>
-        Task<RetourDeService<ClientEtatVue>> Inactive(Role roleActif);
+        /// <param name="clientActif">Client d'état Actif</param>
+        /// <returns>RetourDeService d'un ClientEtatVue contenant uniquement la clé et la date de changement d'état ou null si le Client a été supprimé</returns>
+        Task<RetourDeService<ClientEtatVue>> Inactive(Client clientActif);
     }
 }

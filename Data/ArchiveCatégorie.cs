@@ -10,16 +10,9 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveCatégorie: AKeyUidRnoNo, IAvecDate, ICatégorieData
+    public class ArchiveCatégorie: AvecIdUint, IAvecDate, ICatégorieDataAnnulable
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
-        [Required]
-        public override long No { get; set; }
+
         [Required]
         public DateTime Date { get; set; }
 
@@ -35,15 +28,15 @@ namespace KalosfideAPI.Data
         {
             var entité = builder.Entity<ArchiveCatégorie>();
 
-            entité.HasKey(donnée => new { donnée.Uid, donnée.Rno, donnée.No, donnée.Date });
+            entité.HasKey(donnée => new { donnée.Id, donnée.Date });
 
-            entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno, donnée.No });
+            entité.HasIndex(donnée => donnée.Id);
 
             entité
                 .HasOne(archive => archive.Catégorie)
                 .WithMany(catégorie => catégorie.Archives)
-                .HasForeignKey(archive => new { archive.Uid, archive.Rno, archive.No })
-                .HasPrincipalKey(catégorie => new { catégorie.Uid, catégorie.Rno, catégorie.No });
+                .HasForeignKey(archive => archive.Id)
+                .HasPrincipalKey(catégorie => catégorie.Id);
 
             entité.ToTable("ArchiveCatégories");
         }

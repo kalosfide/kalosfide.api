@@ -2,17 +2,76 @@
 using KalosfideAPI.Data.Keys;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 
 namespace KalosfideAPI.Data
 {
+    public enum EtatRole
+    {
+        Nouveau,
+        Actif,
+        Inactif,
+        Fermé
+    }
+
+    public static class EtatsRolePermis
+    {
+        public static EtatRole[] Nouveau { get { return new EtatRole[] { EtatRole.Nouveau }; } }
+        public static EtatRole[] Actif { get { return new EtatRole[] { EtatRole.Actif }; } }
+        public static EtatRole[] PasInactif { get { return new EtatRole[] { EtatRole.Nouveau, EtatRole.Actif }; } }
+        public static EtatRole[] PasFermé { get { return new EtatRole[] { EtatRole.Nouveau, EtatRole.Actif, EtatRole.Inactif }; } }
+    }
+
+    // Interfaces communs aux entités Client et Fournisseur
+
     public interface IRoleData
     {
         string Nom { get; set; }
         string Adresse { get; set; }
         string Ville { get; set; }
+    }
+
+    public interface IAvecEtat
+    {
+        EtatRole Etat { get; set; }
+    }
+    public interface IAvecIdUint
+    {
+        uint Id { get; set; }
+    }
+    public interface IAvecIdUintEtEtat: IAvecIdUint, IAvecEtat
+    {
+    }
+
+    public interface IAvecEtatAnnulable
+    {
+        EtatRole? Etat { get; set; }
+    }
+    public interface IAvecIdUintEtDateEtEtatAnnulable: IAvecIdUint, IAvecDate, IAvecEtatAnnulable
+    {
+    }
+
+    public interface IRoleDataAnnulable: IRoleData, IAvecEtatAnnulable { }
+
+    public interface IArchiveRole: IAvecEtatAnnulable, IAvecDate
+    { }
+
+    public interface IRoleEtat: IAvecEtat
+    {
+        /// <summary>
+        /// Date de création.
+        /// </summary>
+        public DateTime Date0 { get; set; }
+
+        /// <summary>
+        /// Date du dernier changement d'état.
+        /// </summary>
+        public DateTime DateEtat { get; set; }
+
     }
 
     public interface IRolePréférences
@@ -22,82 +81,109 @@ namespace KalosfideAPI.Data
         string FormatNomFichierFacture { get; set; }
     }
 
-    public class Role : AKeyUidRno, IRoleData, IRolePréférences
+    public static class Role
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
-
-        [MaxLength(LongueurMax.UId)]
-        public string SiteUid { get; set; }
-        public int SiteRno { get; set; }
-
-        [StringLength(1)]
-        public string Etat { get; set; }
-
-        /// <summary>
-        /// Pour l'en-tête des documents
-        /// </summary>
-        [Required]
-        [MaxLength(200)]
-        public string Nom { get; set; }
-
-        /// <summary>
-        /// Pour l'en-tête des documents
-        /// </summary>
-        [MaxLength(500)]
-        public string Adresse { get; set; }
-
-        /// <summary>
-        /// Ville de signature des documents
-        /// </summary>
-        public string Ville { get; set; }
-
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public string FormatNomFichierCommande { get; set; }
         public const string FormatNomFichierCommandeParDéfaut = "{nom} commande {no}";
 
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public string FormatNomFichierLivraison { get; set; }
         public const string FormatNomFichierLivraisonParDéfaut = "{nom} livraison {no}";
 
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public string FormatNomFichierFacture { get; set; }
         public const string FormatNomFichierFactureParDéfaut = "{nom} facture {no}";
 
-        // navigation
-        virtual public Utilisateur Utilisateur { get; set; }
-        virtual public ICollection<ArchiveRole> Archives { get; set; }
-
-        [InverseProperty("Client")]
-        virtual public ICollection<DocCLF> Docs { get; set; }
-
-        virtual public Site Site { get; set; }
-
-        // utiles
-
-        public static bool EstAdministrateur(Role role) { return role.SiteUid == null; }
-        public static bool EstFournisseur(Role role) { return role.SiteUid == role.Uid && role.SiteRno == role.Rno; }
-        public static bool EstClient(Role role) { return !EstAdministrateur(role) && !EstFournisseur(role); }
-        public static bool EstUsager(Role role, AKeyUidRno akeySite) { return role.SiteUid == akeySite.Uid && role.SiteRno == akeySite.Rno; }
-
-        public static void CopieDef(IRoleData de, IRoleData vers)
+        public static void CopieData(IRoleData de, IRoleData vers)
         {
             vers.Nom = de.Nom;
             vers.Adresse = de.Adresse;
             vers.Ville = de.Ville;
+        }
+
+        public static void CopieData(IRoleDataAnnulable de, IRoleDataAnnulable vers)
+        {
+            vers.Nom = de.Nom;
+            vers.Adresse = de.Adresse;
+            vers.Ville = de.Ville;
+            vers.Etat = de.Etat;
+        }
+        public static void CopieDataSiPasNull(IRoleDataAnnulable de, IRoleData vers)
+        {
+            if (de.Nom != null) { vers.Nom = de.Nom; }
+            if (de.Adresse != null) { vers.Adresse = de.Adresse; }
+            if (de.Ville != null) { vers.Ville = de.Ville; }
+        }
+        public static void CopieDataSiPasNullOuComplète(IRoleDataAnnulable de, IRoleData vers, IRoleData pourCompléter)
+        {
+            vers.Nom = de.Nom ?? pourCompléter.Nom;
+            vers.Adresse = de.Adresse ?? pourCompléter.Adresse;
+            vers.Ville = de.Ville ?? pourCompléter.Ville;
+        }
+
+        /// <summary>
+        /// Si un champ du nouvel objet à une valeur différente de celle du champ correspondant de l'ancien objet,
+        /// met à jour l'ancien objet et place ce champ dans l'objet des différences.
+        /// </summary>
+        /// <param name="ancien"></param>
+        /// <param name="nouveau"></param>
+        /// <param name="différences"></param>
+        /// <returns>true si des différences ont été enregistrées</returns>
+        public static bool CopieDifférences(IRoleData ancien, IRoleDataAnnulable nouveau, IRoleDataAnnulable différences)
+        {
+            bool modifié = false;
+            if (nouveau.Nom != null && ancien.Nom != nouveau.Nom)
+            {
+                différences.Nom = nouveau.Nom;
+                ancien.Nom = nouveau.Nom;
+                modifié = true;
+            }
+            if (nouveau.Adresse != null && ancien.Adresse != nouveau.Adresse)
+            {
+                différences.Adresse = nouveau.Adresse;
+                ancien.Adresse = nouveau.Adresse;
+                modifié = true;
+            }
+            if (nouveau.Ville != null && ancien.Ville != nouveau.Ville)
+            {
+                différences.Ville = nouveau.Ville;
+                ancien.Ville = nouveau.Ville;
+                modifié = true;
+            }
+            return modifié;
+        }
+
+        public static string[] AvérifierSansEspacesData
+        {
+            get
+            {
+                return new string[]
+                {
+                    nameof(IRoleData.Nom),
+                    nameof(IRoleData.Adresse),
+                    nameof(IRoleData.Ville)
+                };
+            }
+        }
+
+        public static string[] AvérifierSansEspacesDataAnnulable
+        {
+            get
+            {
+                return new string[]
+                {
+                    nameof(IRoleData.Nom),
+                    nameof(IRoleData.Adresse),
+                    nameof(IRoleData.Ville)
+                };
+            }
         }
 
         public static void CopiePréférences(IRolePréférences de, IRolePréférences vers)
@@ -107,59 +193,18 @@ namespace KalosfideAPI.Data
             vers.FormatNomFichierFacture = de.FormatNomFichierFacture;
         }
 
-        /// <summary>
-        /// Vérifie que Nom et Adresse sont présents et non vides.
-        /// </summary>
-        /// <param name="roleDef"></param>
-        /// <param name="modelState"></param>
-        public static void VérifieTrim(IRoleData roleDef, ModelStateDictionary modelState)
+        private static void CopieArchivesEtat(IEnumerable<IArchiveRole> archives, IRoleEtat roleEtat)
         {
-            if (roleDef.Nom == null)
-            {
-                Erreurs.ErreurDeModel.AjouteAModelState(modelState, "nom", "Absent");
-            }
-            else
-            {
-                roleDef.Nom = roleDef.Nom.Trim();
-                if (roleDef.Nom.Length == 0)
-                {
-                    Erreurs.ErreurDeModel.AjouteAModelState(modelState, "nom", "Vide");
-                }
-            }
-            if (roleDef.Adresse == null)
-            {
-                Erreurs.ErreurDeModel.AjouteAModelState(modelState, "adresse", "Absent");
-            }
-            else
-            {
-                roleDef.Adresse = roleDef.Adresse.Trim();
-                if (roleDef.Adresse.Length == 0)
-                {
-                    Erreurs.ErreurDeModel.AjouteAModelState(modelState, "adresse", "Vide");
-                }
-            }
+            IEnumerable<IArchiveRole> archivesDansLordre = archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
+            IArchiveRole création = archivesDansLordre.First();
+            IArchiveRole actuel = archivesDansLordre.Last();
+            roleEtat.Etat = actuel.Etat.Value;
+            roleEtat.Date0 = création.Date;
+            roleEtat.DateEtat = actuel.Date;
         }
-
-        // création
-        public static void CréeTable(ModelBuilder builder)
+        public static void CopieArchivesEtat(Client client, IRoleEtat roleEtat)
         {
-            var entité = builder.Entity<Role>();
-
-            entité.HasKey(donnée => new
-            {
-                donnée.Uid,
-                donnée.Rno
-            });
-
-            entité.Property(donnée => donnée.Etat).HasDefaultValue(TypeEtatRole.Actif);
-
-            entité.HasIndex(role => new { role.Uid, role.Rno, });
-
-            entité.HasOne(r => r.Utilisateur).WithMany(u => u.Roles).HasForeignKey(r => r.Uid).HasPrincipalKey(u => u.Uid);
-
-            entité.HasOne(r => r.Site).WithMany(s => s.Usagers).HasForeignKey(r => new { r.SiteUid, r.SiteRno }).HasPrincipalKey(s => new { s.Uid, s.Rno });
-
-            entité.ToTable("Roles");
+            CopieArchivesEtat((IEnumerable<IArchiveRole>)client.Archives, roleEtat);
         }
 
     }

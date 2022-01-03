@@ -1,38 +1,43 @@
-﻿using KalosfideAPI.CLF;
-using KalosfideAPI.Data.Constantes;
+﻿using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
-    public class DocCLF: AKeyUidRnoNo
+    public enum TypeCLF
     {
-        /// <summary>
-        /// Uid du Client
-        /// </summary>
-        public override string Uid { get; set; }
+        Commande,
+        Livraison,
+        Facture
+    }
+
+    public class DocCLF : IKeyDocSansType
+    {
 
         /// <summary>
-        /// Rno du Client
+        /// Id du Client
         /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// No du document, incrémenté automatiquement par client pour une commande, par site pour une livraison ou une facture
         /// </summary>
-        public override long No { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
         /// L'une des constantes TypeCLF.Commande ou TypeCLF.Livraison ou TypeCLF.Facture
         /// </summary>
-        public string Type { get; set; }
+        public TypeCLF Type { get; set; }
 
         // données
+
+        /// <summary>
+        /// Id du site
+        /// </summary>
+        public uint SiteId { get; set; }
 
         /// <summary>
         /// la date est fixée quand le bon de commande est envoyé.
@@ -42,13 +47,7 @@ namespace KalosfideAPI.Data
         /// <summary>
         /// No de la Livraison pour une Commande, de la Facture pour une Livraison.
         /// </summary>
-        public long? NoGroupe { get; set; }
-
-        // Le Site sert à indexer
-        // Uid du site
-        public string SiteUid { get; set; }
-        // Rno du site
-        public int SiteRno { get; set; }
+        public uint? NoGroupe { get; set; }
 
         /// <summary>
         /// Nombre de lignes.
@@ -75,54 +74,58 @@ namespace KalosfideAPI.Data
         /// </summary>
         virtual public ICollection<LigneCLF> Lignes { get; set; }
 
-        virtual public Role Client { get; set; }
+        virtual public Client Client { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
         {
             EntityTypeBuilder<DocCLF> entité = builder.Entity<DocCLF>();
 
-            entité.Property(ligne => ligne.Uid).IsRequired();
-            entité.Property(ligne => ligne.Uid).HasMaxLength(LongueurMax.UId);
-            entité.Property(ligne => ligne.Rno).IsRequired();
-            entité.Property(ligne => ligne.No).IsRequired();
-            entité.Property(ligne => ligne.Type).IsRequired();
-            entité.Property(ligne => ligne.SiteUid).IsRequired();
-            entité.Property(ligne => ligne.SiteUid).HasMaxLength(LongueurMax.UId);
-            entité.Property(ligne => ligne.SiteRno).IsRequired();
-            entité.Property(ligne => ligne.Total).HasColumnType(PrixProduitDef.Type);
+            entité.Property(doc => doc.Total).HasColumnType(PrixProduitDef.Type);
 
             entité.HasKey(donnée => new
             {
-                donnée.Uid,
-                donnée.Rno,
+                donnée.Id,
                 donnée.No,
                 donnée.Type
             });
 
-            entité
-                .HasOne(d => d.Client)
-                .WithMany(c => c.Docs)
-                .HasForeignKey(d => new { d.Uid, d.Rno })
-                .HasPrincipalKey(c => new { c.Uid, c.Rno });
-
             entité.ToTable("Docs");
         }
 
-        // copie
+        // utile
+
+        public static TypeCLF TypeBon(TypeCLF typeSynthèse)
+        {
+            return typeSynthèse switch
+            {
+                TypeCLF.Livraison => TypeCLF.Commande,
+                TypeCLF.Facture => TypeCLF.Livraison,
+                _ => throw new ArgumentOutOfRangeException(nameof(typeSynthèse)),
+            };
+        }
+
+        public static TypeCLF TypeSynthèse(TypeCLF typeBon)
+        {
+            return typeBon switch
+            {
+                TypeCLF.Commande => TypeCLF.Livraison,
+                TypeCLF.Livraison => TypeCLF.Facture,
+                _ => throw new ArgumentOutOfRangeException(nameof(typeBon)),
+            };
+        }
+
         /// <summary>
         /// Crée une copie avec une autre clé de client.
         /// </summary>
-        public static DocCLF Clone(string uid, int rno, DocCLF doc)
+        public static DocCLF Clone(uint id, DocCLF doc)
         {
             DocCLF copie = new DocCLF
             {
-                Uid = uid,
-                Rno = rno,
+                Id = id,
                 No = doc.No,
                 Type = doc.Type,
-                SiteUid = doc.SiteUid,
-                SiteRno = doc.SiteRno,
+                SiteId = doc.SiteId,
                 NbLignes = doc.NbLignes,
                 Total = doc.Total
             };

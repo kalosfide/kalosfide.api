@@ -18,76 +18,75 @@ namespace KalosfideAPI.Peuple
 
         static readonly int[] Prix = new int[]
             { 100, 150, 200, 250, 400, 750, 800, 900, 1050 };
-        Produit Produit(AKeyUidRno aKeySite, int catégorieNo, int no)
+        Produit Produit(uint idSite, uint idCatégorie, uint id)
         {
             Random random = new Random();
-            string typeMesure = random.Next(2) == 0 ? UnitéDeMesure.Kilo : UnitéDeMesure.Aucune;
-            string typeCommande = typeMesure == UnitéDeMesure.Aucune ? TypeUnitéDeCommande.Unité
-                : random.Next(9) == 0 ? TypeUnitéDeCommande.UnitéOuVrac : TypeUnitéDeCommande.Vrac;
+            Array types = Enum.GetValues(typeof(TypeMesure));
+            TypeMesure typeMesure = (TypeMesure)types.GetValue(random.Next(types.Length));
+            types = Enum.GetValues(typeof(TypeCommande));
+            TypeCommande typeCommande = (TypeCommande)types.GetValue(random.Next(types.Length));
             decimal prix = .01m * Prix[random.Next(Prix.Length - 1)];
-            string état = random.Next(100) < 5 ? TypeEtatProduit.Indisponible : TypeEtatProduit.Disponible;
+            bool disponible = random.Next(100) >= 5;
             Produit produit = new Produit
             {
-                Uid = aKeySite.Uid,
-                Rno = aKeySite.Rno,
-                No = no,
-                CategorieNo = catégorieNo,
-                Nom = "Produit" + no,
+                Id = id,
+                SiteId = idSite,
+                CategorieId = idCatégorie,
+                Nom = "Produit" + id,
                 TypeMesure = typeMesure,
                 TypeCommande = typeCommande,
                 Prix = prix,
-                Etat = état
+                Disponible = disponible
             };
             return produit;
         }
 
-        Catégorie Catégorie(AKeyUidRno aKeySite, int no)
+        Catégorie Catégorie(uint idSite, uint id)
         {
             return new Catégorie
             {
-                Uid = aKeySite.Uid,
-                Rno = aKeySite.Rno,
-                No = no,
-                Nom = "Catégorie" + no
+                Id = id,
+                SiteId = idSite,
+                Nom = "Catégorie" + id
             };
         }
 
-        public PeuplementCatalogue(AKeyUidRno aKeySite, int nbCatégories, int nbProduits)
+        public PeuplementCatalogue(uint idSite, int nbCatégories, int nbProduits, PeupleId peuplement)
         {
             Catégories = new List<Catégorie>();
             Produits = new List<Produit>();
-            for (int no = 1; no <= nbCatégories; no++)
+
+            uint id = peuplement.Catégorie + 1;
+            for (int i = 0; i < nbCatégories; i++, id++)
             {
-                Catégories.Add(Catégorie(aKeySite, no));
+                Catégories.Add(Catégorie(idSite, id));
             }
 
             Random random = new Random();
 
-            int[] répartition = new int[nbCatégories];
-            for (int no = 1; no <= nbProduits; no++)
+            id = peuplement.Produit + 1;
+            int nbACréer = nbProduits;
+            List<uint> idVides = Catégories.Select(c => c.Id).ToList();
+            while (nbACréer > 0)
             {
-                List<int> noVides = new List<int>();
-                for (int i = 0; i < nbCatégories; i++)
-                {
-                    if (répartition[i] == 0)
-                    {
-                        noVides.Add(i + 1);
-                    }
-                }
-                int nbVides = noVides.Count();
-                int categorieNo;
-                int nbACréer = nbProduits - no + 1;
+                int nbVides = idVides.Count();
+                uint idCatégorie;
                 if (nbACréer < 2 * nbVides)
                 {
                     // il faut choisir une vide
-                    categorieNo = noVides.ElementAt(random.Next(nbVides - 1));
+                    idCatégorie = idVides.ElementAt(random.Next(nbVides - 1));
+                    idVides.Remove(idCatégorie);
                 }
                 else
                 {
-                    categorieNo = random.Next(nbCatégories - 1) + 1;
+                    idCatégorie = (uint)(random.Next((int)(nbCatégories - 1)) + 1);
                 }
-                Produits.Add(Produit(aKeySite, categorieNo, no));
+                Produits.Add(Produit(idSite, idCatégorie, (uint)id));
+                id++;
+                nbACréer--;
             }
+            peuplement.Catégorie = Catégories.Last().Id;
+            peuplement.Produit = Produits.Last().Id;
         }
     }
 }

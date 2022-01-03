@@ -11,7 +11,7 @@ namespace KalosfideAPI.Sécurité
 {
 
     [JsonObject(MemberSerialization.OptIn)]
-    public class FournisseurDeSiteDeRole : IRoleData
+    public class FournisseurDIdentifiant : IFournisseurData
     {
         [JsonProperty]
         public string Nom { get; set; }
@@ -19,10 +19,22 @@ namespace KalosfideAPI.Sécurité
         public string Adresse { get; set; }
         [JsonProperty]
         public string Ville { get; set; }
+        [JsonProperty]
+        public string Siret { get; set; }
+        [JsonProperty]
+        public EtatRole Etat { get; set; }
+        [JsonProperty]
+        public DateTime Date0 { get; set; }
+        [JsonProperty]
+        public DateTime DateEtat { get; set; }
 
-        public FournisseurDeSiteDeRole(Role fournisseur)
+        public FournisseurDIdentifiant(Fournisseur fournisseur)
         {
-            Role.CopieDef(fournisseur, this);
+            Etat = fournisseur.Etat;
+            IOrderedEnumerable<ArchiveFournisseur> archives = fournisseur.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
+            Date0 = archives.First().Date;
+            DateEtat = archives.Last().Date;
+            Fournisseur.CopieData(fournisseur, this);
         }
     }
     public class BilanCatalogue
@@ -56,57 +68,12 @@ namespace KalosfideAPI.Sécurité
     }
 
     [JsonObject(MemberSerialization.OptIn)]
-    public class SiteDeRole : AKeyUidRno, ISiteDef
+    public class ClientDIdentifiant : IClientData, IRolePréférences
     {
         [JsonProperty]
-        public override string Uid { get; set; }
+        public uint Id { get; set; }
         [JsonProperty]
-        public override int Rno { get; set; }
-        [JsonProperty]
-        public virtual string Url { get; set; }
-        [JsonProperty]
-        public virtual string Titre { get; set; }
-        [JsonProperty]
-        public virtual bool Ouvert { get; set; }
-        [JsonProperty]
-        public virtual DateTime? DateCatalogue { get; set; }
-
-        /// <summary>
-        /// Bilan du site pour un role de fournisseur.
-        /// </summary>
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public BilanSite Bilan { get; set; }
-
-        /// <summary>
-        /// Fournisseur du site pour un role de client.
-        /// </summary>
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public FournisseurDeSiteDeRole Fournisseur { get; set; }
-
-        /// <summary>
-        /// Nombre de documents arrivés depuis la dernière déconnection.
-        /// Null si l'utilisateur ne s'est pas déconnecté.
-        /// </summary>
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public List<CLFDoc> NouveauxDocs { get; set; }
-
-        public SiteDeRole(Site site)
-        {
-            CopieKey(site);
-            Ouvert = site.Ouvert;
-            DateCatalogue = site.DateCatalogue;
-            Site.CopieDef(site, this);
-        }
-
-    }
-
-    [JsonObject(MemberSerialization.OptIn)]
-    public class RoleDIdentifiant : IRoleData, IRolePréférences
-    {
-        [JsonProperty]
-        public int Rno { get; set; }
-        [JsonProperty]
-        public string Etat { get; set; }
+        public EtatRole Etat { get; set; }
         [JsonProperty]
         public DateTime Date0 { get; set; }
         [JsonProperty]
@@ -123,19 +90,78 @@ namespace KalosfideAPI.Sécurité
         public string FormatNomFichierLivraison { get; set; }
         [JsonProperty]
         public string FormatNomFichierFacture { get; set; }
-        [JsonProperty]
-        public SiteDeRole Site { get; set; }
 
-        public RoleDIdentifiant(Role role)
+        public ClientDIdentifiant(Client client)
         {
-            Rno = role.Rno;
-            Etat = role.Etat;
-            var archives = role.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
+            Id = client.Id;
+            Etat = client.Etat;
+            IOrderedEnumerable<ArchiveClient> archives = client.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
             Date0 = archives.First().Date;
             DateEtat = archives.Last().Date;
-            Role.CopieDef(role, this);
-            Role.CopiePréférences(role, this);
-            Site = new SiteDeRole(role.Site);
+            Client.CopieData(client, this);
+//            Role.CopiePréférences(client, this);
+        }
+
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class SiteDIdentifiant: ISiteData
+    {
+        [JsonProperty]
+        public uint Id { get; set; }
+        [JsonProperty]
+        public virtual string Url { get; set; }
+        [JsonProperty]
+        public virtual string Titre { get; set; }
+        [JsonProperty]
+        public virtual bool Ouvert { get; set; }
+        [JsonProperty]
+        public virtual DateTime? DateCatalogue { get; set; }
+
+        /// <summary>
+        /// Bilan du site pour un role de fournisseur.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public BilanSite Bilan { get; set; }
+
+        /// <summary>
+        /// Fournisseur du site
+        /// </summary>
+        public FournisseurDIdentifiant Fournisseur { get; set; }
+
+        /// <summary>
+        /// Client du site pour un role de client.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public ClientDIdentifiant Client { get; set; }
+
+        /// <summary>
+        /// Nombre de documents arrivés depuis la dernière déconnection.
+        /// Null si l'utilisateur ne s'est pas déconnecté.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public List<CLFDoc> NouveauxDocs { get; set; }
+
+        private void Copie(Site site)
+        {
+            Id = site.Id;
+            Ouvert = site.Ouvert;
+            DateCatalogue = site.DateCatalogue;
+            Site.CopieData(site, this);
+
+        }
+
+        public SiteDIdentifiant(Client client)
+        {
+            Copie(client.Site);
+            Fournisseur = new FournisseurDIdentifiant(client.Site.Fournisseur);
+            Client = new ClientDIdentifiant(client);
+        }
+
+        public SiteDIdentifiant(Fournisseur fournisseur)
+        {
+            Copie(fournisseur.Site);
+            Fournisseur = new FournisseurDIdentifiant(fournisseur);
         }
 
     }
@@ -149,33 +175,30 @@ namespace KalosfideAPI.Sécurité
         public string Email { get; set; }
 
         [JsonProperty]
-        public string Uid { get; set; }
-        [JsonProperty]
-        public string Etat { get; set; }
+        public EtatUtilisateur Etat { get; set; }
         [JsonProperty]
         public int SessionId { get; set; }
 
         [JsonProperty]
-        public List<RoleDIdentifiant> Roles { get; set; }
+        public uint IdDernierSite { get; set; }
+
+        [JsonProperty]
+        public List<SiteDIdentifiant> Sites { get; set; }
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public int NoDernierRole { get; set; }
-
-        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public NouveauSite NouveauSite { get; set; }
+        public DemandeSite NouveauSite { get; set; }
 
         /// <summary>
-        /// Crée un identifiant avec une liiste de roles vide.
+        /// Crée un identifiant avec une liste de Sites vide.
         /// </summary>
         /// <param name="utilisateur"></param>
         public Identifiant(Utilisateur utilisateur)
         {
-            UserId = utilisateur.UserId;
-            Email = utilisateur.ApplicationUser.Email;
-            Uid = utilisateur.Uid;
+            UserId = utilisateur.Id;
+            Email = utilisateur.Email;
             Etat = utilisateur.Etat;
             SessionId = utilisateur.SessionId;
-            Roles = new List<RoleDIdentifiant>();
+            Sites = new List<SiteDIdentifiant>();
         }
     }
 }

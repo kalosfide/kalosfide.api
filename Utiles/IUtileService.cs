@@ -10,36 +10,25 @@ namespace KalosfideAPI.Utiles
     public interface IUtileService
     {
 
-        Task<Site> SiteDeKey(AKeyUidRno akeySite);
-
-        /// <summary>
-        /// retourne le Site du Role défini par keyClient si le Role n'est pas celui du Fournisseur du Site
-        /// </summary>
-        /// <param name="keyClient"></param>
-        /// <returns></returns>
-        Task<Site> SiteDeClient(AKeyUidRno keyClient);
-
-        /// <summary>
-        /// retourne le site du produit ou de la livraison
-        /// </summary>
-        /// <param name="keyProduitOuLivraison"></param>
-        /// <returns></returns>
-        Task<Site> SiteDeKeyProduitOuLivraison(KeyUidRnoNo keyProduitOuLivraison);
-
         /// <summary>
         /// retourne le nombre de produits disponibles du site
         /// </summary>
-        /// <param name="keySite">Site ou SiteVue ou keyUidRno</param>
+        /// <param name="idSite">Id du Site</param>
         /// <returns></returns>
-        Task<int> NbDisponibles(AKeyUidRno keySite);
+        Task<int> NbDisponibles(uint idSite);
 
         /// <summary>
-        /// Retourne le Role (qui inclut le champ Site) correspondant à la key s'il sagit de celui d'un client
+        /// Cherche un Client à partir de son Id.
         /// </summary>
-        /// <param name="keyClient">key du client</param>
-        /// <returns></returns>
-        Task<Role> ClientRoleAvecSite(AKeyUidRno keyClient);
+        /// <param name="idClient">Id du client</param>
+        /// <returns>le Client qui inclut son Site, si trouvé; null, sinon</returns>
+        Task<Client> ClientAvecSite(uint idClient);
 
-        Task<Produit> Produit(Site site, long No);
+        /// <summary>
+        /// Cherche un Produit à partir de son Id.
+        /// </summary>
+        /// <param name="idProduit">Id du Produit</param>
+        /// <returns>le Produit qui inclut ses Archives, si trouvé; null, sinon</returns>
+        Task<Produit> Produit(uint idProduit);
     }
 }

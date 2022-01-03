@@ -1,8 +1,6 @@
 ﻿using System.Threading.Tasks;
 using KalosfideAPI.Data;
-using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Partages.KeyParams;
+using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
@@ -13,7 +11,7 @@ namespace KalosfideAPI.Produits
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class ProduitController : KeyUidRnoNoController<Produit, ProduitVue>
+    public class ProduitController : AvecIdUintController<Produit, ProduitAAjouter, ProduitAEditer>
     {
         public ProduitController(IProduitService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
@@ -27,10 +25,19 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Ajoute(ProduitVue vue)
+        public async new Task<IActionResult> Ajoute(ProduitAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
-            return await Ajoute(carte, vue);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, EtatsRolePermis.Actif);
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            VérifieSansEspacesData(ajout, Produit.AvérifierSansEspacesData);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            return await base.Ajoute(ajout);
         }
 
         [HttpPut("/api/produit/edite")]
@@ -40,17 +47,31 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Edite(ProduitVue vue)
+        public async Task<IActionResult> Edite(ProduitAEditer édité)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
-            Produit produit = await Service.Lit(vue);
-            IActionResult result = await Edite(carte, produit, vue);
+            Produit produit = await Service.Lit(édité.Id);
+            if (produit == null)
+            {
+                return NotFound();
+            }
+            bool disponible = produit.Disponible;
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, EtatsRolePermis.Actif);
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            VérifieSansEspacesDataAnnulable(édité, Produit.AvérifierSansEspacesDataAnnulable);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            IActionResult result = await Edite(produit, édité);
             if (result is OkObjectResult)
             {
-                if (vue.Etat != null && vue.Etat != TypeEtatProduit.Disponible)
-                // supprime les détails des dernières commandes des clients qui demandent le produit
+                if (!produit.Disponible && disponible)
+                // supprime les lignes des dernières commandes des clients qui demandent le produit devenu indisponible
                 {
-                    await Service.SupprimeDétailsCommandesSansLivraison(vue);
+                    await Service.SupprimeLignesCommandesPasEnvoyées(produit);
                 }
             }
             return result;
@@ -62,15 +83,14 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Supprime([FromQuery] KeyParam paramsProduit)
+        public async Task<IActionResult> Supprime([FromQuery] uint id)
         {
-            KeyUidRnoNo key = KeyParam.CréeKeyUidRnoNo(paramsProduit);
-            if (key == null)
+            Produit produit = await Service.Lit(id);
+            if (produit == null)
             {
-                return BadRequest();
+                return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(key);
-            Produit produit = await Service.Lit(key);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, EtatsRolePermis.Actif);
             return await Supprime(carte, produit);
         }
 
@@ -78,18 +98,23 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> NomPris(ProduitVue vue)
+        public async Task<IActionResult> NomPris(ProduitAAjouter vue)
         {
-            return Ok(await Service.NomPris(vue.Uid, vue.Rno, vue.Nom));
+            return Ok(await Service.NomPris(vue.SiteId, vue.Nom));
         }
 
         [HttpGet("/api/produit/nomPrisParAutre/{nom}")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> NomPrisParAutre(ProduitVue vue)
+        public async Task<IActionResult> NomPrisParAutre(ProduitAEditer vue)
         {
-            return Ok(await Service.NomPrisParAutre(vue.Uid, vue.Rno, vue.No, vue.Nom));
+            Produit produit = await Service.Lit(vue.Id);
+            if (produit == null)
+            {
+                return NotFound();
+            }
+            return Ok(await Service.NomPrisParAutre(produit.SiteId, produit.Id, vue.Nom));
         }
     }
 }

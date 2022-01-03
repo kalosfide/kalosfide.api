@@ -1,4 +1,3 @@
-C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.csprojAssemblyReference.cache
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.AssemblyInfoInputs.cache
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.AssemblyInfo.cs
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\appsettings.json
@@ -143,3 +142,5 @@ C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netc
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.csproj.CoreCompileInputs.cache
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\scopedcss\bundle\KalosfideAPI.styles.css
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.csproj.AssemblyReference.cache
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.GeneratedMSBuildEditorConfig.editorconfig

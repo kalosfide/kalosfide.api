@@ -10,17 +10,48 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class Produit: AKeyUidRnoNo, IAvecDate
-    {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
-        [Required]
-        public override long No { get; set; }
 
+    public enum TypeMesure
+    {
+        Aucune,
+        Kilo,
+        Litre
+    }
+
+    public enum TypeCommande
+    {
+        Unité,
+        Vrac,
+        UnitéOuVrac
+    }
+
+    /// <summary>
+    /// Contient tous les champs de données hors Date d'un Produit.
+    /// </summary>
+    public interface IProduitData
+    {
+        string Nom { get; set; }
+        uint CategorieId { get; set; }
+        TypeMesure TypeMesure { get; set; }
+        TypeCommande TypeCommande { get; set; }
+        decimal Prix { get; set; }
+        bool Disponible { get; set; }
+    }
+    /// <summary>
+    /// Contient tous les champs rendus nullable hors Date d'un Produit.
+    /// </summary>
+    public interface IProduitDataAnnulable
+    {
+        string Nom { get; set; }
+        uint? CategorieId { get; set; }
+        TypeMesure? TypeMesure { get; set; }
+        TypeCommande? TypeCommande { get; set; }
+        decimal? Prix { get; set; }
+        bool? Disponible { get; set; }
+    }
+
+    public class Produit: AvecIdUint, IProduitData, IAvecDate, IAvecSiteId
+    {
         // données
         /// <summary>
         /// Nom du produit
@@ -35,23 +66,20 @@ namespace KalosfideAPI.Data
         /// non modifiable après la création
         /// </summary>
         [Required]
-        public long CategorieNo { get; set; }
+        public uint CategorieId { get; set; }
 
         /// <summary>
         /// 
         /// </summary>
         [Required]
-        [StringLength(1)]
-        public string TypeMesure { get; set; }
+        public TypeMesure TypeMesure { get; set; }
         [Required]
-        [StringLength(1)]
-        public string TypeCommande { get; set; }
+        public TypeCommande TypeCommande { get; set; }
         [Required]
         [Column(TypeName = PrixProduitDef.Type)]
         public decimal Prix { get; set; }
 
-        [StringLength(1)]
-        public string Etat { get; set; }
+        public bool Disponible { get; set; }
         /// <summary>
         /// Date de la création jusqu'à fin de la modification de catalogue où ce produit est créé.
         /// Date de la fin de la modification de catalogue où ce produit a été ajouté ou modifié.
@@ -60,6 +88,11 @@ namespace KalosfideAPI.Data
         public DateTime Date { get; set; }
 
         // navigation
+
+        public uint SiteId { get; set; }
+
+        public virtual Site Site { get; set; }
+
         virtual public ICollection<ArchiveProduit> Archives { get; set; }
         virtual public Catégorie Catégorie { get; set; }
 
@@ -70,23 +103,142 @@ namespace KalosfideAPI.Data
         {
             var entité = builder.Entity<Produit>();
 
-            entité.HasKey(donnée => new { donnée.Uid, donnée.Rno, donnée.No });
+            entité.HasKey(donnée => donnée.Id);
 
-            entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno, donnée.Nom }).IsUnique();
+            entité.HasIndex(donnée => new { donnée.Id, donnée.Nom }).IsUnique();
 
-            entité.Property(donnée => donnée.TypeMesure).HasDefaultValue(UnitéDeMesure.Aucune);
-            entité.Property(donnée => donnée.TypeCommande).HasDefaultValue(TypeUnitéDeCommande.Unité);
+            entité.Property(donnée => donnée.TypeMesure).HasDefaultValue(TypeMesure.Aucune);
+            entité.Property(donnée => donnée.TypeCommande).HasDefaultValue(TypeCommande.Unité);
             entité.Property(donnée => donnée.Prix).HasDefaultValue(0);
-
-            entité.Property(donnée => donnée.Etat).HasDefaultValue(TypeEtatProduit.Disponible);
 
             entité
                 .HasOne(produit => produit.Catégorie)
                 .WithMany(catégorie => catégorie.Produits)
-                .HasForeignKey(produit => new { produit.Uid, produit.Rno, produit.CategorieNo })
-                .HasPrincipalKey(catégorie => new { catégorie.Uid, catégorie.Rno, catégorie.No });
+                .HasForeignKey(produit => produit.CategorieId)
+                .HasPrincipalKey(catégorie => catégorie.Id);
+            entité
+                .HasOne(produit => produit.Site)
+                .WithMany(site => site.Produits)
+                .HasForeignKey(produit => produit.SiteId)
+                .HasPrincipalKey(site => site.Id)
+                .OnDelete(DeleteBehavior.NoAction);
 
             entité.ToTable("Produits");
         }
+
+        // utile
+
+        public static void CopieData(IProduitData de, IProduitData vers)
+        {
+            vers.Nom = de.Nom;
+            vers.CategorieId = de.CategorieId;
+            vers.TypeCommande = de.TypeCommande;
+            vers.TypeMesure = de.TypeMesure;
+            vers.Prix = de.Prix;
+        }
+
+        public static void CopieData(IProduitData de, IProduitDataAnnulable vers)
+        {
+            vers.Nom = de.Nom;
+            vers.CategorieId = de.CategorieId;
+            vers.TypeCommande = de.TypeCommande;
+            vers.TypeMesure = de.TypeMesure;
+            vers.Prix = de.Prix;
+            vers.Disponible = de.Disponible;
+        }
+        public static void CopieDataSiPasNull(IProduitDataAnnulable de, IProduitData vers)
+        {
+            if (de.Nom != null) { vers.Nom = de.Nom; }
+            if (de.CategorieId != null) { vers.CategorieId = de.CategorieId.Value; }
+            if (de.TypeCommande != null) { vers.TypeCommande = de.TypeCommande.Value; }
+            if (de.TypeMesure != null) { vers.TypeMesure = de.TypeMesure.Value; }
+            if (de.Prix != null) { vers.Prix = de.Prix.Value; }
+            if (de.Disponible != null) { vers.Disponible = de.Disponible.Value; }
+        }
+        public static void CopieDataSiPasNull(IProduitDataAnnulable de, IProduitDataAnnulable vers)
+        {
+            if (de.Nom != null) { vers.Nom = de.Nom; }
+            if (de.CategorieId != null) { vers.CategorieId = de.CategorieId.Value; }
+            if (de.TypeCommande != null) { vers.TypeCommande = de.TypeCommande.Value; }
+            if (de.TypeMesure != null) { vers.TypeMesure = de.TypeMesure.Value; }
+            if (de.Prix != null) { vers.Prix = de.Prix.Value; }
+            if (de.Disponible != null) { vers.Disponible = de.Disponible.Value; }
+        }
+        public static void CopieDataSiPasNullOuComplète(IProduitDataAnnulable de, IProduitData vers, IProduitData pourCompléter)
+        {
+            vers.Nom = de.Nom ?? pourCompléter.Nom;
+            vers.CategorieId = de.CategorieId ?? pourCompléter.CategorieId;
+            vers.TypeCommande = de.TypeCommande ?? pourCompléter.TypeCommande;
+            vers.TypeMesure = de.TypeMesure ?? pourCompléter.TypeMesure;
+            vers.Prix = de.Prix ?? pourCompléter.Prix;
+            vers.Disponible = de.Disponible ?? pourCompléter.Disponible;
+        }
+
+        /// <summary>
+        /// Si un champ du nouvel objet à une valeur différente de celle du champ correspondant de l'ancien objet,
+        /// met à jour l'ancien objet et place ce champ dans l'objet des différences.
+        /// </summary>
+        /// <param name="ancien"></param>
+        /// <param name="nouveau"></param>
+        /// <param name="différences"></param>
+        /// <returns>true si des différences ont été enregistrées</returns>
+        public static bool CopieDifférences(IProduitData ancien, IProduitDataAnnulable nouveau, IProduitDataAnnulable différences)
+        {
+            bool modifié = false;
+            if (nouveau.Nom != null && ancien.Nom != nouveau.Nom)
+            {
+                différences.Nom = nouveau.Nom;
+                ancien.Nom = nouveau.Nom;
+                modifié = true;
+            }
+            if (nouveau.CategorieId != null && ancien.CategorieId != nouveau.CategorieId)
+            {
+                différences.CategorieId = nouveau.CategorieId;
+                ancien.CategorieId = nouveau.CategorieId.Value;
+                modifié = true;
+            }
+            if (nouveau.TypeCommande != null && ancien.TypeCommande != nouveau.TypeCommande)
+            {
+                différences.TypeCommande = nouveau.TypeCommande;
+                ancien.TypeCommande = nouveau.TypeCommande.Value;
+                modifié = true;
+            }
+            if (nouveau.TypeMesure != null && ancien.TypeMesure != nouveau.TypeMesure)
+            {
+                différences.TypeMesure = nouveau.TypeMesure;
+                ancien.TypeMesure = nouveau.TypeMesure.Value;
+                modifié = true;
+            }
+            if (nouveau.Prix != null && ancien.Prix != nouveau.Prix)
+            {
+                différences.Prix = nouveau.Prix;
+                ancien.Prix = nouveau.Prix.Value;
+                modifié = true;
+            }
+            if (nouveau.Disponible != null && ancien.Disponible != nouveau.Disponible)
+            {
+                différences.Disponible = nouveau.Disponible;
+                ancien.Disponible = nouveau.Disponible.Value;
+                modifié = true;
+            }
+            return modifié;
+        }
+
+        public static string[] AvérifierSansEspacesData
+        {
+            get
+            {
+                return new string[] { "Nom" };
+            }
+        }
+
+        public static string[] AvérifierSansEspacesDataAnnulable
+        {
+            get
+            {
+                return new string[] { "Nom" };
+            }
+        }
+
     }
 }

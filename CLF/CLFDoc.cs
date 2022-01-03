@@ -16,29 +16,24 @@ namespace KalosfideAPI.CLF
     /// Rassemble les informations sur une entity DocCLF de la base de donnés.
     /// Objet transmis à l'application-client dans la liste ApiDocs d'un CLFDocs.
     /// </summary>
-    public class CLFDoc
+    public class CLFDoc: IKeyDocSansType
     {
         /// <summary>
-        /// Uid du Client
+        /// Id du Client
         /// </summary>
-        public string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Client
-        /// </summary>
-        public int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// No du document, incrémenté automatiquement par client pour les commandes, par site pour les livraisons et factures
         /// </summary>
-        public long No { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
         /// 'C' ou 'L' ou 'F'.
         /// Présent uniquement si le document fait partie d'une liste de vues.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public string Type { get; set; }
+        public TypeCLF? Type { get; set; }
 
         // données
 
@@ -68,7 +63,7 @@ namespace KalosfideAPI.CLF
         /// Présent si le document est une synthèse qui a été enregistrée.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public List<long> NoBons { get; set; }
+        public List<uint> NoBons { get; set; }
 
         /// <summary>
         /// Lignes du document.
@@ -119,7 +114,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         /// <param name="noBon">document dans la bdd</param>
         /// <returns></returns>
-        public static CLFDoc DeNo(long noBon)
+        public static CLFDoc DeNo(uint noBon)
         {
             CLFDoc clfDoc = new CLFDoc
             {
@@ -129,7 +124,7 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Crée un document à envoyer avec seulement le Uid et Rno du client et le No du document.
+        /// Crée un document à envoyer avec seulement l'Id du client et le No du document.
         /// </summary>
         /// <param name="docCLF">document dans la bdd</param>
         /// <returns></returns>
@@ -137,8 +132,7 @@ namespace KalosfideAPI.CLF
         {
             CLFDoc clfDoc = new CLFDoc
             {
-                Uid = docCLF.Uid,
-                Rno = docCLF.Rno,
+                Id = docCLF.Id,
                 No = docCLF.No
             };
             return clfDoc;
@@ -183,8 +177,7 @@ namespace KalosfideAPI.CLF
         {
             CLFDoc clfDoc = new CLFDoc
             {
-                Uid = docCLF.Uid,
-                Rno = docCLF.Rno,
+                Id = docCLF.Id,
                 No = docCLF.No,
                 Date = docCLF.Date,
                 Lignes = docCLF.Lignes.Select(l => créeLigneData(l)).ToList()
@@ -224,8 +217,7 @@ namespace KalosfideAPI.CLF
         {
             CLFDoc clfDoc = new CLFDoc
             {
-                Uid = docCLF.Uid,
-                Rno = docCLF.Rno,
+                Id = docCLF.Id,
                 No = docCLF.No,
                 Type = docCLF.Type,
                 Date = docCLF.Date,
@@ -242,8 +234,7 @@ namespace KalosfideAPI.CLF
         {
             CLFDoc clfDoc = new CLFDoc
             {
-                Uid = docCLF.Uid,
-                Rno = docCLF.Rno,
+                Id = docCLF.Id,
                 No = docCLF.No,
                 Date = docCLF.Date,
                 NbLignes = docCLF.Lignes.Count,
@@ -258,7 +249,7 @@ namespace KalosfideAPI.CLF
             {
                 NoGroupe = docCLF.NoGroupe;
                 DateGroupe = await docs
-                    .Where(d => d.Uid == docCLF.Uid && d.Rno == docCLF.Rno && d.No == docCLF.NoGroupe && d.Type == TypeClf.TypeSynthèse(docCLF.Type))
+                    .Where(d => d.Id == docCLF.Id && d.No == docCLF.NoGroupe && d.Type == DocCLF.TypeSynthèse(docCLF.Type))
                     .Select(d => d.Date)
                     .FirstOrDefaultAsync();
             }
@@ -266,10 +257,10 @@ namespace KalosfideAPI.CLF
 
          public async Task FixeSynthétisés(DocCLF docCLF, DbSet<DocCLF> docs)
         {
-            if (docCLF.Type != TypeClf.Commande)
+            if (docCLF.Type != TypeCLF.Commande)
             {
                 NoBons = await docs
-                    .Where(d => d.Uid == docCLF.Uid && d.Rno == docCLF.Rno && d.NoGroupe == docCLF.No && d.Type == TypeClf.TypeBon(docCLF.Type))
+                    .Where(d => d.Id == docCLF.Id && d.NoGroupe == docCLF.No && d.Type == DocCLF.TypeBon(docCLF.Type))
                     .Select(d => d.No)
                     .ToListAsync();
             }

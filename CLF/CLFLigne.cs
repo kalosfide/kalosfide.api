@@ -14,11 +14,10 @@ namespace KalosfideAPI.CLF
     /// </summary>
     public class CLFLigneData
     {
-
         /// <summary>
-        /// No du Produit
+        /// Id du Produit.
         /// </summary>
-        public long No { get; set; }
+        public uint ProduitId { get; set; }
 
         // données
 
@@ -33,7 +32,7 @@ namespace KalosfideAPI.CLF
         /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
         /// Si absent, la valeur par défaut de type de commande associée au TypeMesure du Produit est utilisée.
         /// </summary>
-        public string TypeCommande { get; set; }
+        public TypeCommande TypeCommande { get; set; }
 
 
         /// <summary>
@@ -51,7 +50,7 @@ namespace KalosfideAPI.CLF
         {
             CLFLigneData data = new CLFLigneData
             {
-                No = ligneCLF.No2,
+                ProduitId = ligneCLF.ProduitId,
                 Date = ligneCLF.Date,
                 TypeCommande = ligneCLF.TypeCommande,
                 Quantité = ligneCLF.Quantité,
@@ -72,37 +71,22 @@ namespace KalosfideAPI.CLF
     /// <summary>
     /// Objet reçu
     /// </summary>
-    public class CLFLigne : AKeyUidRnoNo2
+    public class CLFLigne : IKeyLigneSansType
     {
         /// <summary>
-        /// Uid du Role et du Client du client et de la Commande
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
-        /// Rno du Role et du Client du client et de la Commande
+        /// No du document, incrémenté automatiquement par client pour une commande, par site pour une livraison ou une facture
         /// </summary>
-        public override int Rno { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
-        /// No du document
+        /// Id du Produit.
         /// </summary>
-        public override long No { get; set; }
-
-        /// <summary>
-        /// Uid du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
-        /// </summary>
-        public override string Uid2 { get; set; }
-
-        /// <summary>
-        /// Rno du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
-        /// </summary>
-        public override int Rno2 { get; set; }
-
-        /// <summary>
-        /// No du Produit
-        /// </summary>
-        public override long No2 { get; set; }
+        public uint ProduitId { get; set; }
 
         // données
 
@@ -110,7 +94,7 @@ namespace KalosfideAPI.CLF
         /// Date de la commande.
         /// Présent si la ligne est dans une livraison ou une facture et le produit a changé de prix.
         /// </summary>
-        public override DateTime Date { get; set; }
+        public DateTime Date { get; set; }
 
 
         /// <summary>
@@ -118,7 +102,7 @@ namespace KalosfideAPI.CLF
         /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
         /// Si absent, la valeur par défaut du type de commande associée au TypeMesure du Produit est utilisée.
         /// </summary>
-        public string TypeCommande { get; set; }
+        public TypeCommande TypeCommande { get; set; }
 
 
         /// <summary>

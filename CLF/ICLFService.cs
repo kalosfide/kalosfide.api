@@ -18,23 +18,23 @@ namespace KalosfideAPI.CLF
         /// <param name="type"></param>
         /// <returns></returns>
         /// <summary>
-        Task<DocCLF> DocCLFDeKey(AKeyUidRnoNo doc, string type);
+        Task<DocCLF> DocCLFDeKey(IKeyDocSansType doc, TypeCLF type);
 
         /// <summary>
         /// Retourne la ligne définie par la clé et le type avec son document.
         /// </summary>
-        /// <param name="ligne"></param>
+        /// <param name="keyLigne"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<LigneCLF> LigneCLFDeKey(AKeyUidRnoNo2 ligne, string type);
+        Task<LigneCLF> LigneCLFDeKey(IKeyLigneSansType keyLigne, TypeCLF type);
 
         /// <summary>
         /// Lit le dernier document du client défini par la clé et du type donné.
         /// </summary>
-        /// <param name="keyClient">clé ou Role du client</param>
+        /// <param name="idClient">id du client</param>
         /// <param name="type">TypeCLF du document</param>
         /// <returns>le DocCLF enregistré incluant ses LigneCLF et leurs produits</returns>
-        Task<DocCLF> DernierDoc(AKeyUidRno keyClient, string type);
+        Task<DocCLF> DernierDoc(uint idClient, TypeCLF type);
 
         Task<bool> EstSynthèseSansBons(DocCLF synthèse);
 
@@ -47,16 +47,16 @@ namespace KalosfideAPI.CLF
         /// <param name="paramsSynthèse">a la clé du client et contient la liste des No des documents à synthétiser</param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<List<DocCLF>> DocumentsEnvoyésSansSynthèse(ParamsSynthèse paramsSynthèse, string type);
+        Task<List<DocCLF>> DocumentsEnvoyésSansSynthèse(ParamsSynthèse paramsSynthèse, TypeCLF type);
 
         /// <summary>
         /// Lit la dernière commande du client
         /// </summary>
-        /// <param name="keyClient">key du client</param>
+        /// <param name="idClient">Id du client</param>
         /// <returns>un CLFDocs dont le champ Documents contient le CLFDoc de la dernière commande du client</returns>
-        Task<CLFDocs> CommandeEnCours(AKeyUidRno keyClient);
+        Task<CLFDocs> CommandeEnCours(uint idClient);
 
-        Task<RetourDeService<DocCLF>> AjouteBon(AKeyUidRno keyClient, Site site, string type, long noDoc);
+        Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, Site site, TypeCLF type, uint noDoc);
         /// <summary>
         /// Enregistre comme lignes d'un nouveau bon des copies des lignes d'un document précédent
         /// dont le produit est toujours disponible en mettant à jour s'il y a lieu la date du catalogue applicable.
@@ -82,19 +82,19 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs dont le Documents contient les états de préparation des bons envoyés et sans synthèse de tous les clients.
         /// </summary>
-        /// <param name="site"></param>
+        /// <param name="idSite"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<CLFDocs> ClientsAvecBons(Site site, string type);
+        Task<CLFDocs> ClientsAvecBons(uint idSite, TypeCLF type);
 
         /// <summary>
         /// Retourne un CLFDocs dont le champ Documents contient les documents envoyés et sans synthèse du client avec les lignes
         /// </summary>
         /// <param name="site"></param>
-        /// <param name="keyClient"></param>
+        /// <param name="idClient"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<CLFDocs> BonsDUnClient(Site site, AKeyUidRno keyClient, string type);
+        Task<CLFDocs> BonsDUnClient(Site site, uint idClient, TypeCLF type);
 
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour chaque ligne du document défini par la key et le type.
@@ -104,7 +104,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyDoc"></param>
         /// <param name="type"></param>
         /// <returns>null s'il n y pas de lignes où la copie est possible</returns>
-        Task<RetourDeService> CopieQuantité(AKeyUidRnoNo keyDoc, string type);
+        Task<RetourDeService> CopieQuantité(IKeyDocSansType keyDoc, TypeCLF type);
 
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour la ligne définie par la key et le type.
@@ -114,7 +114,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyLigne"></param>
         /// <param name="type"></param>
         /// <returns>null si la copie est impossible</returns>
-        Task<RetourDeService> CopieQuantité(AKeyUidRnoNo2 keyLigne, string type);
+        Task<RetourDeService> CopieQuantité(IKeyLigneSansType keyLigne, TypeCLF type);
 
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour chaque ligne des documents de la liste.
@@ -124,7 +124,7 @@ namespace KalosfideAPI.CLF
         /// <param name="docs"></param>
         /// <param name="type"></param>
         /// <returns>null s'il n y pas de lignes où la copie est possible</returns>
-        Task<RetourDeService> CopieQuantité(List<DocCLF> docs, string type);
+        Task<RetourDeService> CopieQuantité(List<DocCLF> docs, TypeCLF type);
 
         /// <summary>
         /// Annule la valeur de AFixer pour la ligne définie par la key et le type si AFixer n'est pas défini.
@@ -132,7 +132,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyLigne"></param>
         /// <param name="type"></param>
         /// <returns>null si la copie est impossible</returns>
-        Task<RetourDeService> Annule(AKeyUidRnoNo2 keyLigne, string type);
+        Task<RetourDeService> Annule(IKeyLigneSansType keyLigne, TypeCLF type);
 
         /// <summary>
         /// Annule la valeur de AFixer pour chaque ligne du document défini par la key et le type dont le AFixer n'est pas défini.
@@ -140,7 +140,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyDoc"></param>
         /// <param name="type"></param>
         /// <returns>null s'il n y pas de lignes où la copie est possible</returns>
-        Task<RetourDeService> Annule(AKeyUidRnoNo keyDoc, string type);
+        Task<RetourDeService> Annule(IKeyDocSansType keyDoc, TypeCLF type);
 
         /// <summary>
         /// Annule la valeur de AFixer pour chaque ligne des documents de la liste.
@@ -148,18 +148,18 @@ namespace KalosfideAPI.CLF
         /// <param name="docs"></param>
         /// <param name="type"></param>
         /// <returns>null s'il n y pas de lignes où la copie est possible</returns>
-        Task<RetourDeService> Annule(List<DocCLF> docs, string type);
+        Task<RetourDeService> Annule(List<DocCLF> docs, TypeCLF type);
 
         /// <summary>
         /// Crée un document de synthèse à partir des documents de la liste. Fixe le NoGroupe des documents de la liste.
         /// L'objet retourné contient un DocCLF contenant uniquement le No et la Date de la synthèse créée.
         /// </summary>
         /// <param name="site"></param>
-        /// <param name="client"></param>
+        /// <param name="idClient"></param>
         /// <param name="docCLFs"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<RetourDeService<DocCLF>> Synthèse(Site site, Role client, List<DocCLF> docCLFs, string type);
+        Task<RetourDeService<DocCLF>> Synthèse(Site site, uint idClient, List<DocCLF> docCLFs, TypeCLF type);
 
         /// <summary>
         /// Retourne la liste par client des bilans (nombre et total des montants) des documents par type.
@@ -186,7 +186,7 @@ namespace KalosfideAPI.CLF
         /// <param name="paramsFiltre">définit le nombre de documents à retourner et les conditions de type et de Date</param>
         /// <param name="client"></param>
         /// <returns></returns>
-        Task<CLFDocs> Résumés(ParamsFiltreDoc paramsFiltre, Role client);
+        Task<CLFDocs> Résumés(ParamsFiltreDoc paramsFiltre, Client client);
 
         /// <summary>
         /// Retourne un CLFDocs qui contient le Client du document et un Documents contenant le document avec ses lignes
@@ -195,7 +195,7 @@ namespace KalosfideAPI.CLF
         /// <param name="keyDocument"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<CLFDocs> Document(Site site, KeyUidRnoNo keyDocument, string type);
+        Task<CLFDocs> Document(Site site, KeyDocSansType keyDocument, TypeCLF type);
 
         /// <summary>
         /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.

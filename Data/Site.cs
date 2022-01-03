@@ -9,20 +9,21 @@ using System.ComponentModel.DataAnnotations;
 
 namespace KalosfideAPI.Data
 {
-    public interface ISiteDef
+
+    public interface ISiteData
     {
         string Url { get; set; }
         string Titre { get; set; }
     }
 
-    public class Site : AKeyUidRno, ISiteDef
+    public interface ISiteDataAnnulable
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
+        string Url { get; set; }
+        string Titre { get; set; }
+    }
+
+    public class Site : AvecIdUint, ISiteData
+    {
 
         // données
 
@@ -50,18 +51,82 @@ namespace KalosfideAPI.Data
         public DateTime? DateCatalogue { get; set; }
 
         // navigation
-        [JsonIgnore]
-        virtual public ICollection<Role> Usagers { get; set; }
+        public virtual Fournisseur Fournisseur { get; set; }
+        public virtual ICollection<Client> Clients { get; set; }
 
+        virtual public ICollection<Produit> Produits { get; set; }
         virtual public ICollection<Catégorie> Catégories { get; set; }
 
         virtual public ICollection<ArchiveSite> Archives { get; set; }
 
+        // création
+        public static void CréeTable(ModelBuilder builder)
+        {
+            var entité = builder.Entity<Site>();
+
+            entité.HasKey(donnée => new { donnée.Id });
+
+            // quand le site est créé, la modification du catalogue commence 
+            entité.Property(donnée => donnée.Ouvert).HasDefaultValue(false);
+
+            entité.HasIndex(donnée => donnée.Url);
+
+            entité.ToTable("Sites");
+        }
+
         // utiles
-        public static void CopieDef(ISiteDef de, ISiteDef vers)
+        public static void CopieData(ISiteData de, ISiteData vers)
         {
             vers.Url = de.Url;
             vers.Titre = de.Titre;
+        }
+
+        public static void CopieData(Site de, ISiteDataAnnulable vers)
+        {
+            vers.Url = de.Url;
+            vers.Titre = de.Titre;
+        }
+
+        public static void CopieData(ISiteDataAnnulable de, ISiteDataAnnulable vers)
+        {
+            vers.Url = de.Url;
+            vers.Titre = de.Titre;
+        }
+        public static void CopieDataSiPasNull(ISiteDataAnnulable de, ISiteData vers)
+        {
+            if (de.Url != null) { vers.Url = de.Url; }
+            if (de.Titre != null) { vers.Titre = de.Titre; }
+        }
+        public static void CopieDataSiPasNullOuComplète(ISiteDataAnnulable de, ISiteData vers, ISiteData pourCompléter)
+        {
+            vers.Url = de.Url ?? pourCompléter.Url;
+            vers.Titre = de.Titre ?? pourCompléter.Titre;
+        }
+
+        /// <summary>
+        /// Si un champ du nouvel objet à une valeur différente de celle du champ correspondant de l'ancien objet,
+        /// met à jour l'ancien objet et place ce champ dans l'objet des différences.
+        /// </summary>
+        /// <param name="ancien"></param>
+        /// <param name="nouveau"></param>
+        /// <param name="différences"></param>
+        /// <returns>true si des différences ont été enregistrées</returns>
+        public static bool CopieDifférences(ISiteData ancien, ISiteDataAnnulable nouveau, ISiteDataAnnulable différences)
+        {
+            bool modifié = false;
+            if (nouveau.Url != null && ancien.Url != nouveau.Url)
+            {
+                différences.Url = nouveau.Url;
+                ancien.Url = nouveau.Url;
+                modifié = true;
+            }
+            if (nouveau.Titre != null && ancien.Titre != nouveau.Titre)
+            {
+                différences.Titre = nouveau.Titre;
+                ancien.Titre = nouveau.Titre;
+                modifié = true;
+            }
+            return modifié;
         }
 
         /// <summary>
@@ -69,7 +134,7 @@ namespace KalosfideAPI.Data
         /// </summary>
         /// <param name="siteDef"></param>
         /// <param name="modelState"></param>
-        public static void VérifieTrim(ISiteDef siteDef, ModelStateDictionary modelState)
+        public static void VérifieTrim(ISiteData siteDef, ModelStateDictionary modelState)
         {
             if (siteDef.Url == null)
             {
@@ -97,19 +162,28 @@ namespace KalosfideAPI.Data
             }
         }
 
-        // création
-        public static void CréeTable(ModelBuilder builder)
+        public static string[] AvérifierSansEspacesData
         {
-            var entité = builder.Entity<Site>();
+            get
+            {
+                return new string[]
+                {
+                    nameof(Site.Url),
+                    nameof(Site.Titre)
+                };
+            }
+        }
 
-            entité.HasKey(donnée => new { donnée.Uid, donnée.Rno });
-
-            // quand le site est créé, la modification du catalogue commence 
-            entité.Property(donnée => donnée.Ouvert).HasDefaultValue(false);
-
-            entité.HasIndex(donnée => donnée.Url);
-
-            entité.ToTable("Sites");
+        public static string[] AvérifierSansEspacesDataAnnulable
+        {
+            get
+            {
+                return new string[]
+                {
+                    nameof(Site.Url),
+                    nameof(Site.Titre)
+                };
+            }
         }
     }
 }

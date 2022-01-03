@@ -21,16 +21,16 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// retourne le catalogue complet du site actuellement en vigueur
         /// </summary>
-        /// <param name="site"></param>
+        /// <param name="idSite"></param>
         /// <returns></returns>
-        Task<Catalogue> Complet(Site site);
+        Task<Catalogue> Complet(uint idSite);
 
         /// <summary>
         /// retourne le catalogue des disponibilités du site actuellement en vigueur
         /// </summary>
-        /// <param name="site"></param>
+        /// <param name="idSite"></param>
         /// <returns></returns>
-        Task<Catalogue> Disponibles(Site site);
+        Task<Catalogue> Disponibles(uint idSite);
 
     }
 }

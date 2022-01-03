@@ -12,16 +12,51 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sécurité
 {
+    public class CarteRole
+    {
+        /// <summary>
+        /// Id du Fournisseur ou du Client suivant le cas.
+        /// </summary>
+        public uint Id { get; set; }
 
-    public class CarteUtilisateur // pour l'Api et pour l'application cliente
+        /// <summary>
+        /// Id du Site.
+        /// </summary>
+        public uint SiteId { get; set; }
+
+        /// <summary>
+        /// Date de la dernière utilisation du site
+        /// </summary>
+        public DateTime Date { get; set; }
+    }
+
+    public class CarteUtilisateur
     {
         public Utilisateur Utilisateur { get; set; }
-        public Role Role { get; set; }
+
         /// <summary>
-        /// Rno du role correspondant au site de fournisseur où l'utilisateur était lors de sa déconnection.
+        /// Role de client en cours de l'utilisateur Fixé pour les cartes de client.
+        /// </summary>
+        public Client Client { get; set; }
+
+        /// <summary>
+        /// Role de fournisseur en cours de l'utilisateur Fixé pour les cartes de fournisseur.
+        /// </summary>
+        public Fournisseur Fournisseur { get; set; }
+
+        public Site Site { get; set; }
+
+        /// <summary>
+        /// Id du dernier site de fournisseur où l'utilisateur était lors de sa déconnection.
         /// 0 si l'utilisateur n'était pas sur un site de fournisseur lors de sa déconnection.
         /// </summary>
-        public int NoDernierRole { get; set; }
+        public uint IdDernierSite { get
+            {
+                return Fournisseur != null ? Fournisseur.Id
+                    : Client != null ? Client.SiteId
+                    : 0;
+            }
+        }
         public int SessionId { get; set; }
 
         public IActionResult Erreur { get; set; }
@@ -30,6 +65,61 @@ namespace KalosfideAPI.Sécurité
         public CarteUtilisateur(ApplicationContext context)
         {
             _context = context;
+        }
+
+        /// <summary>
+        /// Complète l'Utilisateur avec ses Archives, avec ses Clients incluant leur Site incluant son Fournisseur
+        /// et avec ses Fournisseurs incluant leur Site.
+        /// Ne copie pas l'identifiant de session.
+        /// </summary>
+        /// <param name="utilisateur"></param>
+        /// <returns></returns>
+        public async Task FixeUtilisateur(Utilisateur utilisateur)
+        {
+            Utilisateur = utilisateur;
+            utilisateur.Archives = await _context.ArchiveUtilisateur
+                .Where(a => a.Id == utilisateur.Id)
+                .OrderBy(a => a.Date)
+                .ToListAsync();
+            utilisateur.Fournisseurs = await _context.Fournisseur
+                .Where(f => f.UtilisateurId == utilisateur.Id)
+                .Include(f => f.Site)
+                .Include(f => f.Archives)
+                .ToListAsync();
+            utilisateur.Clients = await _context.Client
+                .Where(c => c.UtilisateurId == utilisateur.Id)
+                .Include(c => c.Site).ThenInclude(s => s.Fournisseur)
+                .Include(c => c.Archives)
+                .ToListAsync();
+        }
+
+        public async Task ArchiveDernierSite(uint idSite)
+        {
+            ArchiveUtilisateur archive = Utilisateur.Archives
+                .Where(a => a.IdDernierSite != null)
+                .LastOrDefault();
+            if (archive == null || archive.IdDernierSite.Value != idSite)
+            {
+                ArchiveUtilisateur nouveau = new ArchiveUtilisateur
+                {
+                    Id = Utilisateur.Id,
+                    Date = DateTime.Now,
+                    IdDernierSite = idSite
+                };
+                _context.ArchiveUtilisateur.Add(nouveau);
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        public async Task<Fournisseur> FournisseurDeClient(uint idClient)
+        {
+            Client client = await _context.Client.Where(c => c.Id == idClient).FirstOrDefaultAsync();
+            if (client == null)
+            {
+                return null;
+            }
+            Fournisseur fournisseur = Utilisateur.Fournisseurs.Where(f => f.Id == client.SiteId).FirstOrDefault();
+            return fournisseur;
         }
 
         public async Task<Identifiant> Identifiant()
@@ -41,45 +131,61 @@ namespace KalosfideAPI.Sécurité
                 return identifiant;
             }
 
+            // listes des Id des sites de l'utilisateur dans l'ordre inverse de leurs dernières visites
+            IEnumerable<uint> idSites = Utilisateur.Archives
+                .Where(a => a.IdDernierSite != null)
+                .GroupBy(a => a.IdDernierSite.Value)
+                .Select(g => new { idSite = g.Key, date = g.OrderBy(a => a.Date).Last().Date })
+                .OrderByDescending(x => x.date)
+                .Select(x => x.idSite);
+
+            foreach (uint idSite in idSites)
+            {
+                Fournisseur fournisseur = Utilisateur.Fournisseurs.Where(f => f.Id == idSite).FirstOrDefault();
+                if (fournisseur != null)
+                {
+                    identifiant.Sites.Add(new SiteDIdentifiant(fournisseur));
+                }
+                else
+                {
+                    Client client = Utilisateur.Clients.Where(c => c.SiteId == idSite).FirstOrDefault();
+                    identifiant.Sites.Add(new SiteDIdentifiant(client));
+                }
+            }
+
             DateTime? dateDernièreDéconnection = null;
             int sessionId = Utilisateur.SessionId; // > 0 car l'utilisateur est connecté
             sessionId--; // id de la session précédente
-            if (sessionId == 0)
+            if (sessionId > 0)
             {
-                // c'est la première connection
-                identifiant.NoDernierRole = Utilisateur.Roles.First().Rno;
-            }
-            else
-            {
-                identifiant.NoDernierRole = NoDernierRole;
                 // si l'utilisateur s'est déconnecté de la session précédente, une archive
                 // avec un SessionId opposé à celui de la session précédente a été enregistrée
-                ArchiveUtilisateur dernièreDéconnection = await _context.ArchiveUtilisateur
-                        .Where(archive => archive.Uid == Utilisateur.Uid && archive.SessionId == -sessionId)
-                        .FirstOrDefaultAsync();
+                ArchiveUtilisateur dernièreDéconnection = Utilisateur.Archives
+                        .Where(archive => archive.SessionId == -sessionId)
+                        .FirstOrDefault();
                 if (dernièreDéconnection != null)
                 {
                     dateDernièreDéconnection = dernièreDéconnection.Date;
+                    // on inscrit l'Id du dernier Site ou 0 si l'utilisateur était sur l'AppSite
+                    identifiant.IdDernierSite = dernièreDéconnection.IdDernierSite.Value;
                 }
             }
+
             IQueryable<DocCLF> queryNouveauxDocs = null;
             Func<DocCLF, CLFDoc> nouveauCLFDoc = null;
-            foreach (Role role in Utilisateur.Roles)
+            foreach (SiteDIdentifiant site in identifiant.Sites)
             {
-                RoleDIdentifiant roleDIdentifiant = new RoleDIdentifiant(role);
-                string uidSite = role.Site.Uid;
-                int rnoSite = role.Site.Rno;
-                SiteDeRole siteDeRole = roleDIdentifiant.Site;
-                if (Role.EstFournisseur(role))
+                if (site.Client == null)
                 {
+                    // c'est un site où l'utilisateur est Fournisseur
                     List<Produit> produits = await _context.Produit
-                        .Where(produit => produit.Uid == uidSite && produit.Rno == rnoSite && produit.Etat == TypeEtatProduit.Disponible)
+                        .Where(produit => produit.SiteId == site.Id && produit.Disponible)
                         .ToListAsync();
-                    int nbCatégories = produits.GroupBy(produit => produit.CategorieNo).Count();
-                    List<Role> clients = await _context.Role
-                        .Where(role => role.SiteUid == uidSite && role.SiteRno == rnoSite && (role.Uid != uidSite || role.Rno != rnoSite))
+                    int nbCatégories = produits.GroupBy(produit => produit.CategorieId).Count();
+                    List<Client> clients = await _context.Client
+                        .Where(client => client.SiteId == site.Id)
                         .ToListAsync();
-                    siteDeRole.Bilan = new BilanSite
+                    site.Bilan = new BilanSite
                     {
                         Catalogue = new BilanCatalogue
                         {
@@ -88,30 +194,24 @@ namespace KalosfideAPI.Sécurité
                         },
                         Clients = new BilanClients
                         {
-                            Actifs = clients.Where(client => client.Etat == TypeEtatRole.Actif).Count(),
-                            Nouveaux = clients.Where(client => client.Etat == TypeEtatRole.Nouveau).Count()
+                            Actifs = clients.Where(client => client.Etat == EtatRole.Actif).Count(),
+                            Nouveaux = clients.Where(client => client.Etat == EtatRole.Nouveau).Count()
                         }
                     };
                     queryNouveauxDocs = _context.Docs
-                        .Where(docCLF => docCLF.SiteUid == role.Uid && docCLF.SiteRno == role.Rno
-                            && docCLF.Type == TypeClf.Commande);
+                        .Where(docCLF => docCLF.SiteId == site.Id && docCLF.Type == TypeCLF.Commande);
                     nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeKey(docCLF);
                 }
                 else
                 {
-                    Role fournisseur = await _context.Role
-                        .Where(r => r.Uid == uidSite && r.Rno == rnoSite)
-                        .FirstOrDefaultAsync();
-                    siteDeRole.Fournisseur = new FournisseurDeSiteDeRole(fournisseur);
                     queryNouveauxDocs = _context.Docs
-                        .Where(docCLF => docCLF.Uid == role.Uid && docCLF.Rno == role.Rno
-                            && (docCLF.Type == TypeClf.Livraison || docCLF.Type == TypeClf.Facture));
+                        .Where(docCLF => docCLF.SiteId == site.Id && (docCLF.Type == TypeCLF.Livraison || docCLF.Type == TypeCLF.Facture));
                     nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeNoType(docCLF);
                 }
                 if (sessionId == 0)
                 {
                     // c'est la première connection
-                    siteDeRole.NouveauxDocs = new List<CLFDoc>();
+                    site.NouveauxDocs = new List<CLFDoc>();
                 }
                 else
                 {
@@ -121,75 +221,27 @@ namespace KalosfideAPI.Sécurité
                         List<DocCLF> nouveauxDocCLFs = await queryNouveauxDocs
                             .Where(docCLF => docCLF.Date >= dateDernièreDéconnection)
                             .ToListAsync();
-                        siteDeRole.NouveauxDocs = nouveauxDocCLFs
+                        site.NouveauxDocs = nouveauxDocCLFs
                             .Select(docCLF => nouveauCLFDoc(docCLF))
                             .ToList();
                     }
                 }
-                identifiant.Roles.Add(roleDIdentifiant);
             }
 
-            NouveauSite nouveauSite = await _context.NouveauxSites.Where(ns => ns.Email == identifiant.Email).FirstOrDefaultAsync();
-            if (nouveauSite != null)
+            DemandeSite demandeSite = await _context.DemandeSite.Where(ns => ns.Email == identifiant.Email).FirstOrDefaultAsync();
+            if (demandeSite != null)
             {
-                identifiant.NouveauSite = nouveauSite;
+                identifiant.NouveauSite = demandeSite;
             }
 
             return identifiant;
-        }
-
-        /// <summary>
-        /// Copie les données de l'utilisateur, crée les listes des roles et des sites dont l'utilisateur est usager.
-        /// Copie le numéro du dernier role utilisé archivé.
-        /// Ne copie pas l'identifiant de session.
-        /// </summary>
-        /// <param name="utilisateur"></param>
-        /// <returns></returns>
-        public async Task FixeUtilisateur(Utilisateur utilisateur)
-        {
-            Utilisateur = utilisateur;
-            ArchiveUtilisateur archive = await _context.ArchiveUtilisateur
-                .Where(au => au.Uid == Utilisateur.Uid && au.NoDernierRole.HasValue)
-                .OrderBy(au => au.Date)
-                .LastOrDefaultAsync();
-            if (archive != null)
-            {
-                NoDernierRole = archive.NoDernierRole.Value;
-            }
-        }
-
-        /// <summary>
-        /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
-        /// </summary>
-        /// <returns></returns>
-        public async Task FixeNoDernierRole()
-        {
-            if (Role.Rno != NoDernierRole)
-            {
-                NoDernierRole = Role.Rno;
-                ArchiveUtilisateur archiveUtilisateur = new ArchiveUtilisateur
-                {
-                    Uid = Utilisateur.Uid,
-                    Date = DateTime.Now,
-                    NoDernierRole = Role.Rno
-                };
-                _context.ArchiveUtilisateur.Add(archiveUtilisateur);
-                await _context.SaveChangesAsync();
-            }
-
-        }
-
-        public void AjouteRole(Role fournisseur)
-        {
-            Utilisateur.Roles.Add(fournisseur);
-            NoDernierRole = fournisseur.Rno;
         }
 
         public bool EstUtilisateurActif
         {
             get
             {
-                return Utilisateur.Etat == TypeEtatUtilisateur.Actif || Utilisateur.Etat == TypeEtatUtilisateur.Nouveau;
+                return Utilisateur.Etat == EtatUtilisateur.Actif || Utilisateur.Etat == EtatUtilisateur.Nouveau;
             }
         }
 
@@ -197,66 +249,8 @@ namespace KalosfideAPI.Sécurité
         {
             get
             {
-                return EstUtilisateurActif && Utilisateur.Roles.Count == 0;
+                return EstUtilisateurActif && Utilisateur.Fournisseurs.Count == 0 && Utilisateur.Clients.Count == 0;
             }
-        }
-
-        private async Task FixeNoDernierRole(int Rno)
-        {
-            ArchiveUtilisateur archive = await _context.ArchiveUtilisateur
-                .Where(a => a.Uid == Utilisateur.Uid && a.NoDernierRole.HasValue)
-                .OrderBy(a => a.Date)
-                .LastAsync();
-            if (archive.NoDernierRole.Value != NoDernierRole)
-            {
-                ArchiveUtilisateur archiveUtilisateur = new ArchiveUtilisateur
-                {
-                    Uid = Utilisateur.Uid,
-                    Date = DateTime.Now,
-                    NoDernierRole = Rno
-                };
-                _context.ArchiveUtilisateur.Add(archiveUtilisateur);
-                await _context.SaveChangesAsync();
-                NoDernierRole = Rno;
-            }
-
-        }
-
-        public async Task<bool> EstFournisseurActif(AKeyUidRno akeySite)
-        {
-            if (EstUtilisateurActif && akeySite.Uid == Utilisateur.Uid)
-            {
-                Role role = Utilisateur.Roles.Where(r => r.Rno == akeySite.Rno).FirstOrDefault();
-                if (role == null || role.Etat != TypeEtatRole.Actif)
-                {
-                    return false;
-                }
-                await FixeNoDernierRole(role.Rno);
-                return true;
-            }
-            return false;
-        }
-
-        public async Task<bool> EstClientActif(AKeyUidRno akeySite)
-        {
-            if (EstUtilisateurActif)
-            {
-                Role role = Utilisateur.Roles
-                    .Where(r => r.SiteUid == akeySite.Uid && r.SiteRno == akeySite.Rno)
-                    .FirstOrDefault();
-                if (role == null || role.Etat != TypeEtatRole.Actif)
-                {
-                    return false;
-                }
-                if (role.Uid == akeySite.Uid && role.Rno == akeySite.Rno)
-                {
-                    // c'est le fournisseur
-                    return false;
-                }
-                await FixeNoDernierRole(role.Rno);
-                return true;
-            }
-            return false;
         }
 
     }

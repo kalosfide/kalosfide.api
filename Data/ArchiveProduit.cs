@@ -9,16 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class ArchiveProduit : AKeyUidRnoNo, IAvecDate, IProduitData
+    public class ArchiveProduit : AvecIdUint, IAvecDate, IProduitDataAnnulable
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
-        [Required]
-        public override long No { get; set; }
+
         /// <summary>
         /// Date de la fin de la modification de catalogue où cette archive a été ajoutée.
         /// </summary>
@@ -28,17 +21,14 @@ namespace KalosfideAPI.Data
         // données
         [MinLength(10), MaxLength(200)]
         public string Nom { get; set; }
-        public long? CategorieNo { get; set; }
+        public uint? CategorieId { get; set; }
 
-        [StringLength(1)]
-        public string TypeMesure { get; set; }
-        [StringLength(1)]
-        public string TypeCommande { get; set; }
+        public TypeMesure? TypeMesure { get; set; }
+        public TypeCommande? TypeCommande { get; set; }
         [Column(TypeName = PrixProduitDef.Type)]
         public decimal? Prix { get; set; }
 
-        [StringLength(1)]
-        public string Etat { get; set; }
+        public bool? Disponible { get; set; }
 
         // navigation
         virtual public Produit Produit { get; set; }
@@ -48,15 +38,15 @@ namespace KalosfideAPI.Data
         {
             var entité = builder.Entity<ArchiveProduit>();
 
-            entité.HasKey(donnée => new { donnée.Uid, donnée.Rno, donnée.No, donnée.Date });
+            entité.HasKey(donnée => new { donnée.Id, donnée.Date });
 
-            entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno, donnée.No });
+            entité.HasIndex(donnée => donnée.Id);
 
             entité
                 .HasOne(archive => archive.Produit)
                 .WithMany(produit => produit.Archives)
-                .HasForeignKey(archive => new { archive.Uid, archive.Rno, archive.No })
-                .HasPrincipalKey(produit => new { produit.Uid, produit.Rno, produit.No });
+                .HasForeignKey(archive => archive.Id)
+                .HasPrincipalKey(produit => produit.Id);
 
             entité.ToTable("ArchiveProduits");
         }

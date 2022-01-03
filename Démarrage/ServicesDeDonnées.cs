@@ -9,17 +9,13 @@ namespace KalosfideAPI.Démarrage
 
             Utilisateurs.Initialisation.ConfigureServices(services);
 
-            Roles.Initialisation.ConfigureServices(services);
-
             Utiles.Initialisation.ConfigureServices(services);
 
             Sites.Initialisation.ConfigureServices(services);
 
-            Administrateurs.Initialisation.ConfigureServices(services);
+            Fournisseurs.Initialisation.ConfigureServices(services);
 
             Clients.Initialisation.ConfigureServices(services);
-
-            NouveauxSites.Initialisation.ConfigureServices(services);
 
             Admin.Initialisation.ConfigureServices(services);
 

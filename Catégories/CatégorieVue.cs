@@ -1,6 +1,5 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Partages.KeyParams;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -8,73 +7,49 @@ using System.Linq;
 
 namespace KalosfideAPI.Catégories
 {
-
     /// <summary>
-    /// Contient tous les champs de données hors Date d'une Catégorie.
-    /// </summary>
-    public interface ICatégorieDataSansDate : IDataUidRnoNo
-    {
-        string Nom { get; set; }
-    }
-
-    /// <summary>
-    /// Contient tous les champs de données d'une Catégorie.
-    /// </summary>
-    public interface ICatégorieData : ICatégorieDataSansDate
-    {
-        DateTime Date { get; set; }
-    }
-
-    /// <summary>
-    /// Contient tous les champs de données hors Date et la KeyUidRnoNo d'une Catégorie.
-    /// Objet reçu pour ajouter ou éditer une Catégorie.
-    /// </summary>
-    public class CatégorieVue: AKeyUidRnoNo, ICatégorieDataSansDate
-    {
-        // identité
-        public override string Uid { get; set; }
-        public override int Rno { get; set; }
-        public override long No { get; set; }
-
-        // données
-        public string Nom { get; set; }
-
-        public CatégorieVue()
-        { }
-
-        public CatégorieVue(Catégorie catégorie)
-        {
-            CopieKey(catégorie);
-            Nom = catégorie.Nom;
-        }
-
-    }
-
-    /// <summary>
-    /// Contient tous les champs de données avec Date et le No d'une Catégorie.
+    /// Contient tous les champs d'une Catégorie sans Date sans Id avec SiteId.
     /// Objet envoyé en liste dans un tarif.
     /// </summary>
-    public class CatégorieDeCatalogue
+    public class CatégorieAAjouter: ICatégorieData
     {
-        [JsonProperty]
-        public long No { get; set; }
+        public uint SiteId { get; set; }
+        public string Nom { get; set; }
+
+    }
+    /// <summary>
+    /// Contient tous les champs d'une Catégorie sans Date avec Id sans SiteId.
+    /// Contient tous les champs de données avec Date et Id d'une Catégorie sans SiteId.
+    /// Objet envoyé en liste dans un tarif.
+    /// </summary>
+    public class CatégorieAEditer: AvecIdUint, ICatégorieDataAnnulable
+    {
+        public string Nom { get; set; }
+
+
+    }
+
+    /// <summary>
+    /// Contient tous les champs d'une Catégorie avec Date et Id sans SiteId.
+    /// Objet envoyé en liste dans un tarif.
+    /// </summary>
+    public class CatégorieDeCatalogue: AvecIdUint, ICatégorieData
+    {
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string Nom { get; set; }
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public DateTime? Date { get; set; }
 
-        private CatégorieDeCatalogue(long no)
+        private CatégorieDeCatalogue(uint id)
         {
-            No = no;
+            Id = id;
         }
 
         public static CatégorieDeCatalogue SansDate(Catégorie catégorie)
         {
-            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(catégorie.No)
-            {
-                Nom = catégorie.Nom
-            };
+            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(catégorie.Id);
+            Catégorie.CopieData(catégorie, catégorieDeCatalogue);
             return catégorieDeCatalogue;
         }
 
@@ -87,75 +62,16 @@ namespace KalosfideAPI.Catégories
         public static CatégorieDeCatalogue ALaDate(IEnumerable<ArchiveCatégorie> archives, DateTime date)
         {
             ArchiveCatégorie[] archivesAvantDate = archives.Where(a => a.Date < date).OrderBy(a => a.Date).ToArray();
-            ArchiveCatégorie catégorieInitiale = archivesAvantDate[0];
-            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(catégorieInitiale.No)
+            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(archivesAvantDate.First().Id)
             {
-                Nom = catégorieInitiale.Nom,
                 Date = date
             };
-            for (int i = 1; i < archivesAvantDate.Length; i++)
+            foreach (ArchiveCatégorie archive in archivesAvantDate)
             {
-                ArchiveCatégorie a = archivesAvantDate[i];
-                if (a.Nom != null) { catégorieDeCatalogue.Nom = a.Nom; }
+                Catégorie.CopieDataSiPasNull(archive, catégorieDeCatalogue);
             }
             return catégorieDeCatalogue;
         }
     }
 
-    /// <summary>
-    /// Contient tous les champs de données hors Date et le No d'une Catégorie.
-    /// Objet envoyé en liste dans un catalogue.
-    /// </summary>
-    public class CatégorieDataSansDate: ICatégorieDataSansDate
-    {
-        public long No { get; set; }
-
-        public string Nom { get; set; }
-
-        protected CatégorieDataSansDate(long no)
-        {
-            No = no;
-        }
-
-        public CatégorieDataSansDate(Catégorie catégorie)
-        {
-            No = catégorie.No;
-            Nom = catégorie.Nom;
-        }
-    }
-
-    /// <summary>
-    /// Contient tous les champs de données avec Date et le No d'une Catégorie.
-    /// Objet envoyé en liste dans un tarif.
-    /// </summary>
-    public class CatégorieData: CatégorieDataSansDate, ICatégorieData
-    {
-
-        public DateTime Date { get; set; }
-
-        protected CatégorieData(long no): base(no)
-        {
-
-        }
-
-        public CatégorieData(Catégorie catégorie): base(catégorie)
-        {
-            Date = catégorie.Date;
-        }
-
-        public CatégorieData(Catégorie catégorie, DateTime date): base(catégorie.No)
-        {
-            Date = date;
-            catégorie.Archives
-                .Where(a => a.Date <= date)
-                .OrderBy(a => a.Date)
-                .ToList()
-                .ForEach(a => CopieSiPasNull(a));
-        }
-
-        public void CopieSiPasNull(ICatégorieDataSansDate data)
-        {
-            Nom = data.Nom;
-        }
-    }
 }

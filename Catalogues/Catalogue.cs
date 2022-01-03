@@ -7,20 +7,8 @@ using System.Collections.Generic;
 
 namespace KalosfideAPI.Catalogues
 {
-    public class Catalogue : AKeyUidRno
+    public class Catalogue
     {
-        /// <summary>
-        /// Uid du site
-        /// </summary>
-        [JsonProperty]
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du site
-        /// </summary>
-        [JsonProperty]
-        public override int Rno { get; set; }
-
         /// <summary>
         /// Date du Catalogue n'existe pas si la modification est en cours
         /// </summary>
@@ -39,12 +27,6 @@ namespace KalosfideAPI.Catalogues
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public List<CatégorieDeCatalogue> Catégories { get; set; }
 
-    }
-
-    public class CatalogueTarif
-    {
-        public List<ProduitDataSansEtat> Produits { get; set; }
-        public List<CatégorieData> Catégories { get; set; }
     }
 
 

@@ -20,7 +20,7 @@ namespace KalosfideAPI.Démarrage
 
         private void Users()
         {
-            ApplicationUser admin = new ApplicationUser
+            Utilisateur admin = new Utilisateur
             {
                 UserName = "admin",
                 Email = "admin@kalosfide.fr",

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class ApplicationContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationContext : IdentityDbContext<Utilisateur>
     {
         public ApplicationContext(DbContextOptions options)
             : base(options)
@@ -15,21 +15,23 @@ namespace KalosfideAPI.Data
             // Customize the ASP.NET Identity model and override the defaults if needed.
             // For example, you can rename the ASP.NET Identity table names and more.
             // Add your customizations after calling base.OnModelCreating(builder);
-            Data.ApplicationUser.CréeTable(builder);
+            Data.Utilisateur.CréeTable(builder);
 
             Data.Utilisateur.CréeTable(builder);
             Data.ArchiveUtilisateur.CréeTable(builder);
 
-            Data.Role.CréeTable(builder);
-            Data.ArchiveRole.CréeTable(builder);
+            Data.Fournisseur.CréeTable(builder);
+            Data.ArchiveFournisseur.CréeTable(builder);
+            Data.DemandeSite.CréeTable(builder);
 
             Data.Site.CréeTable(builder);
             Data.ArchiveSite.CréeTable(builder);
 
+            Data.Client.CréeTable(builder);
+            Data.ArchiveClient.CréeTable(builder);
+
             Data.Invitation.CréeTable(builder);
 
-            Data.NouveauSite.CréeTable(builder);
-            Data.InvitationSite.CréeTable(builder);
 
             // Tables de données
             Data.Catégorie.CréeTable(builder);
@@ -46,13 +48,16 @@ namespace KalosfideAPI.Data
         public DbSet<Utilisateur> Utilisateur { get; set; }
         public DbSet<ArchiveUtilisateur> ArchiveUtilisateur { get; set; }
 
-        public DbSet<Role> Role { get; set; }
-        public DbSet<ArchiveRole> ArchiveRole { get; set; }
+        public DbSet<Fournisseur> Fournisseur { get; set; }
+        public DbSet<ArchiveFournisseur> ArchiveFournisseur { get; set; }
+
+        public DbSet<DemandeSite> DemandeSite { get; set; }
 
         public DbSet<Site> Site { get; set; }
         public DbSet<ArchiveSite> ArchiveSite { get; set; }
 
-        public DbSet<NouveauSite> NouveauxSites { get; set; }
+        public DbSet<Client> Client { get; set; }
+        public DbSet<ArchiveClient> ArchiveClient { get; set; }
 
         public DbSet<Invitation> Invitation { get; set; }
 

@@ -27,29 +27,31 @@ namespace KalosfideAPI.Admin
             _siteService = siteService;
         }
 
-        public async Task<List<Fournisseur>> Fournisseurs()
+        public async Task<List<FournisseurVue>> Fournisseurs()
         {
-            List<Role> roles = await _context.Role
-                .Where(role => role.Uid == role.SiteUid && role.Rno == role.SiteRno)
-                .Include(role => role.Utilisateur).ThenInclude(u => u.ApplicationUser)
-                .Include(role => role.Site)
-                .Include(role => role.Archives)
+            List<Fournisseur> fournisseurs = await _context.Fournisseur
+                .Include(fournisseur => fournisseur.Utilisateur)
+                .Include(fournisseur => fournisseur.Site)
+                .Include(fournisseur => fournisseur.Archives)
                 .AsNoTracking()
                 .ToListAsync();
-            List<Fournisseur> fournisseurs = roles.Select(role => new Fournisseur(role)).ToList();
-            return fournisseurs;
+            List<FournisseurVue> vues = fournisseurs.Select(fournisseur => new FournisseurVue(fournisseur)).ToList();
+            return vues;
         }
 
-        public async Task<Fournisseur> Fournisseur(KeyUidRno keyRole)
+        public async Task<FournisseurVue> Fournisseur(uint idFournisseur)
         { 
-            Role role = await _context.Role
-                .Where(role => role.Uid == role.SiteUid && role.Rno == role.SiteRno)
-                .Include(role => role.Utilisateur).ThenInclude(u => u.ApplicationUser)
-                .Include(role => role.Site)
-                .Include(role => role.Archives)
+            Fournisseur fournisseur = await _context.Fournisseur
+                .Where(f => f.Id == idFournisseur)
+                .Include(f => f.Utilisateur).ThenInclude(u => u.Archives)
+                .Include(f => f.Site)
+                .Include(f => f.Archives)
                 .FirstOrDefaultAsync();
-            Fournisseur fournisseur = new Fournisseur(role);
-            return fournisseur;
+            if (fournisseur == null)
+            {
+                return null;
+            }
+            return new FournisseurVue(fournisseur);
         }
 
     }

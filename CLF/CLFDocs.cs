@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Catalogues;
+using KalosfideAPI.Clients;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Roles;
@@ -17,7 +18,7 @@ namespace KalosfideAPI.CLF
         public List<CLFDoc> ApiDocs { get; set; }
 
         /// <summary>
-        /// Tarif à apliquer à certaines lignes.
+        /// Tarif à appliquer à certaines lignes.
         /// Présent si
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -27,7 +28,7 @@ namespace KalosfideAPI.CLF
         /// Client des documents.
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
-        public RoleData Client { get; set; }
+        public ClientData Client { get; set; }
 
     }
 }

@@ -13,6 +13,7 @@ namespace KalosfideAPI.Partages
         ConcurrencyError,
         NotFound,
         UpdateError,
+        ModelError,
         Indéterminé
     }
 
@@ -26,6 +27,7 @@ namespace KalosfideAPI.Partages
         public bool ConcurrencyError { get { return this.Type == TypeRetourDeService.ConcurrencyError; } }
         public bool IdentityError { get { return this.Type == TypeRetourDeService.IdentityError; } }
         public bool UpdateError { get { return this.Type == TypeRetourDeService.UpdateError; } }
+        public bool ModelError { get { return this.Type == TypeRetourDeService.ModelError; } }
 
         public RetourDeService(TypeRetourDeService type)
         {

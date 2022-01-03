@@ -10,62 +10,56 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Utilisateurs
 {
-    public interface IUtilisateurService : IBaseService<Utilisateur>
+    public interface IUtilisateurService : IBaseService
     {
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Id.
+        /// Cherche un Utilisateur à partir de son Id.
         /// </summary>
-        /// <param name="userId">Id de l'ApplicationUser recherché</param>
-        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
-        Task<ApplicationUser> ApplicationUserDeUserId(string userId);
+        /// <param name="id">Id de l'Utilisateur recherché</param>
+        /// <returns>l'Utilisateur trouvé, ou null.</returns>
+        Task<Utilisateur> UtilisateurDeId(string id);
 
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Email.
+        /// Cherche un Utilisateur à partir de son Email.
         /// </summary>
-        /// <param name="eMail">Email de l'ApplicationUser recherché</param>
-        /// <returns>l'ApplicationUser trouvé, ou null.</returns>
-        Task<ApplicationUser> ApplicationUserDeEmail(string eMail);
+        /// <param name="eMail">Email de l'Utilisateur recherché</param>
+        /// <returns>l'Utilisateur trouvé, ou null.</returns>
+        Task<Utilisateur> UtilisateurDeEmail(string eMail);
 
         /// <summary>
-        /// Cherche un ApplicationUser à partir de son Email et vérifie son mot de passe.
+        /// Cherche un Utilisateur à partir de son Email et vérifie son mot de passe.
         /// </summary>
-        /// <param name="eMail">Email de l'ApplicationUser recherché</param>
+        /// <param name="eMail">Email de l'Utilisateur recherché</param>
         /// <param name="password">mot de passe à vérifier</param>
-        /// <returns>l'ApplicationUser trouvé si le mot de passe correspond à l'email, ou null.</returns>
-        Task<ApplicationUser> ApplicationUserVérifié(string eMail, string password);
+        /// <returns>l'Utilisateur trouvé si le mot de passe correspond à l'email, ou null.</returns>
+        Task<Utilisateur> UtilisateurVérifié(string eMail, string password);
 
         /// <summary>
-        /// Cherche un Utilisateur à partir de son ApplicationUser.
+        /// Complète un Utilisateur à ses roles.
         /// </summary>
         /// <param name="user"></param>
-        /// <returns>l'Utilisateur trouvé qui inclut ses Roles qui incluent leurs Site, ou null.</returns>
-        Task<Utilisateur> UtilisateurDeApplicationUser(ApplicationUser user);
+        /// <returns>l'Utilisateur trouvé qui inclut ses roles de Fournisseur et de Client qui incluent leurs Site, ou null.</returns>
+        Task<Utilisateur> UtilisateurAvecRoles(Utilisateur user);
 
         /// <summary>
-        /// Cherche un Utilisateur à partir de son Uid.
+        /// Cherche un Utilisateur à partir de son Email et, s'il existe, vérifie s'il est usager d'un Site.
         /// </summary>
-        /// <param name="uid"></param>
-        /// <returns>l'Utilisateur trouvé qui inclut son ApplicationUser, ou null.</returns>
-        Task<Utilisateur> UtilisateurDeUid(string id);
+        /// <param name="email">Email de l'Utilisateur à chercher</param>
+        /// <param name="idSite">Id d'un Site</param>
+        /// <returns>true, si l'Utilisateur existe et est usager du Site; false, sinon.</returns>
+        Task<bool> UtilisateurDeEmailEstUsagerDeSite(string email, uint idSite);
 
         /// <summary>
-        /// Cherche un Role à partir de sa KeyUidRno.
+        /// Crée une CarteUtilisateur à partir d'un Utilisateur.
+        /// Fixe l'Utilisateur de la carte avec son Utilisateur et ses Roles incluant leurs Sites et leurs Archives.
         /// </summary>
-        /// <param name="iKeyRole">objet ayant l'Uid et le Rno du Role recherché</param>
-        /// <returns>le Role trouvé qui inclut son Site, ou null.</returns>
-        Task<Role> RoleDeKey(IKeyUidRno iKeyRole);
-
-        /// <summary>
-        /// Crée une CarteUtilisateur à partir d'un ApplicationUser.
-        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites et leurs Archives.
-        /// </summary>
-        /// <param name="user"></param>
+        /// <param name="utilisateur"></param>
         /// <returns>la CarteUtilisateur créée</returns>
-        Task<CarteUtilisateur> CréeCarteUtilisateur(ApplicationUser user);
+        Task<CarteUtilisateur> CréeCarteUtilisateur(Utilisateur utilisateur);
 
         /// <summary>
         /// Crée une CarteUtilisateur à partir des Claims envoyées avec une requête Http.
-        /// Fixe l'Utilisateur de la carte avec son ApplicationUser et ses Roles incluant leurs Sites.
+        /// Fixe l'Utilisateur de la carte et ses Roles incluant leurs Sites.
         /// </summary>
         /// <param name="httpContext">le HttpContext de la requête</param>
         /// <returns>null si les Claims ne sont pas valide</returns>
@@ -80,34 +74,28 @@ namespace KalosfideAPI.Utilisateurs
         Task AjouteCarteAResponse(HttpResponse httpResponse, CarteUtilisateur carte);
 
         /// <summary>
-        /// Ajoute à la bdd un nouvel Utilisateur et son ApplicationUser à partir de son Email et de son mot de passe.
+        /// Ajoute à la bdd un nouvel Utilisateur à partir de son Email et de son mot de passe.
         /// </summary>
         /// <param name="vue">objet ayant l'Email et le Password de l'utilisateur à créer</param>
         /// <returns></returns>
-        Task<RetourDeService<ApplicationUser>> CréeUtilisateur(ICréeCompteVue vue);
+        Task<RetourDeService<Utilisateur>> CréeUtilisateur(ICréeCompteVue vue);
 
         /// <summary>
-        /// Ajoute à la bdd un nouvel Utilisateur sans ApplicationUser.
-        /// </summary>
-        /// <returns></returns>
-        Task<RetourDeService<Utilisateur>> CréeUtilisateur();
-
-        /// <summary>
-        /// Supprime dans la bdd un Utilisateur et son ApplicationUser s'il en a un.
+        /// Supprime dans la bdd un Utilisateur s'il en a un.
         /// </summary>
         /// <param name="utilisateur">Utilisateur à supprimer</param>
         /// <returns></returns>
         Task<RetourDeService> Supprime(Utilisateur utilisateur);
 
-        Task EnvoieEmailConfirmeCompte(ApplicationUser user);
+        Task EnvoieEmailConfirmeCompte(Utilisateur user);
 
-        Task EnvoieEmailRéinitialiseMotDePasse(ApplicationUser user);
-        Task<bool> RéinitialiseMotDePasse(ApplicationUser user, string code, string motDePasse);
+        Task EnvoieEmailRéinitialiseMotDePasse(Utilisateur user);
+        Task<bool> RéinitialiseMotDePasse(Utilisateur user, string code, string motDePasse);
 
-        Task<bool> ChangeMotDePasse(ApplicationUser user, string motDePasse, string nouveauMotDePasse);
+        Task<bool> ChangeMotDePasse(Utilisateur user, string motDePasse, string nouveauMotDePasse);
 
-        Task EnvoieEmailChangeEmail(ApplicationUser user, string nouvelEmail);
-        Task<bool> ChangeEmail(ApplicationUser user, string nouvelEmail, string code);
+        Task EnvoieEmailChangeEmail(Utilisateur user, string nouvelEmail);
+        Task<bool> ChangeEmail(Utilisateur user, string nouvelEmail, string code);
 
         /// <summary>
         /// Retourne vrai si la confimation de l'email a eu lieu
@@ -115,19 +103,14 @@ namespace KalosfideAPI.Utilisateurs
         /// <param name="user"></param>
         /// <param name="code"></param>
         /// <returns></returns>
-        Task<bool> EmailConfirmé(ApplicationUser user, string code);
+        Task<bool> EmailConfirmé(Utilisateur user, string code);
 
-        Task ConfirmeEmailDirect(ApplicationUser user);
+        Task ConfirmeEmailDirect(Utilisateur user);
 
+        Task<RetourDeService> Connecte(Utilisateur utilisateur);
         Task Connecte(CarteUtilisateur carteUtilisateur);
         Task Déconnecte(CarteUtilisateur carteUtilisateur);
         
-        Task<Invitation> TrouveInvitation(IInvitationKey key);
-        Task<List<InvitationVue>> Invitations(AKeyUidRno keySite);
-        Task<RetourDeService<Invitation>> SupprimeInvitation(Invitation invitation);
-        Task<RetourDeService<Invitation>> EnvoieEmailDevenirClient(Invitation invitation, InvitationVérifiée vérifiée);
-        Invitation DécodeInvitation(string code);
-
         Task<List<Utilisateur>> Lit();
 
     }

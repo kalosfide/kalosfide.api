@@ -23,6 +23,8 @@ namespace KalosfideAPI.Sécurité
 
         public const string DevenirClient = "devenirClient";
 
+        public const string NouveauSite = "nouveauSite";
+
         public static string Url(params string[] segments)
         {
             return BaseUrl + "a/" + string.Join('/', segments);

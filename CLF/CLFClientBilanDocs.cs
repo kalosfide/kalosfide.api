@@ -1,4 +1,5 @@
-﻿using KalosfideAPI.Data.Keys;
+﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -12,7 +13,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Type CLF des documents.
         /// </summary>
-        public string Type { get; set; }
+        public TypeCLF Type { get; set; }
 
         /// <summary>
         /// Nombre des documents.
@@ -33,17 +34,12 @@ namespace KalosfideAPI.CLF
 
     [JsonObject(MemberSerialization.OptIn)]
 
-    public class CLFClientBilanDocs : AKeyUidRno
+    public class CLFClientBilanDocs
     {
         /// <summary>
-        /// Uid du Client
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Client
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         public List<CLFBilanDocs> Bilans { get; set; }
     }

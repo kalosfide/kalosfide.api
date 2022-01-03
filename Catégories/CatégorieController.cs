@@ -2,7 +2,7 @@
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Partages.KeyParams;
+using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Sites;
 using KalosfideAPI.Utilisateurs;
@@ -14,7 +14,7 @@ namespace KalosfideAPI.Catégories
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class CatégorieController : KeyUidRnoNoController<Catégorie, CatégorieVue>
+    public class CatégorieController : AvecIdUintController<Catégorie, CatégorieAAjouter, CatégorieAEditer>
     {
 
         public CatégorieController(ICatégorieService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
@@ -29,10 +29,19 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Ajoute(CatégorieVue vue)
+        public new async Task<IActionResult> Ajoute(CatégorieAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
-            return await Ajoute(carte, vue);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, EtatsRolePermis.Actif);
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            VérifieSansEspacesData(ajout, Catégorie.AvérifierSansEspacesData);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            return await base.Ajoute( ajout);
         }
 
         [HttpPut("/api/categorie/edite")]
@@ -42,11 +51,24 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Edite(CatégorieVue vue)
+        public async Task<IActionResult> Edite(CatégorieAEditer vue)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(vue);
-            Catégorie catégorie = await _service.Lit(vue);
-            return await Edite(carte, catégorie, vue);
+            Catégorie catégorie = await _service.Lit(vue.Id);
+            if (catégorie == null)
+            {
+                return NotFound();
+            }
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, EtatsRolePermis.Actif);
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            VérifieSansEspacesDataAnnulable(vue, Catégorie.AvérifierSansEspacesDataAnnulable);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            return await Edite(catégorie, vue);
         }
 
         [HttpDelete("/api/categorie/supprime")]
@@ -56,15 +78,14 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Supprime([FromQuery] KeyParam paramsCatégorie)
+        public async Task<IActionResult> Supprime([FromQuery] uint id)
         {
-            KeyUidRnoNo key = KeyParam.CréeKeyUidRnoNo(paramsCatégorie);
-            if (key == null)
+            Catégorie catégorie = await _service.Lit(id);
+            if (catégorie == null)
             {
-                return BadRequest();
+                return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(key);
-            Catégorie catégorie = await _service.Lit(key);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, EtatsRolePermis.Actif);
             return  await Supprime(carte, catégorie);
         }
 
@@ -81,9 +102,9 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> NomPrisParAutre([FromQuery] KeyUidRnoNo key, string nom)
+        public async Task<IActionResult> NomPrisParAutre([FromQuery] uint id, string nom)
         {
-            return Ok(await _service.NomPrisParAutre(key, nom));
+            return Ok(await _service.NomPrisParAutre(id, nom));
         }
     }
 }

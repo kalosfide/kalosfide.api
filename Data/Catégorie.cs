@@ -10,16 +10,24 @@ using Microsoft.EntityFrameworkCore;
 
 namespace KalosfideAPI.Data
 {
-    public class Catégorie : AKeyUidRnoNo, IAvecDate
+
+    /// <summary>
+    /// Contient tous les champs de données hors Date d'une Catégorie.
+    /// </summary>
+    public interface ICatégorieData
     {
-        // key
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public override string Uid { get; set; }
-        [Required]
-        public override int Rno { get; set; }
-        [Required]
-        public override long No { get; set; }
+        string Nom { get; set; }
+    }
+    /// <summary>
+    /// Contient tous les champs rendus nullable hors Date d'une Catégorie.
+    /// </summary>
+    public interface ICatégorieDataAnnulable
+    {
+        string Nom { get; set; }
+    }
+
+    public class Catégorie : AvecIdUint, ICatégorieData, IAvecSiteId
+    {
 
         // données
         [Required]
@@ -35,7 +43,11 @@ namespace KalosfideAPI.Data
 
         // navigation
         virtual public ICollection<ArchiveCatégorie> Archives { get; set; }
-        virtual public Site Site { get; set; }
+
+        public uint SiteId { get; set; }
+
+        public virtual Site Site { get; set; }
+
         virtual public ICollection<Produit> Produits { get; set; }
 
         // création
@@ -43,16 +55,80 @@ namespace KalosfideAPI.Data
         {
             var entité = builder.Entity<Catégorie>();
 
-            entité.HasKey(donnée => new { donnée.Uid, donnée.Rno, donnée.No });
+            entité.HasKey(donnée => donnée.Id);
 
-            entité.HasIndex(donnée => new { donnée.Uid, donnée.Rno, donnée.Nom }).IsUnique();
+            entité.HasIndex(donnée => new { donnée.Id, donnée.Nom }).IsUnique();
 
             entité
                 .HasOne(catégorie => catégorie.Site)
                 .WithMany(site => site.Catégories)
-                .HasForeignKey(catégorie => new { catégorie.Uid, catégorie.Rno });
+                .HasForeignKey(catégorie => catégorie.SiteId);
 
             entité.ToTable("Catégories");
+        }
+
+        // utile
+        public static void CopieData(ICatégorieData de, ICatégorieData vers)
+        {
+            vers.Nom = de.Nom;
+        }
+        public static void CopieData(ICatégorieData de, ICatégorieDataAnnulable vers)
+        {
+            vers.Nom = de.Nom;
+        }
+        public static void CopieDataSiPasNull(ICatégorieDataAnnulable de, ICatégorieData vers)
+        {
+            if (de.Nom != null)
+            {
+                vers.Nom = de.Nom;
+            }
+        }
+        public static void CopieDataSiPasNull(ICatégorieDataAnnulable de, ICatégorieDataAnnulable vers)
+        {
+            if (de.Nom != null)
+            {
+                vers.Nom = de.Nom;
+            }
+        }
+        public static void CopieDataSiPasNullOuComplète(ICatégorieDataAnnulable de, ICatégorieData vers, ICatégorieData pourCompléter)
+        {
+            vers.Nom = de.Nom ?? pourCompléter.Nom;
+        }
+
+        /// <summary>
+        /// Si un champ du nouvel objet à une valeur différente de celle du champ correspondant de l'ancien objet,
+        /// met à jour l'ancien objet et place ce champ dans l'objet des différences.
+        /// </summary>
+        /// <param name="ancien"></param>
+        /// <param name="nouveau"></param>
+        /// <param name="différences"></param>
+        /// <returns>true si des différences ont été enregistrées</returns>
+        public static bool CopieDifférences(ICatégorieData ancien, ICatégorieDataAnnulable nouveau, ICatégorieDataAnnulable différences)
+        {
+            bool modifié = false;
+            if (nouveau.Nom != null && ancien.Nom != nouveau.Nom)
+            {
+                différences.Nom = nouveau.Nom;
+                ancien.Nom = nouveau.Nom;
+                modifié = true;
+            }
+            return modifié;
+        }
+
+        public static string[] AvérifierSansEspacesData
+        {
+            get
+            {
+                return new string[] { "Nom" };
+            }
+        }
+
+        public static string[] AvérifierSansEspacesDataAnnulable
+        {
+            get
+            {
+                return new string[] { "Nom" };
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
-﻿using KalosfideAPI.Data.Keys;
+﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 namespace KalosfideAPI.CLF
 {
     /// <summary>
-    /// Ne contient que la date du catalogue
+    /// Ne contient que la date du catalogue du site.
     /// </summary>
     public class ParamsVide
     {
@@ -19,24 +20,19 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient la KeyUidRnoNo du document et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client, le No du document et la date du catalogue du site.
     /// </summary>
-    public class ParamsKeyDoc : AKeyUidRnoNo
+    public class ParamsKeyDoc: IKeyDocSansType
     {
         /// <summary>
-        /// Uid du Role et du Client du client et du document
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Role et du Client du client et du document
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// No du document
         /// </summary>
-        public override long No { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
         /// Date du catalogue
@@ -45,19 +41,14 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient la KeyUidRno du client et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client et la date du catalogue de l'utilisateur.
     /// </summary>
-    public class ParamsKeyClient : AKeyUidRno
+    public class ParamsKeyClient
     {
         /// <summary>
-        /// Uid du Role et du Client du client et du document
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Role et du Client du client et du document
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// Date du catalogue
@@ -66,48 +57,36 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient la KeyUidRnoNo du document, le No2 de la ligne et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client, le No du document, le ProduitId de la ligne et la date du catalogue de l'utilisateur.
     /// </summary>
     public class ParamsSupprimeLigne: ParamsKeyDoc
     {
         /// <summary>
-        /// No du Produit de la ligne à supprimer
+        /// Id du Produit de la ligne à supprimer
         /// </summary>
-        public long No2 { get; set; }
+        public uint ProduitId { get; set; }
     }
 
-    public class ParamsKeyLigne : AKeyUidRnoNo2
+    /// <summary>
+    /// Contient l'Id du client, le No du document, le ProduitId et la Date de la ligne et la date du catalogue de l'utilisateur.
+    /// </summary>
+    public class ParamsKeyLigne : IKeyLigneSansType
     {
         /// <summary>
-        /// Uid du Role et du Client du client et du document
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Role et du Client du client et du document
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// No du document
         /// </summary>
-        public override long No { get; set; }
+        public uint No { get; set; }
 
 
         /// <summary>
-        /// Uid du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
+        /// Id du Produit.
         /// </summary>
-        public override string Uid2 { get; set; }
-
-        /// <summary>
-        /// Rno du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
-        /// </summary>
-        public override int Rno2 { get; set; }
-
-        /// <summary>
-        /// No du Produit
-        /// </summary>
-        public override long No2 { get; set; }
+        public uint ProduitId { get; set; }
 
         /// <summary>
         /// Quand une ligne est ajoutée à un bon, elle a une date nulle (définie dans CLFService).
@@ -115,7 +94,7 @@ namespace KalosfideAPI.CLF
         /// Quand une synthèse est enregistrée, sa date est fixée et les lignes du bon virtuel éventuel sont
         /// incorporées dans la synthèse avec la date de la synthèse et les lignes des autres bons ont une date.
         /// </summary>
-        public override DateTime Date { get; set; }
+        public DateTime Date { get; set; }
 
         /// <summary>
         /// Date du catalogue
@@ -128,19 +107,14 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// A la key d'un client et contient la liste des No des documents à synthétiser
+    /// Contient l'Id du client et la liste des No des documents à synthétiser.
     /// </summary>
-    public class ParamsSynthèse : AKeyUidRno
+    public class ParamsSynthèse
     {
         /// <summary>
-        /// Uid du Client du client
+        /// Id du Client du client
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Client du client
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// Liste des No des documents à synthétiser
@@ -149,23 +123,24 @@ namespace KalosfideAPI.CLF
 
     }
 
-    public class ParamsFiltreDoc : AKeyUidRno
+    public class ParamsFiltreDoc
     {
         /// <summary>
-        /// Uid du client ou du site suivant l'action appelée.
+        /// Id du Client ou du Site
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du client ou du site suivant l'action appelée.
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// Type des documents à retourner.
-        /// Peut être "C" ou "L" ou "F" ou une chaîne "L F"
+        /// Si présent, Types est inutilisé.
         /// </summary>
-        public string Type { get; set; }
+        public TypeCLF? Type { get; set; }
+
+        /// <summary>
+        /// Types possibles des documents à retourner. Seules les deux premiers sont utilisés.
+        /// Inutilisé, si Type est présent.
+        /// </summary>
+        public TypeCLF[] Type1Ou2 { get; set; }
 
         /// <summary>
         /// Index dans la liste des documents passant le filtre du premier document à retourner
@@ -188,27 +163,22 @@ namespace KalosfideAPI.CLF
         public DateTime? DateMax { get; set; }
     }
 
-    public class ParamsChercheDoc : AKeyUidRnoNo
+    public class ParamsChercheDoc
     {
         /// <summary>
-        /// Uid du site.
+        /// Id du Site
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du site.
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint SiteId { get; set; }
 
         /// <summary>
         /// No du document
         /// </summary>
-        public override long No { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
         /// Type du document recherché (livraison ou facture)
         /// </summary>
-        public string Type { get; set; }
+        public TypeCLF Type { get; set; }
     }
 
 }

@@ -1,26 +1,25 @@
 ﻿using KalosfideAPI.Data;
-using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Partages.KeyParams;
+using KalosfideAPI.Partages;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Produits
 {
-    public interface IProduitService: IKeyUidRnoNoService<Produit, ProduitVue>
+    public interface IProduitService: IAvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEditer>
     {
 
-        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(AKeyUidRno aKeySite);
-        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(AKeyUidRno aKeySite);
+        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(uint idSite);
+        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(uint idSite);
 
-        Task<bool> NomPris(string siteUid, int siteRno, string nom);
-        Task<bool> NomPrisParAutre(string siteUid, int siteRno, long produitNo, string nom);
+        Task<bool> NomPris(uint idSite, string nom);
+        Task<bool> NomPrisParAutre(uint idSite, uint idProduit, string nom);
 
         /// <summary>
         /// supprime tous les détails demandant un produit si la commande n'a pas de numéro de livraison
         /// appelé quand un produit cesse d'être Disponible
         /// </summary>
-        /// <param name="akeyProduit"></param>
+        /// <param name="produit"></param>
         /// <returns></returns>
-        Task SupprimeDétailsCommandesSansLivraison(AKeyUidRnoNo akeyProduit);
+        Task SupprimeLignesCommandesPasEnvoyées(Produit produit);
     }
 }

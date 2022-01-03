@@ -11,19 +11,18 @@ namespace KalosfideAPI.Data
     {
         // key
         [Required]
-        [MaxLength(Constantes.LongueurMax.UId)]
-        public string Uid { get; set; }
+        public string Id { get; set; }
         [Required]
         public DateTime Date { get; set; }
 
         // données
-        [StringLength(1)]
-        public string Etat { get; set; }
+        public string Email { get; set; }
+        public EtatUtilisateur Etat { get; set; }
 
         /// <summary>
         /// à vérifier et mettre à jour à chaque action de l'utilisateur
         /// </summary>
-        public int? NoDernierRole { get; set; }
+        public uint? IdDernierSite { get; set; }
 
         /// <summary>
         /// à mettre à jour à chaque connection et déconection de l'utilisateur
@@ -41,17 +40,17 @@ namespace KalosfideAPI.Data
 
             entité.HasKey(donnée => new
             {
-                donnée.Uid,
+                donnée.Id,
                 donnée.Date
             });
 
-            entité.HasIndex(donnée => donnée.Uid);
+            entité.HasIndex(donnée => donnée.Id);
 
             entité
                 .HasOne(eu => eu.Utilisateur)
                 .WithMany(u => u.Archives)
-                .HasForeignKey(eu => eu.Uid)
-                .HasPrincipalKey(u => u.Uid);
+                .HasForeignKey(eu => eu.Id)
+                .HasPrincipalKey(u => u.Id);
 
             entité.ToTable("ArchiveUtilisateurs");
         }

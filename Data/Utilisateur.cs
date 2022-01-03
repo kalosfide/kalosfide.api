@@ -1,24 +1,24 @@
-﻿using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
-
-    public class Utilisateur: IKeyUid
+    public enum EtatUtilisateur
     {
-        [Required]
-        [MaxLength(LongueurMax.UId)]
-        public string Uid { get; set; }
+        Nouveau,
+        Actif,
+        Inactif,
+        Banni
+    }
 
+    public class Utilisateur : IdentityUser
+    {
         // données
-        public string UserId { get; set; }
-
-        [StringLength(1)]
-        public string Etat { get; set; }
+        public EtatUtilisateur Etat { get; set; }
 
         /// <summary>
         /// Vaut 0 si l'utilisateur ne s'est jamais connecté.
@@ -28,25 +28,26 @@ namespace KalosfideAPI.Data
         public int SessionId { get; set; }
 
         // navigation
-        virtual public ApplicationUser ApplicationUser { get; set; }
-
-        virtual public ICollection<Role> Roles { get; set; }
-        virtual public ICollection<ArchiveUtilisateur> Archives { get; set; }
-
-        // utiles
+        public virtual ICollection<Fournisseur> Fournisseurs { get; set; }
+        public virtual ICollection<Client> Clients { get; set; }
+        public virtual ICollection<ArchiveUtilisateur> Archives { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)
         {
             var entité = builder.Entity<Utilisateur>();
 
-            entité.HasKey(utilisateur => utilisateur.Uid);
-
-            entité.Property(donnée => donnée.Etat).HasDefaultValue(TypeEtatUtilisateur.Nouveau);
+            entité.Property(donnée => donnée.Etat).HasDefaultValue(EtatUtilisateur.Nouveau);
             entité.Property(donnée => donnée.SessionId).HasDefaultValue(0);
 
-            entité.ToTable("Utilisateurs");
+            entité.ToTable("Utilisateur");
+        }
+
+        // utiles
+        public static bool EstUsager(Utilisateur utilisateur, uint idSite)
+        {
+            return utilisateur.Fournisseurs.Where(f => f.Id == idSite).Any()
+                || utilisateur.Clients.Where(c => c.SiteId == idSite).Any();
         }
     }
-
 }

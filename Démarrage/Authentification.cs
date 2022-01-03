@@ -50,7 +50,7 @@ namespace KalosfideAPI.Démarrage
                 ClockSkew = TimeSpan.Zero
             };
 
-            services.AddIdentity<ApplicationUser, IdentityRole>(config =>
+            services.AddIdentity<Utilisateur, IdentityRole>(config =>
             {
                 config.SignIn.RequireConfirmedEmail = false;
                 

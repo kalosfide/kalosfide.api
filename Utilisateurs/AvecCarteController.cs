@@ -1,9 +1,12 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -21,7 +24,8 @@ namespace KalosfideAPI.Utilisateurs
         /// <summary>
         /// Crée la carte utilisateur définie par le HttpContext.
         /// Vérifie que l'utilisateur existe et n'est pas banni et que la session est la même qu'à la connection.
-        /// La carte contient l'Utilisateur avec ses Roles incluant leurs Sites.
+        /// Fixe l'Utilisateur de la carte avec ses Archives, avec ses Clients incluant leurs Archives et leur Site incluant son Fournisseur
+        /// et avec ses Fournisseurs incluant leurs Archives et leur Site.
         /// </summary>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'a pas les droits requis, Unauthorized si la session est périmée</returns>
         protected async Task<CarteUtilisateur> CréeCarteUtilisateur()
@@ -37,9 +41,9 @@ namespace KalosfideAPI.Utilisateurs
                 carteUtilisateur.Erreur = Unauthorized(new { Message = "Session périmée" });
                 return carteUtilisateur;
             }
-            if (carteUtilisateur.Utilisateur.Etat == TypeEtatUtilisateur.Banni)
+            if (carteUtilisateur.Utilisateur.Etat == EtatUtilisateur.Banni)
             {
-                carteUtilisateur.Erreur = RésultatInterdit("Utilisateur inactivé");
+                carteUtilisateur.Erreur = RésultatInterdit("Utilisateur banni");
                 return carteUtilisateur;
             }
             return carteUtilisateur;
@@ -65,37 +69,31 @@ namespace KalosfideAPI.Utilisateurs
             return carteUtilisateur;
         }
 
-        /// <summary>
-        /// Crée la carte utilisateur définie par le HttpContext.
-        /// Vérifie que l'utilisateur existe et n'est pas banni et que la session est la même qu'à la connection.
-        /// Vérifie que le role correspondant au site existe et n'est pas fermé.
-        /// Fixe le Role (incluant son Site) de la carte.
-        /// </summary>
-        /// <param name="keySite">objet ayant les Uid et Rno du site</param>
-        /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas usager actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        private async Task<CarteUtilisateur> CréeCarteUsagerBase(IKeyUidRno keySite)
+        private async Task FixeFournisseur(CarteUtilisateur carte, Fournisseur fournisseur, EtatRole[] étatsSitePermis)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
-            if (carteUtilisateur.Erreur != null)
+            if (!étatsSitePermis.Contains(fournisseur.Etat))
             {
-                return carteUtilisateur;
+                carte.Erreur = RésultatInterdit("EtatSite interdit");
+                return;
             }
+            carte.Fournisseur = fournisseur;
+            await carte.ArchiveDernierSite(fournisseur.Id);
+        }
 
-            Role role = carteUtilisateur.Utilisateur.Roles
-                    .Where(r => r.SiteUid == keySite.Uid && r.SiteRno == keySite.Rno)
-                    .FirstOrDefault();
-            if (role == null)
+        private async Task FixeClient(CarteUtilisateur carte, Client client, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        {
+            if (!étatsSitePermis.Contains(client.Site.Fournisseur.Etat))
             {
-                carteUtilisateur.Erreur = RésultatInterdit("Pas usager");
-                return carteUtilisateur;
+                carte.Erreur = RésultatInterdit("EtatSite interdit");
+                return;
             }
-            if (role.Etat == TypeEtatRole.Fermé)
+            if (!étatsClientPermis.Contains(client.Etat))
             {
-                carteUtilisateur.Erreur = RésultatInterdit("Usager inactivé");
-                return carteUtilisateur;
+                carte.Erreur = RésultatInterdit("EtatClient interdit");
+                return;
             }
-            carteUtilisateur.Role = role;
-            return carteUtilisateur;
+            carte.Client = client;
+            await carte.ArchiveDernierSite(client.Site.Id);
         }
 
         /// <summary>
@@ -106,65 +104,58 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="keySite">objet ayant les Uid et Rno du site</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas usager actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteUsager(IKeyUidRno keySite)
+        protected async Task<CarteUtilisateur> CréeCarteUsager(uint idSite, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteUsagerBase(keySite);
+            CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur;
             }
-            await carteUtilisateur.FixeNoDernierRole();
+
+            Fournisseur fournisseur = carteUtilisateur.Utilisateur.Fournisseurs.Where(f => f.Id == idSite).FirstOrDefault();
+            if (fournisseur != null)
+            {
+                await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
+                return carteUtilisateur;
+            }
+
+            Client client = carteUtilisateur.Utilisateur.Clients.Where(c => c.SiteId == idSite).FirstOrDefault();
+            if (client == null)
+            {
+                carteUtilisateur.Erreur = RésultatInterdit("Pas usager");
+                return carteUtilisateur;
+            }
+            await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
             return carteUtilisateur;
         }
 
         /// <summary>
         /// Crée la carte utilisateur définie par le HttpContext.
         /// Vérifie que l'utilisateur existe et n'est pas banni et que la session est la même qu'à la connection.
-        /// Vérifie que le role correspondant au site existe et n'est pas fermé.
-        /// Fixe le Role de la carte.
+        /// Vérifie que l'utilisateur a un Fournisseur correspondant à l'Id du site et que son Site n'est pas fermé.
+        /// Fixe le Fournisseur de la carte.
         /// Vérifie que le role est celui du fournisseur du site.
-        /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
+        /// Met éventuellement à jour le DernierRole archivé de l'utilisateur.
         /// </summary>
-        /// <param name="keySite">objet ayant les Uid et Rno du site</param>
+        /// <param name="idSite">Id du site</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas fournisseur actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteFournisseur(IKeyUidRno keySite)
+        protected async Task<CarteUtilisateur> CréeCarteFournisseur(uint idSite, EtatRole[] étatsSitePermis)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteUsagerBase(keySite);
+            CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur;
             }
-            if (carteUtilisateur.Role.Uid != keySite.Uid || carteUtilisateur.Role.Rno != keySite.Rno)
+
+            Fournisseur fournisseur = carteUtilisateur.Utilisateur.Fournisseurs.Where(f => f.Id == idSite).FirstOrDefault();
+
+            if (fournisseur == null)
             {
                 carteUtilisateur.Erreur = RésultatInterdit("Pas fournisseur");
                 return carteUtilisateur;
             }
-            await carteUtilisateur.FixeNoDernierRole();
-            return carteUtilisateur;
-        }
 
-        /// <summary>
-        /// Crée la carte utilisateur définie par le HttpContext.
-        /// Vérifie que l'utilisateur existe et n'est pas banni et que la session est la même qu'à la connection.
-        /// Vérifie que le role correspondant au site existe et n'est pas fermé.
-        /// Fixe le Role de la carte.
-        /// Vérifie que le role n'est pas celui du fournisseur du site.
-        /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
-        /// </summary>
-        /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas client actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteClient(IKeyUidRno keySite)
-        {
-            CarteUtilisateur carteUtilisateur = await CréeCarteUsagerBase(keySite);
-            if (carteUtilisateur.Erreur != null)
-            {
-                return carteUtilisateur;
-            }
-            if (carteUtilisateur.Role.Uid == keySite.Uid && carteUtilisateur.Role.Rno == keySite.Rno)
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Client fournisseur");
-                return carteUtilisateur;
-            }
-            await carteUtilisateur.FixeNoDernierRole();
+            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
             return carteUtilisateur;
         }
 
@@ -176,9 +167,9 @@ namespace KalosfideAPI.Utilisateurs
         /// Fixe le Role de la carte.
         /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
         /// </summary>
-        /// <param name="keyClient">objet ayant les Uid et Rno du client</param>
+        /// <param name="idClient">Id du client</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas le client de la clé, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientDeClient(IKeyUidRno keyClient)
+        protected async Task<CarteUtilisateur> CréeCarteClientDeClient(uint idClient, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -186,26 +177,16 @@ namespace KalosfideAPI.Utilisateurs
                 return carteUtilisateur;
             }
 
-            Role role = carteUtilisateur.Utilisateur.Roles
-                .Where(r => r.Uid == keyClient.Uid && r.Rno == keyClient.Rno)
+            Client client = carteUtilisateur.Utilisateur.Clients
+                .Where(c => c.Id == idClient)
                 .FirstOrDefault();
-            if (role == null)
+            if (client == null)
             {
                 carteUtilisateur.Erreur = RésultatInterdit("Pas le client");
                 return carteUtilisateur;
             }
-            if (role.Etat == TypeEtatRole.Fermé)
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Usager inactivé");
-                return carteUtilisateur;
-            }
-            if (Role.EstFournisseur(role))
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Client fournisseur");
-                return carteUtilisateur;
-            }
-            carteUtilisateur.Role = role;
-            await carteUtilisateur.FixeNoDernierRole();
+
+            await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
             return carteUtilisateur;
         }
 
@@ -217,10 +198,10 @@ namespace KalosfideAPI.Utilisateurs
         /// Fixe le Role de la carte.
         /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
         /// </summary>
-        /// <param name="keyClient">objet ayant les Uid et Rno du client</param>
-        /// <param name="keySite">objet ayant les Uid et Rno du site</param>
+        /// <param name="idClient">Id du client</param>
+        /// <param name="idSite">Id du site</param>
         /// <returns></returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientDeClientOuFournisseurDeSite(IKeyUidRno keyClient, IKeyUidRno keySite)
+        protected async Task<CarteUtilisateur> CréeCarteClientDeClientOuFournisseurDeSite(uint idClient, uint idSite, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -228,32 +209,24 @@ namespace KalosfideAPI.Utilisateurs
                 return carteUtilisateur;
             }
 
-            Role role = carteUtilisateur.Utilisateur.Roles
-                .Where(r => r.Uid == keyClient.Uid && r.Rno == keyClient.Rno)
+            Client client = carteUtilisateur.Utilisateur.Clients
+                .Where(c => c.Id == idClient)
                 .FirstOrDefault();
-            if (role != null && Role.EstFournisseur(role))
+            if (client != null)
             {
-                carteUtilisateur.Erreur = RésultatInterdit("Client fournisseur");
+                await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
                 return carteUtilisateur;
             }
-            if (role == null)
-            {
-                role = carteUtilisateur.Utilisateur.Roles
-                    .Where(r => r.Uid == keySite.Uid && r.Rno == keySite.Rno)
-                    .FirstOrDefault();
-            }
-            if (role == null)
+
+            Fournisseur fournisseur = carteUtilisateur.Utilisateur.Fournisseurs
+                .Where(f => f.Id == idSite)
+                .FirstOrDefault();
+            if (fournisseur == null)
             {
                 carteUtilisateur.Erreur = RésultatInterdit("Ni client ni fournisseur");
                 return carteUtilisateur;
             }
-            if (role.Etat == TypeEtatRole.Fermé)
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Usager inactivé");
-                return carteUtilisateur;
-            }
-            carteUtilisateur.Role = role;
-            await carteUtilisateur.FixeNoDernierRole();
+            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
             return carteUtilisateur;
         }
 
@@ -265,9 +238,9 @@ namespace KalosfideAPI.Utilisateurs
         /// Fixe le Role de la carte.
         /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
         /// </summary>
-        /// <param name="keyClient">objet ayant les Uid et Rno du client</param>
+        /// <param name="idClient">objet ayant les Uid et Rno du client</param>
         /// <returns></returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientOuFournisseurDeClient(IKeyUidRno keyClient)
+        protected async Task<CarteUtilisateur> CréeCarteClientOuFournisseurDeClient(uint idClient, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -275,54 +248,100 @@ namespace KalosfideAPI.Utilisateurs
                 return carteUtilisateur;
             }
 
-            Role client = await _utilisateurService.RoleDeKey(keyClient);
-            if (client == null)
+            Client client = carteUtilisateur.Utilisateur.Clients
+                .Where(c => c.Id == idClient)
+                .FirstOrDefault();
+            if (client != null)
+            {
+                await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
+                return carteUtilisateur;
+            }
+            Fournisseur fournisseur = await carteUtilisateur.FournisseurDeClient(idClient);
+            if (fournisseur == null)
             {
                 carteUtilisateur.Erreur = NotFound();
                 return carteUtilisateur;
             }
-            if (Role.EstFournisseur(client))
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Client fournisseur");
-                return carteUtilisateur;
-            }
-
-            Role role = carteUtilisateur.Utilisateur.Roles
-                .Where(r => r.Uid == keyClient.Uid && r.Rno == keyClient.Rno)
-                .FirstOrDefault();
-            if (role == null)
-            {
-                role = carteUtilisateur.Utilisateur.Roles
-                    .Where(r => r.Uid == client.SiteUid && r.Rno == client.SiteRno)
-                    .FirstOrDefault();
-            }
-            if (role == null)
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Ni client ni fournisseur");
-                return carteUtilisateur;
-            }
-            if (role.Etat == TypeEtatRole.Fermé)
-            {
-                carteUtilisateur.Erreur = RésultatInterdit("Usager inactivé");
-                return carteUtilisateur;
-            }
-            carteUtilisateur.Role = role;
-            await carteUtilisateur.FixeNoDernierRole();
+            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
             return carteUtilisateur;
         }
 
         /// <summary>
-        /// Ajoute un header contenant le jeton identifiant de la carte à la response Ok d'une requête de connection
+        /// Crée la carte utilisateur définie par le HttpContext.
+        /// Vérifie que l'utilisateur existe et est actif et que la session est la même qu'à la connection.
+        /// Vérifie que le role correspondant au site existe et est actif.
+        /// Fixe le Role de la carte.
+        /// Vérifie que le role est celui du fournisseur du site.
+        /// Met éventuellement à jour le NoDernierRole archivé de l'utilisateur.
         /// </summary>
-        /// <param name="carte"></param>
-        /// <returns>un OkObjectResult contenant l'identifiant de la carte</returns>
-        protected async Task<IActionResult> ResultAvecCarte(CarteUtilisateur carte)
+        /// <param name="idSite">objet ayant les Uid et Rno du site</param>
+        /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas fournisseur actif du site, Conflict si le site n'est pas d'état Catalogue,
+        /// Unauthorized si la session est périmée</returns>
+        protected async Task<CarteUtilisateur> CréeCarteFournisseurCatalogue(uint idSite, EtatRole[] étatsSitePermis)
         {
-            await _utilisateurService.AjouteCarteAResponse(Request.HttpContext.Response, carte);
-            Identifiant identifiant = await carte.Identifiant();
-            return new OkObjectResult(identifiant);
+            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, étatsSitePermis);
+            if (carte.Erreur == null)
+            {
+                Site site = carte.Fournisseur.Site;
+                if (site.Ouvert)
+                {
+                    carte.Erreur = Conflict();
+                }
+            }
+            return carte;
         }
 
         protected IUtilisateurService UtilisateurService => _utilisateurService;
+
+
+        protected async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ICréeCompteVue vue)
+        {
+            RetourDeService<Utilisateur> retour = await UtilisateurService.CréeUtilisateur(vue);
+
+            if (retour.Type == TypeRetourDeService.IdentityError)
+            {
+                IEnumerable<IdentityError> errors = (IEnumerable<IdentityError>)retour.Objet;
+                foreach (IdentityError error in errors)
+                {
+                    if (error.Code == IdentityErrorCodes.DuplicateUserName)
+                    {
+                        ErreurDeModel.AjouteAModelState(ModelState, "email", "nomPris");
+                    }
+                    else
+                    {
+                        ErreurDeModel.AjouteAModelState(ModelState, error.Code);
+                    }
+                }
+            }
+            return retour;
+
+        }
+
+        /// <summary>
+        /// Connecte l'utilisateur. Si la connection a bien lieu, ajoute à la Response de la requête un header contenant le jeton identifiant.
+        /// </summary>
+        /// <param name="utilisateur">Utilisateur à connecter</param>
+        /// <returns>un OkObjectResult contenant l'Identifiant de l'utilisateur</returns>
+        protected async Task<IActionResult> Connecte(Utilisateur utilisateur)
+        {
+            if (utilisateur.Etat == EtatUtilisateur.Banni)
+            {
+                return RésultatInterdit("Cet utilisateur n'est pas autorisé");
+            }
+            RetourDeService retour = await _utilisateurService.Connecte(utilisateur);
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+            CarteUtilisateur carte = await _utilisateurService.CréeCarteUtilisateur(utilisateur);
+
+            carte.SessionId = utilisateur.SessionId;
+            // Ajoute à la response Ok de la requête un header contenant le jeton identifiant de la carte
+            await _utilisateurService.AjouteCarteAResponse(Request.HttpContext.Response, carte);
+            Identifiant identifiant = await carte.Identifiant();
+            return RésultatCréé(identifiant);
+
+        }
+
     }
 }

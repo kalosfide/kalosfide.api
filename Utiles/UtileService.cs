@@ -13,74 +13,47 @@ namespace KalosfideAPI.Utiles
     public class UtileService : IUtileService
     {
         private readonly ApplicationContext _context;
-        private readonly IRoleService _roleService;
 
-        public UtileService(ApplicationContext context,
-            IRoleService roleService
-            )
+        public UtileService(ApplicationContext context)
         {
             _context = context;
-            _roleService = roleService;
-        }
-
-        public async Task<Site> SiteDeKey(AKeyUidRno akeySite)
-        {
-            return await _context.Site.Where(site => site.Uid == akeySite.Uid && site.Rno == akeySite.Rno).FirstOrDefaultAsync();
-        }
-
-        /// <summary>
-        /// retourne le Site du Role défini par keyClient si le Role n'est pas celui du Fournisseur du Site
-        /// </summary>
-        /// <param name="keyClient"></param>
-        /// <returns>null si la clé n'est pas celle d'un client d'un site</returns>
-        public async Task<Site> SiteDeClient(AKeyUidRno keyClient)
-        {
-            Site site = await _roleService.SiteDeRole(keyClient);
-            /* le Role du Fournisseur du Site a le même Uid que le Site */
-            return site != null && site.Uid != keyClient.Uid ? site : null;
-        }
-
-        /// <summary>
-        /// retourne le site du produit ou de la livraison
-        /// </summary>
-        /// <param name="keyProduitOuLivraison"></param>
-        /// <returns></returns>
-        public async Task<Site> SiteDeKeyProduitOuLivraison(KeyUidRnoNo keyProduitOuLivraison)
-        {
-            Site site = await _context.Site.Where(s => s.Uid == keyProduitOuLivraison.Uid && s.Rno == keyProduitOuLivraison.Rno).FirstOrDefaultAsync();
-            return site;
         }
 
         /// <summary>
         /// retourne le nombre de produits disponibles du site
         /// </summary>
-        /// <param name="keySite">Site ou SiteVue ou keyUidRno</param>
+        /// <param name="idSite">Site ou SiteVue ou keyUidRno</param>
         /// <returns></returns>
-        public async Task<int> NbDisponibles(AKeyUidRno keySite)
+        public async Task<int> NbDisponibles(uint idSite)
         {
             return await _context.Produit
-                .Where(p => p.Uid == keySite.Uid && p.Rno == keySite.Rno && p.Etat == TypeEtatProduit.Disponible)
+                .Where(p => p.SiteId == idSite && p.Disponible)
                 .CountAsync();
         }
 
         /// <summary>
-        /// Retourne le Role (qui inclut le champ Site) correspondant à la key s'il sagit de celui d'un client
+        /// Cherche un Client à partir de son Id.
         /// </summary>
-        /// <param name="keyClient">key du client</param>
-        /// <returns></returns>
-        public async Task<Role> ClientRoleAvecSite(AKeyUidRno keyClient)
+        /// <param name="idClient">Id du client</param>
+        /// <returns>le Client qui inclut son Site, si trouvé; null, sinon</returns>
+        public async Task<Client> ClientAvecSite(uint idClient)
         {
-            Role role = await _context.Role
-                .Where(cl => cl.Uid == keyClient.Uid && cl.Rno == keyClient.Rno)
-                .Where(cl => cl.Uid != cl.SiteUid || cl.Rno != cl.SiteRno)
+            Client client = await _context.Client
+                .Where(cl => cl.Id == idClient)
+                .Include(cl => cl.Site)
                 .FirstOrDefaultAsync();
-            return role;
+            return client;
         }
 
-        public async Task<Produit> Produit(Site site, long No)
+        /// <summary>
+        /// Cherche un Produit à partir de son Id.
+        /// </summary>
+        /// <param name="idProduit">Id du Produit</param>
+        /// <returns>le Produit qui inclut ses Archives, si trouvé; null, sinon</returns>
+        public async Task<Produit> Produit(uint idProduit)
         {
             return await _context.Produit
-                .Where(p => p.Uid == site.Uid && p.Rno == site.Rno && p.No == No)
+                .Where(p => p.Id == idProduit)
                 .Include(p => p.Archives)
                 .FirstOrDefaultAsync();
         }

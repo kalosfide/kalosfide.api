@@ -36,12 +36,11 @@ namespace KalosfideAPI.Sécurité
         {
             List<Claim> claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, carte.Utilisateur.ApplicationUser.UserName),
+                new Claim(JwtRegisteredClaimNames.Sub, carte.Utilisateur.UserName),
                 new Claim(JwtRegisteredClaimNames.Jti, await _jwtOptions.JtiGenerator()),
                 new Claim(JwtRegisteredClaimNames.Iat, ToUnixEpochDate(_jwtOptions.IssuedAt).ToString(), ClaimValueTypes.Integer64),
-                new Claim(JwtClaims.UserId, carte.Utilisateur.UserId),
-                new Claim(JwtClaims.UserName, carte.Utilisateur.ApplicationUser.UserName),
-                new Claim(JwtClaims.UtilisateurId, carte.Utilisateur.Uid),
+                new Claim(JwtClaims.UserId, carte.Utilisateur.Id),
+                new Claim(JwtClaims.UserName, carte.Utilisateur.UserName),
                 new Claim(JwtClaims.SessionId, carte.Utilisateur.SessionId.ToString())
             };
 
@@ -57,7 +56,7 @@ namespace KalosfideAPI.Sécurité
 
             JwtRéponse jwtr = new JwtRéponse
             {
-                Id = carte.Utilisateur.UserId,
+                Id = carte.Utilisateur.Id,
                 Jeton = jeton,
                 ExpireDans = (int)_jwtOptions.ValidFor.TotalSeconds,
             };

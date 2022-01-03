@@ -3,6 +3,7 @@ using KalosfideAPI.Clients;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Fournisseurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Produits;
 using KalosfideAPI.Sites;
@@ -17,6 +18,7 @@ namespace KalosfideAPI.Peuple
     public class PeupleService: BaseService, IPeupleService
     {
         private readonly IUtilisateurService _utilisateurService;
+        private readonly IFournisseurService _fournisseurService;
         private readonly ISiteService _siteService;
         private readonly IClientService _clientService;
         private readonly ICatégorieService _catégorieService;
@@ -24,6 +26,7 @@ namespace KalosfideAPI.Peuple
 
         public PeupleService(ApplicationContext context,
             IUtilisateurService utilisateurService,
+            IFournisseurService fournisseurService,
             ISiteService siteService,
             IClientService clientService,
             ICatégorieService catégorieService,
@@ -31,6 +34,7 @@ namespace KalosfideAPI.Peuple
             ) : base(context)
         {
             _utilisateurService = utilisateurService;
+            _fournisseurService = fournisseurService;
             _siteService = siteService;
             _clientService = clientService;
             _catégorieService = catégorieService;
@@ -40,128 +44,178 @@ namespace KalosfideAPI.Peuple
         public async Task<bool> EstPeuplé()
         {
             PeupleFournisseurVue vue = PeuplementUtilisateurs.Fournisseurs[0];
-            ApplicationUser user = await _utilisateurService.ApplicationUserDeEmail(vue.Email);
+            Utilisateur user = await _utilisateurService.UtilisateurDeEmail(vue.Email);
             return user != null;
         }
 
-        public async Task<RetourDeService> Peuple()
+        /// <summary>
+        /// Crée l'administrateur.
+        /// </summary>
+        /// <returns></returns>
+        private async Task<RetourDeService> AjouteAdministrateur()
         {
-            RetourDeService<ApplicationUser> retourUser;
-
-            // Crée les fournisseurs: Utilisateur, Role, Site
-            PeupleFournisseurVue[] vues = PeuplementUtilisateurs.Fournisseurs;
-            Site[] sites = new Site[vues.Length];
-            Utilisateur[] utilisateursFournisseurs = new Utilisateur[vues.Length];
-            RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
-            for (int i = 0; i < PeuplementUtilisateurs.Fournisseurs.Length; i++)
-            {
-                PeupleFournisseurVue vue = PeuplementUtilisateurs.Fournisseurs[i];
-                retourUser = await _utilisateurService.CréeUtilisateur(vue);
-                if (!retourUser.Ok)
-                {
-                    return retourUser;
-                }
-                await _utilisateurService.ConfirmeEmailDirect(retourUser.Entité);
-                utilisateursFournisseurs[i] = retourUser.Entité.Utilisateur;
-                RetourDeService<Role> retourRole = await _siteService.CréeRoleSite(retourUser.Entité.Utilisateur, vue);
-                if (!retourRole.Ok)
-                {
-                    return retourRole;
-                }
-                sites[i] = retourRole.Entité.Site;
-            }
-
-            if (PeuplementUtilisateurs.Fournisseurs.Length >= 2)
-            {
-                // Crée pour chaque fournisseur sauf le premier un Role de client des autres sites
-                for (int i = 1; i < PeuplementUtilisateurs.Fournisseurs.Length; i++)
-                {
-                    Utilisateur utilisateur = utilisateursFournisseurs[i];
-                    PeupleFournisseurVue vue = PeuplementUtilisateurs.Fournisseurs[i];
-                    for (int j = 0; j < PeuplementUtilisateurs.Fournisseurs.Length; j++)
-                    {
-                        if (i != j)
-                        {
-                            retour = await _clientService.Ajoute(utilisateur, sites[j], vue);
-                            if (!retour.Ok)
-                            {
-                                return retour;
-                            }
-                        }
-                    }
-                }
-            }
-
-            for (int i = 0; i < PeuplementUtilisateurs.ClientsAvecCompte.Length && retour.Ok; i++)
-            {
-                PeupleClientVue vue = PeuplementUtilisateurs.ClientsAvecCompte[i];
-                retourUser = await _utilisateurService.CréeUtilisateur(vue);
-                if (retourUser.Ok)
-                {
-                    await _utilisateurService.ConfirmeEmailDirect(retourUser.Entité);
-                    Utilisateur utilisateur = retourUser.Entité.Utilisateur;
-                    KeyUidRno keySite = new KeyUidRno
-                    {
-                        Uid = vue.SiteUid,
-                        Rno = vue.SiteRno
-                    };
-                    retour = await _clientService.Ajoute(utilisateur, keySite, vue);
-                }
-                else
-                {
-                    retour = retourUser;
-                }
-            }
-            for (int i = 0; i < sites.Length && retour.Ok; i++)
-            {
-                int nb = i == 0 ? 5 : 0;
-                for (int no = 1; no <= nb && retour.Ok; no++)
-                {
-                    RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur();
-                    if (!retourUtilisateur.Ok)
-                    {
-                        return retourUtilisateur;
-                    }
-                    retour = await _clientService.Ajoute(retourUtilisateur.Entité, sites[i], PeuplementUtilisateurs.Client(no));
-                }
-            }
-
-            for (int i = 0; i < sites.Length && retour.Ok; i++)
-            {
-                int nbCatégories = i == 0 ? 3 : 0;
-                int nbProduits = i == 0 ? 6 : 0;
-
-                Site site = sites[i];
-                PeuplementCatalogue catalogue = new PeuplementCatalogue(site, nbCatégories, nbProduits);
-                for (int j = 0; j < nbCatégories && retour.Ok; j++)
-                {
-                    retour = await _catégorieService.Ajoute(catalogue.Catégories.ElementAt(j));
-                }
-                
-                for (int j = 0; j < nbProduits && retour.Ok; j++)
-                {
-                    retour = await _produitService.Ajoute(catalogue.Produits.ElementAt(j));
-                }
-                DateTime maintenant = DateTime.Now;
-                await _produitService.TermineModification(site, maintenant);
-                await _catégorieService.TermineModification(site, maintenant);
-                if (nbProduits > 0)
-                {
-                    retour = await _siteService.TermineEtatCatalogue(site, maintenant);
-                }
-            }
-            // Crée l'administrateur
-            CréeCompteVue adminVue = new CréeCompteVue
+            CréeCompteVue vue = new CréeCompteVue
             {
                 Email = "admin@kalosfide.fr",
                 Password = "123456"
             };
-            retourUser = await _utilisateurService.CréeUtilisateur(adminVue);
-            if (!retourUser.Ok)
+            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(vue);
+            if (retourUtilisateur.Ok)
             {
-                return retourUser;
+                await _utilisateurService.ConfirmeEmailDirect(retourUtilisateur.Entité);
             }
-            await _utilisateurService.ConfirmeEmailDirect(retourUser.Entité);
+            return retourUtilisateur;
+        }
+
+        /// <summary>
+        /// Crée un Fournisseur avec son Utilisateur, son Site et l'ajoute au Peuplement.
+        /// Crée éventuellement les Clients sans Utilisateur du Site et les ajoute au Peuplement.
+        /// Crée éventuellement les Catégories et les Produits du Site et les compte dans le Peuplement.
+        /// </summary>
+        /// <param name="vue">PeupleFournisseurVue définissant le Fournisseur à créer</param>
+        /// <param name="peupleId">PeupleId contenant les Id des derniers objets créés</param>
+        /// <returns></returns>
+        private async Task<RetourDeService> AjouteFournisseur(PeupleFournisseurVue vue, PeupleId peupleId)
+        {
+            uint id = peupleId.Fournisseur + 1;
+            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(vue);
+            if (!retourUtilisateur.Ok)
+            {
+                return retourUtilisateur;
+            }
+            Utilisateur utilisateur = retourUtilisateur.Entité;
+            await _utilisateurService.ConfirmeEmailDirect(utilisateur);
+            Fournisseur fournisseur = new Fournisseur
+            {
+                Id = id,
+                UtilisateurId = utilisateur.Id,
+                Siret = "légal" + id,
+                Site = new Site
+                {
+                    Ouvert = false
+                }
+            };
+            Role.CopieData(vue, fournisseur);
+            Site.CopieData(vue, fournisseur.Site);
+            RetourDeService<Fournisseur> retourFournisseur = await _fournisseurService.Ajoute(fournisseur);
+            if (!retourFournisseur.Ok)
+            {
+                return retourFournisseur;
+            }
+            fournisseur = retourFournisseur.Entité;
+            fournisseur.Utilisateur = utilisateur;
+            peupleId.Fournisseur = id;
+
+            RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
+            if (vue.Clients != null)
+            {
+                for (int i = 0; i < vue.Clients.Length && retour.Ok; i++)
+                {
+                    retour = await AjouteClient(vue.Clients[i], peupleId);
+                }
+            }
+            if (vue.ClientsSansCompte.HasValue)
+            {
+                for (int i = 0; i < vue.ClientsSansCompte.Value && retour.Ok; i++, id++)
+                {
+                    retour = await AjouteClient(peupleId);
+                }
+
+            }
+            if (vue.Produits.HasValue)
+            {
+                DateTime dateDébut = DateTime.Now;
+                int nbProduits = vue.Produits.Value;
+                int nbCatégories = vue.Catégories ?? 1;
+                PeuplementCatalogue catalogue = new PeuplementCatalogue(fournisseur.Id, nbCatégories, nbProduits, peupleId);
+                for (int j = 0; j < nbCatégories && retour.Ok; j++)
+                {
+                    retour = await _catégorieService.Ajoute(catalogue.Catégories.ElementAt(j));
+                }
+
+                for (int j = 0; j < nbProduits && retour.Ok; j++)
+                {
+                    retour = await _produitService.Ajoute(catalogue.Produits.ElementAt(j));
+                }
+                DateTime dateFin = DateTime.Now;
+                await _produitService.TermineModification(fournisseur.Id, dateDébut, dateFin);
+                await _catégorieService.TermineModification(fournisseur.Id, dateDébut, dateFin);
+                if (nbProduits > 0)
+                {
+                    retour = await _siteService.TermineEtatCatalogue(fournisseur.Site, dateFin);
+                }
+            }
+            return retour;
+        }
+
+        /// <summary>
+        /// Crée un Client avec son Utilisateur.
+        /// </summary>
+        /// <param name="vue">PeupleClientVue définissant le Client à créer</param>
+        /// <param name="peupleId">PeupleId contenant les Id des derniers objets créés</param>
+        /// <returns></returns>
+        private async Task<RetourDeService> AjouteClient(PeupleClientVue vue, PeupleId peupleId)
+        {
+            uint id = peupleId.Client + 1;
+            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(vue);
+            if (!retourUtilisateur.Ok)
+            {
+                return retourUtilisateur;
+            }
+            Utilisateur utilisateur = retourUtilisateur.Entité;
+            await _utilisateurService.ConfirmeEmailDirect(utilisateur);
+            Client client = new Client
+            {
+                Id = id,
+                UtilisateurId = utilisateur.Id,
+                SiteId = peupleId.Fournisseur,
+                Etat = EtatRole.Nouveau
+            };
+            Role.CopieData(vue, client);
+            RetourDeService retour = await _clientService.Ajoute(client);
+            if (retour.Ok)
+            {
+                peupleId.Client = id;
+            }
+            return retour;
+        }
+
+        /// <summary>
+        /// Crée un Client sans Utilisateur.
+        /// </summary>
+        /// <param name="peupleId">PeupleId contenant les Id des derniers objets créés</param>
+        /// <returns></returns>
+        private async Task<RetourDeService> AjouteClient(PeupleId peupleId)
+        {
+            uint id = peupleId.Client + 1;
+            Client client = new Client
+            {
+                Id = id,
+                SiteId = peupleId.Fournisseur,
+                Nom = "Client" + id,
+                Adresse = "Adresse" + id,
+                Ville = "Ville" + id,
+                Etat = EtatRole.Actif
+            };
+            RetourDeService retour = await _clientService.Ajoute(client);
+            if (retour.Ok)
+            {
+                peupleId.Client = id;
+            }
+            return retour;
+        }
+
+        public async Task<RetourDeService> Peuple()
+        {
+            PeupleId peupleId = new PeupleId();
+            RetourDeService retour = await AjouteAdministrateur();
+
+            // Crée les fournisseurs: Utilisateur, Fournisseur, Site
+            for (int i = 0; i < PeuplementUtilisateurs.Fournisseurs.Length && retour.Ok; i++)
+            {
+                PeupleFournisseurVue vue = PeuplementUtilisateurs.Fournisseurs[i];
+                retour = await AjouteFournisseur(vue, peupleId);
+            }
 
             return retour;
         }

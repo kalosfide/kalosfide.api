@@ -1,11 +1,9 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
-using KalosfideAPI.Partages.KeyParams;
+using KalosfideAPI.Partages;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,16 +11,9 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Produits
 {
-    class GèreArchive : GéreArchiveUidRnoNo<Produit, ProduitVue, ArchiveProduit>
+    class GèreArchive : AvecIdEtSiteIdGèreArchive<Produit, ProduitAEditer, ArchiveProduit>
     {
-        public GèreArchive(
-            DbSet<Produit> dbSet,
-            IIncludableQueryable<Produit, ICollection<ArchiveProduit>> query,
-            Func<Produit, ICollection<ArchiveProduit>> archives,
-            DbSet<ArchiveProduit> dbSetArchive,
-            IIncludableQueryable<ArchiveProduit, Produit> queryArchive,
-            Func<ArchiveProduit, Produit> donnée
-            ) : base(dbSet, query, archives, dbSetArchive, queryArchive, donnée)
+        public GèreArchive(DbSet<ArchiveProduit> dbSetArchive) : base(dbSetArchive)
         {
         }
 
@@ -31,115 +22,59 @@ namespace KalosfideAPI.Produits
             return new ArchiveProduit();
         }
 
-        protected override void CopieArchiveDansArchive(ArchiveProduit de, ArchiveProduit vers)
-        {
-            if (de.CategorieNo != null) { vers.CategorieNo = de.CategorieNo.Value; }
-            if (de.Nom != null) { vers.Nom = de.Nom; }
-            if (de.TypeCommande != null) { vers.TypeCommande = de.TypeCommande; }
-            if (de.TypeMesure != null) { vers.TypeMesure = de.TypeMesure; }
-            if (de.Prix != null) { vers.Prix = de.Prix.Value; }
-            if (de.Etat != null) { vers.Etat = de.Etat; }
-        }
-
         protected override void CopieDonnéeDansArchive(Produit produit, ArchiveProduit archive)
         {
-            archive.CategorieNo = produit.CategorieNo;
-            archive.Nom = produit.Nom;
-            archive.TypeCommande = produit.TypeCommande;
-            archive.TypeMesure = produit.TypeMesure;
-            archive.Prix = produit.Prix;
-            archive.Etat = produit.Etat;
+            Produit.CopieData(produit, archive);
+            archive.Disponible = produit.Disponible;
         }
 
-        protected override ArchiveProduit CréeArchiveDesDifférences(Produit donnée, ProduitVue vue)
+        protected override ArchiveProduit CréeArchiveDesDifférences(Produit donnée, ProduitAEditer vue)
         {
-            bool modifié = false;
-            ArchiveProduit archive = new ArchiveProduit
+            ArchiveProduit archive = new ArchiveProduit()
             {
                 Date = DateTime.Now
             };
-            if (vue.CategorieNo != null && donnée.CategorieNo != vue.CategorieNo)
-            {
-                donnée.CategorieNo = vue.CategorieNo.Value;
-                archive.CategorieNo = vue.CategorieNo;
-                modifié = true;
-            }
-            if (vue.Nom != null && donnée.Nom != vue.Nom)
-            {
-                donnée.Nom = vue.Nom;
-                archive.Nom = vue.Nom;
-                modifié = true;
-            }
-            if (vue.TypeCommande != null && donnée.TypeCommande != vue.TypeCommande)
-            {
-                donnée.TypeCommande = vue.TypeCommande;
-                archive.TypeCommande = vue.TypeCommande;
-                modifié = true;
-            }
-            if (vue.TypeMesure != null && donnée.TypeMesure != vue.TypeMesure)
-            {
-                donnée.TypeMesure = vue.TypeMesure;
-                archive.TypeMesure = vue.TypeMesure;
-                modifié = true;
-            }
-            if (vue.Prix != null && donnée.Prix != vue.Prix)
-            {
-                donnée.Prix = vue.Prix.Value;
-                archive.Prix = vue.Prix;
-                modifié = true;
-            }
-            if (vue.Etat != null && donnée.Etat != vue.Etat)
-            {
-                donnée.Etat = vue.Etat;
-                archive.Etat = vue.Etat;
-                modifié = true;
-            }
+            bool modifié = Produit.CopieDifférences(donnée, vue, archive);
             return modifié ? archive : null;
+        }
+
+        protected override IQueryable<ArchiveProduit> ArchivesAvecDonnée(uint idSite)
+        {
+            return _dbSetArchive
+                .Include(a => a.Produit)
+                .Where(a => a.Produit.SiteId == idSite);
+        }
+
+        protected override Produit DonnéeDeArchive(ArchiveProduit archive)
+        {
+            return archive.Produit;
+        }
+
+        protected override void CopieArchiveDansArchive(ArchiveProduit de, ArchiveProduit vers)
+        {
+            Produit.CopieDataSiPasNull(de, vers);
         }
     }
 
-    public class ProduitService : KeyUidRnoNoService<Produit, ProduitVue>, IProduitService
+    public class ProduitService : AvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEditer>, IProduitService
     {
         public ProduitService(ApplicationContext context) : base(context)
         {
             _dbSet = _context.Produit;
-            _géreArchive = new GèreArchive(
-                _dbSet, _dbSet.Include(produit => produit.Archives), (Produit produit) => produit.Archives,
-                _context.ArchiveProduit, _context.ArchiveProduit.Include(a => a.Produit), (ArchiveProduit archive) => archive.Produit
-                );
-            _inclutRelations = Complète;
+            _gèreArchive = new GèreArchive(_context.ArchiveProduit);
             dValideAjoute = ValideAjoute;
             dValideEdite = ValideEdite;
             dValideSupprime = ValideSupprime;
         }
-
-        private bool VérifieTypeMesure(Produit donnée, ModelStateDictionary modelState)
-        {
-            if (!UnitéDeMesure.EstValide(donnée.TypeMesure))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "typeMesure");
-                return false;
-            }
-            return true;
-        }
-
-        private bool VérifieTypeCommande(Produit donnée, ModelStateDictionary modelState)
-        {
-            if (!TypeUnitéDeCommande.EstValide(donnée.TypeCommande, donnée.TypeMesure))
-            {
-                ErreurDeModel.AjouteAModelState(modelState, "typeCommande");
-                return false;
-            }
-            return true;
-        }
-
         private bool VérifieTypeUnités(Produit donnée, ModelStateDictionary modelState)
         {
-            if (!VérifieTypeMesure(donnée, modelState))
+            bool valide = donnée.TypeCommande == TypeCommande.Unité ? donnée.TypeMesure == TypeMesure.Aucune : donnée.TypeMesure != TypeMesure.Aucune;
+            if (valide)
             {
-                return false;
+                return true;
             }
-            return VérifieTypeCommande(donnée, modelState);
+            ErreurDeModel.AjouteAModelState(modelState, "typesMesureEtCommande");
+            return false;
         }
 
         private bool VérifiePrix(Produit donnée, ModelStateDictionary modelState)
@@ -159,7 +94,7 @@ namespace KalosfideAPI.Produits
             {
                 if (VérifiePrix(donnée, modelState))
                 {
-                    if (await NomPris(donnée.Uid, donnée.Rno, donnée.Nom))
+                    if (await NomPris(donnée.Id, donnée.Nom))
                     {
                         ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
                     }
@@ -173,7 +108,7 @@ namespace KalosfideAPI.Produits
             {
                 if (VérifiePrix(donnée, modelState))
                 {
-                    if (await NomPrisParAutre(donnée.Uid, donnée.Rno, donnée.No, donnée.Nom))
+                    if (await NomPrisParAutre(donnée.SiteId, donnée.Id, donnée.Nom))
                     {
                         ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
                     }
@@ -183,13 +118,8 @@ namespace KalosfideAPI.Produits
 
         private async Task ValideSupprime(Produit donnée, ModelStateDictionary modelState)
         {
-            KeyUidRno keySite = new KeyUidRno
-            {
-                Uid = donnée.Uid,
-                Rno = donnée.Rno
-            };
             bool avecCommandes = await _context.Lignes
-                .Where(l => l.Uid2 == donnée.Uid && l.Rno2 == donnée.Rno && l.No2 == donnée.No)
+                .Where(l => l.ProduitId == donnée.Id)
                 .AnyAsync();
             if (avecCommandes)
             {
@@ -197,47 +127,21 @@ namespace KalosfideAPI.Produits
             }
         }
 
-        IQueryable<Produit> Complète(IQueryable<Produit> produits)
+        protected override void CopieAjoutDansDonnée(ProduitAAjouter de, Produit vers)
         {
-            return produits.Include(p => p.Catégorie);
+            vers.SiteId = de.SiteId;
+            Produit.CopieData(de, vers);
+            vers.Disponible = de.Disponible;
         }
 
-        protected override void CopieVueDansDonnée(ProduitVue de, Produit vers)
+        protected override void CopieEditeDansDonnée(ProduitAEditer de, Produit vers)
         {
-            if (de.Nom != null)
-            {
-                vers.Nom = de.Nom;
-            }
-            if (de.CategorieNo != null)
-            {
-                vers.CategorieNo = de.CategorieNo ?? 0;
-            }
-            if (de.TypeCommande != null)
-            {
-                vers.TypeCommande = de.TypeCommande;
-            }
-            if (de.TypeMesure != null)
-            {
-                vers.TypeMesure = de.TypeMesure;
-            }
-            if (de.Prix != null)
-            {
-                vers.Prix = de.Prix ?? 0;
-            }
-            if (de.Etat != null)
-            {
-                vers.Etat = de.Etat;
-            }
+            Produit.CopieDataSiPasNull(de, vers);
         }
 
-        protected override void CopieVuePartielleDansDonnée(ProduitVue de, Produit vers, Produit pourComplèter)
+        protected override void CopieVuePartielleDansDonnée(ProduitAEditer de, Produit vers, Produit pourCompléter)
         {
-            vers.Nom = de.Nom ?? pourComplèter.Nom;
-            vers.CategorieNo = de.CategorieNo ?? pourComplèter.CategorieNo;
-            vers.TypeCommande = de.TypeCommande ?? pourComplèter.TypeCommande;
-            vers.TypeMesure = de.TypeMesure ?? pourComplèter.TypeMesure;
-            vers.Prix = de.Prix ?? pourComplèter.Prix;
-            vers.Etat = de.Etat ?? pourComplèter.Etat;
+            Produit.CopieDataSiPasNullOuComplète(de, vers, pourCompléter);
         }
 
         public override Produit CréeDonnée()
@@ -250,41 +154,33 @@ namespace KalosfideAPI.Produits
             };
         }
 
-        public override ProduitVue CréeVue(Produit donnée)
-        {
-            ProduitVue vue = new ProduitVue();
-            vue.CopieKey(donnée);
-            ProduitFabrique.Copie(donnée, vue);
-            return vue;
-        }
-
-        public async Task<bool> NomPris(string siteUid, int siteRno, string nom)
+        public async Task<bool> NomPris(uint idSite, string nom)
         {
             return await _dbSet
-                .Where(produit => produit.Uid == siteUid && produit.Rno == siteRno && produit.Nom == nom)
+                .Where(produit => produit.SiteId == idSite && produit.Nom == nom)
                 .AnyAsync();
         }
 
-        public async Task<bool> NomPrisParAutre(string siteUid, int siteRno, long produitNo, string nom)
+        public async Task<bool> NomPrisParAutre(uint idSite, uint idProduit, string nom)
         {
             return await _dbSet
-                .Where(produit => produit.Uid == siteUid && produit.Rno == siteRno && produit.Nom == nom && produit.No != produitNo)
+                .Where(produit => produit.SiteId == idSite && produit.Nom == nom && produit.Id != idProduit)
                 .AnyAsync();
         }
 
-        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(AKeyUidRno aKeySite)
+        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(uint idSite)
         {
             List<Produit> produits = await _context.Produit
-                .Where(p => p.Uid == aKeySite.Uid && p.Rno == aKeySite.Rno)
+                .Where(p => p.SiteId == idSite)
                 .Include(p => p.Lignes)
                 .ToListAsync();
             return produits.Select(p => ProduitDeCatalogue.AvecEtat(p)).ToList();
         }
 
-        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(AKeyUidRno aKeySite)
+        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(uint idSite)
         {
             List<Produit> produits = await _context.Produit
-                .Where(p => p.Uid == aKeySite.Uid && p.Rno == aKeySite.Rno && p.Etat == TypeEtatProduit.Disponible)
+                .Where(p => p.SiteId == idSite && p.Disponible)
                 .Include(p => p.Lignes)
                 .ToListAsync();
             return produits.Select(p => ProduitDeCatalogue.SansEtatNiDate(p)).ToList();
@@ -294,19 +190,20 @@ namespace KalosfideAPI.Produits
         /// supprime toutes les lignes demandant un produit si la commande n'est pas envoyée
         /// appelé quand un produit cesse d'être Disponible
         /// </summary>
-        /// <param name="akeyProduit"></param>
+        /// <param name="produit"></param>
         /// <returns></returns>
-        public async Task SupprimeDétailsCommandesSansLivraison(AKeyUidRnoNo akeyProduit)
+        public async Task SupprimeLignesCommandesPasEnvoyées(Produit produit)
         {
-            List<LigneCLF> lignes = await _context.Docs
-                .Where(d => d.Date.HasValue && d.Type == "C" && d.SiteUid == akeyProduit.Uid && d.SiteRno == akeyProduit.Rno)
-                .Join(_context.Lignes,
-                    c => new { c.Uid, c.Rno, c.No },
-                    d => new { d.Uid, d.Rno, d.No },
-                    (c, d) => d
-                    )
-                .Where(d => d.No2 == akeyProduit.No)
+            List<DocCLF> commandesPasEnvoyées = await _context.Docs
+                .Where(d => d.Date.HasValue && d.Type == TypeCLF.Commande && d.SiteId == produit.SiteId)
+                .Include(d => d.Lignes)
                 .ToListAsync();
+            List<LigneCLF> lignes = commandesPasEnvoyées.Aggregate(new List<LigneCLF>(),
+                (List<LigneCLF> liste, DocCLF doc) =>
+                {
+                    liste.AddRange(doc.Lignes.Where(ligne => ligne.ProduitId == produit.Id));
+                    return liste;
+                });
             _context.Lignes.RemoveRange(lignes);
             await _context.SaveChangesAsync();
         }

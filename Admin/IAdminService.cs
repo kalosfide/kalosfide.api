@@ -8,7 +8,7 @@ namespace KalosfideAPI.Admin
 {
     public interface IAdminService
     {
-        Task<List<Fournisseur>> Fournisseurs();
-        Task<Fournisseur> Fournisseur(KeyUidRno keyRole);
+        Task<List<FournisseurVue>> Fournisseurs();
+        Task<FournisseurVue> Fournisseur(uint idFournisseur);
     }
 }

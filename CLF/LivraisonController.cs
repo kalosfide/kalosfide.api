@@ -22,7 +22,7 @@ namespace KalosfideAPI.CLF
             IUtileService utile,
             IUtilisateurService utilisateurService) : base(service, utile, utilisateurService)
         {
-            _type = TypeClf.Livraison;
+            _type = TypeCLF.Livraison;
         }
 
         #region Lecture
@@ -30,31 +30,31 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs dont le Documents contient les états de préparation des bons envoyés et sans synthèse de tous les clients.
         /// </summary>
-        /// <param name="keySite">key du site</param>
+        /// <param name="idSite">key du site</param>
         /// <returns></returns>
         [HttpGet("/api/livraison/clients")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public new async Task<IActionResult> Clients([FromQuery] KeyUidRno keySite)
+        public new async Task<IActionResult> Clients([FromQuery] uint idSite)
         {
-            return await base.Clients(keySite);
+            return await base.Clients(idSite);
         }
 
         /// <summary>
         /// Retourne un CLFDocs dont le champ Documents contient les documents envoyés et sans synthèse du client avec les lignes
         /// </summary>
-        /// <param name="keyClient"></param>
+        /// <param name="idClient"></param>
         /// <returns></returns>
         [HttpGet("/api/livraison/client")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public new async Task<IActionResult> Client([FromQuery] KeyUidRno keyClient)
+        public new async Task<IActionResult> Client([FromQuery] uint idClient)
         {
-            return await base.Client(keyClient);
+            return await base.Client(idClient);
         }
 
         #endregion
@@ -174,9 +174,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Copie1([FromQuery] KeyUidRnoNo2 keyLigne)
+        public async Task<IActionResult> Copie1([FromQuery] KeyLigneSansType keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeClf.Livraison);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.CopieQuantité(ligneCLF, TypeCLF.Livraison);
             return await Action(keyLigne, action);
         }
 
@@ -191,9 +191,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> CopieD([FromQuery] KeyUidRnoNo keyDoc)
+        public async Task<IActionResult> CopieD([FromQuery] KeyDocSansType keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeClf.Livraison);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.CopieQuantité(docCLF, TypeCLF.Livraison);
             return await Action(keyDoc, action);
         }
 
@@ -211,7 +211,7 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> CopieT(ParamsSynthèse clfDocs)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeClf.Livraison);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.CopieQuantité(docs, TypeCLF.Livraison);
             return await Action(clfDocs, action);
         }
 
@@ -227,9 +227,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Annule1([FromQuery] KeyUidRnoNo2 keyLigne)
+        public async Task<IActionResult> Annule1([FromQuery] KeyLigneSansType keyLigne)
         {
-            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeClf.Livraison);
+            Task<RetourDeService> action(LigneCLF ligneCLF) => _service.Annule(ligneCLF, TypeCLF.Livraison);
             return await Action(keyLigne, action);
         }
 
@@ -244,9 +244,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> AnnuleD([FromQuery] KeyUidRnoNo keyDoc)
+        public async Task<IActionResult> AnnuleD([FromQuery] KeyDocSansType keyDoc)
         {
-            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeClf.Livraison);
+            Task<RetourDeService> action(DocCLF docCLF) => _service.Annule(docCLF, TypeCLF.Livraison);
             return await Action(keyDoc, action);
         }
 
@@ -264,7 +264,7 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> AnnuleT(ParamsSynthèse clfDocs)
         {
-            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeClf.Livraison);
+            Task<RetourDeService> action(List<DocCLF> docs) => _service.Annule(docs, TypeCLF.Livraison);
             return await Action(clfDocs, action);
         }
 

@@ -6,50 +6,36 @@ using KalosfideAPI.Data.Constantes;
 
 namespace KalosfideAPI.Data
 {
-    public class LigneCLF: AKeyUidRnoNo2
+    public class LigneCLF: IKeyLigneSansType
     {
         /// <summary>
-        /// Uid du Role et du Client du client et de la Commande
+        /// Id du Client
         /// </summary>
-        public override string Uid { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
-        /// Rno du Role et du Client du client et de la Commande
+        /// No du document, incrémenté automatiquement par client pour une commande, par site pour une livraison ou une facture
         /// </summary>
-        public override int Rno { get; set; }
+        public uint No { get; set; }
 
         /// <summary>
-        /// No du document
+        /// Id du Produit.
         /// </summary>
-        public override long No { get; set; }
+        public uint ProduitId { get; set; }
 
         /// <summary>
-        /// Uid du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
-        /// </summary>
-        public override string Uid2 { get; set; }
-
-        /// <summary>
-        /// Rno du Produit et aussi du Site, du Role et du Fournisseur du fournisseur
-        /// </summary>
-        public override int Rno2 { get; set; }
-
-        /// <summary>
-        /// No du Produit
-        /// </summary>
-        public override long No2 { get; set; }
-
-        /// <summary>
+        /// Date du Catalogue applicable à la Ligne.
         /// Quand une ligne est ajoutée à un bon, elle a la date du catalogue au moment de l'ajout.
         /// Quand un bon de commande est envoyé, ses lignes prennent la date du catalogue au moment de l'envoi.
         /// Quand une synthèse est enregistrée, sa date est fixée et les lignes du bon virtuel éventuel sont
         /// incorporées dans la synthèse avec la date de la synthèse et les lignes des autres bons avec la date qu'ils ont déjà.
         /// </summary>
-        public override DateTime Date { get; set; }
+        public DateTime Date { get; set; }
 
         /// <summary>
         /// L'une des constantes TypeCLF.Commande ou TypeCLF.Livraison ou TypeCLF.Facture
         /// </summary>
-        public string Type { get; set; }
+        public TypeCLF Type { get; set; }
 
         // données
 
@@ -59,7 +45,7 @@ namespace KalosfideAPI.Data
         /// Indique si Quantité est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
         /// Si absent, la valeur par défaut du type de commande associée au TypeMesure du Produit est utilisée.
         /// </summary>
-        public string TypeCommande { get; set; }
+        public TypeCommande TypeCommande { get; set; }
 
         /// <summary>
         /// Quantité du produit
@@ -81,25 +67,17 @@ namespace KalosfideAPI.Data
         {
             EntityTypeBuilder<LigneCLF> entité = builder.Entity<LigneCLF>();
 
-            entité.Property(ligne => ligne.Uid).IsRequired();
-            entité.Property(ligne => ligne.Uid).HasMaxLength(LongueurMax.UId);
-            entité.Property(ligne => ligne.Rno).IsRequired();
+            entité.Property(ligne => ligne.Id).IsRequired();
             entité.Property(ligne => ligne.No).IsRequired();
-            entité.Property(ligne => ligne.Uid2).IsRequired();
-            entité.Property(ligne => ligne.Uid2).HasMaxLength(LongueurMax.UId);
-            entité.Property(ligne => ligne.Rno2).IsRequired();
-            entité.Property(ligne => ligne.No2).IsRequired();
+            entité.Property(ligne => ligne.ProduitId).IsRequired();
             entité.Property(ligne => ligne.Date).IsRequired();
             entité.Property(ligne => ligne.Type).IsRequired();
 
             entité.HasKey(ligne => new
             {
-                ligne.Uid,
-                ligne.Rno,
+                ligne.Id,
                 ligne.No,
-                ligne.Uid2,
-                ligne.Rno2,
-                ligne.No2,
+                ligne.ProduitId,
                 ligne.Date,
                 ligne.Type
             });
@@ -111,14 +89,14 @@ namespace KalosfideAPI.Data
             entité
                 .HasOne(ligne => ligne.Doc)
                 .WithMany(doc => doc.Lignes)
-                .HasForeignKey(ligne => new { ligne.Uid, ligne.Rno, ligne.No, ligne.Type })
-                .HasPrincipalKey(doc => new { doc.Uid, doc.Rno, doc.No, doc.Type });
+                .HasForeignKey(ligne => new { ligne.Id, ligne.No, ligne.Type })
+                .HasPrincipalKey(doc => new { doc.Id, doc.No, doc.Type });
 
             entité
                 .HasOne(ligne => ligne.Produit)
                 .WithMany(produit => produit.Lignes)
-                .HasForeignKey(ligne => new { ligne.Uid2, ligne.Rno2, ligne.No2 })
-                .HasPrincipalKey(produit => new { produit.Uid, produit.Rno, produit.No })
+                .HasForeignKey(ligne => new { ligne.ProduitId })
+                .HasPrincipalKey(produit => new { produit.Id })
                 .OnDelete(DeleteBehavior.ClientSetNull);
 
             entité.ToTable("Lignes");
@@ -127,16 +105,13 @@ namespace KalosfideAPI.Data
         /// <summary>
         /// Crée une copie avec une autre clé de client.
         /// </summary>
-        public static LigneCLF Clone(string uid, int rno, LigneCLF ligne)
+        public static LigneCLF Clone(uint id, LigneCLF ligne)
         {
             LigneCLF copie = new LigneCLF
             {
-                Uid = uid,
-                Rno = rno,
+                Id = ligne.Id,
                 No = ligne.No,
-                Uid2 = ligne.Uid2,
-                Rno2 = ligne.Rno2,
-                No2 = ligne.No2,
+                ProduitId = ligne.ProduitId,
                 Type = ligne.Type,
                 Date = ligne.Date,
                 TypeCommande = ligne.TypeCommande,
@@ -153,12 +128,9 @@ namespace KalosfideAPI.Data
         {
             LigneCLF copie = new LigneCLF
             {
-                Uid = ligne.Uid,
-                Rno = ligne.Rno,
+                Id = ligne.Id,
                 No = ligne.No,
-                Uid2 = ligne.Uid2,
-                Rno2 = ligne.Rno2,
-                No2 = ligne.No2,
+                ProduitId = ligne.ProduitId,
                 Type = ligne.Type,
                 Date = date,
                 TypeCommande = ligne.TypeCommande,

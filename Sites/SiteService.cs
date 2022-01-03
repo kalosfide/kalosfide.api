@@ -1,39 +1,19 @@
-﻿using KalosfideAPI.Clients;
-using KalosfideAPI.Data;
-using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
+﻿using KalosfideAPI.Data;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
-using KalosfideAPI.Partages.KeyParams;
-using KalosfideAPI.Roles;
 using KalosfideAPI.Utiles;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sites
 {
-    class NbDeSite
-    {
-        public string Uid { get; set; }
-        public int Rno { get; set; }
-        public int Nb { get; set; }
-    }
 
-    class GèreArchive : GéreArchiveUidRno<Site, SiteVue, ArchiveSite>
+    public class GèreArchiveSite : AvecIdUintGèreArchive<Site, SiteAEditer, ArchiveSite>
     {
-        public GèreArchive(
-            DbSet<Site> dbSet,
-            IIncludableQueryable<Site, ICollection<ArchiveSite>> query,
-            Func<Site, ICollection<ArchiveSite>> archives,
-            DbSet<ArchiveSite> dbSetArchive,
-            IIncludableQueryable<ArchiveSite, Site> queryArchive,
-            Func<ArchiveSite, Site> donnée
-            ) : base(dbSet, query, archives, dbSetArchive, queryArchive, donnée)
+        public GèreArchiveSite(DbSet<ArchiveSite> dbSetArchive) : base(dbSetArchive)
         { }
 
         protected override ArchiveSite CréeArchive()
@@ -43,108 +23,36 @@ namespace KalosfideAPI.Sites
 
         protected override void CopieDonnéeDansArchive(Site donnée, ArchiveSite archive)
         {
-            archive.Url = donnée.Url;
-            archive.Titre = donnée.Titre;
-            archive.Ouvert = donnée.Ouvert;
+            Site.CopieData(donnée, archive);
         }
 
-        protected override ArchiveSite CréeArchiveDesDifférences(Site donnée, SiteVue vue)
+        protected override ArchiveSite CréeArchiveDesDifférences(Site donnée, SiteAEditer vue)
         {
-            bool modifié = false;
-            ArchiveSite archive = new ArchiveSite();
-            if (vue.Url != null && donnée.Url != vue.Url)
+            ArchiveSite archive = new ArchiveSite
             {
-                donnée.Url = vue.Url;
-                archive.Url = vue.Url;
-                modifié = true;
-            }
-            if (vue.Titre != null && donnée.Titre != vue.Titre)
-            {
-                donnée.Titre = vue.Titre;
-                archive.Titre = vue.Titre;
-                modifié = true;
-            }
-            if (vue.Ouvert != null && donnée.Ouvert != vue.Ouvert)
-            {
-                donnée.Ouvert = vue.Ouvert.Value;
-                archive.Ouvert = vue.Ouvert;
-                modifié = true;
-            }
+                Date = DateTime.Now
+            };
+            bool modifié = Site.CopieDifférences(donnée, vue, archive);
             return modifié ? archive : null;
         }
     }
 
-    public class SiteService : KeyUidRnoService<Site, SiteVue>, ISiteService
+    public class SiteService : AvecIdUintService<Site, ISiteData, SiteAEditer>, ISiteService
     {
         private readonly IUtileService _utile;
-        private readonly IRoleService _roleService;
-        private readonly IClientService _clientService;
 
         public SiteService(ApplicationContext context,
-            IUtileService utile,
-            IRoleService roleService,
-            IClientService clientService
+            IUtileService utile
             ) : base(context)
         {
             _dbSet = _context.Site;
-            _géreArchive = new GèreArchive(
-                _dbSet, _dbSet.Include(site => site.Archives), (Site site) => site.Archives,
-                _context.ArchiveSite, _context.ArchiveSite.Include(a => a.Site), (ArchiveSite archive) => archive.Site
-                );
+            _gèreArchive = new GèreArchiveSite(_context.ArchiveSite);
             _utile = utile;
-            _roleService = roleService;
-            _clientService = clientService;
-            dCréeVueAsync = CréeSiteVueAsync;
+            dValideAjoute = ValideAjoute;
             dValideEdite = ValideEdite;
         }
 
-        public async Task<RetourDeService<Role>> CréeRoleSite(Utilisateur utilisateur, ICréeSiteVue vue)
-        {
-            string uid = utilisateur.Uid;
-            int rno = (await _roleService.DernierNo(uid)) + 1;
-
-            Role role = new Role
-            {
-                Uid = uid,
-                Rno = rno,
-                SiteUid = uid,
-                SiteRno = rno,
-                Etat = TypeEtatRole.Actif,
-                Nom = vue.Nom,
-                Adresse = vue.Adresse,
-                Ville = vue.Ville
-            };
-            _roleService.AjouteSansSauver(role);
-
-            DateTime maintenant = DateTime.Now;
-            Site site = new Site
-            {
-                Uid = uid,
-                Rno = rno,
-                Url = vue.Url,
-                Titre = vue.Titre,
-                Ouvert = false,
-                // null tant que la première modification du catalogue (qui crée le catalogue) n'est pas terminée.
-                DateCatalogue = null
-            };
-            AjouteSansSauver(site, maintenant);
-            role.Site = site;
-
-            return await SaveChangesAsync(role);
-        }
-
-        private Task<SiteVue> CréeSiteVueAsync(Site site)
-        {
-            SiteVue vue = new SiteVue
-            {
-                Uid = site.Uid,
-                Rno = site.Rno,
-                Url = site.Url,
-                Titre = site.Titre,
-                Ouvert = site.Ouvert,
-            };
-            return Task.FromResult(vue);
-        }
+        public GèreArchiveSite GèreArchiveSite { get { return (GèreArchiveSite)_gèreArchive; } }
 
         public async Task<Site> TrouveParUrl(string url)
         {
@@ -152,55 +60,31 @@ namespace KalosfideAPI.Sites
             return site;
         }
 
-        public async Task<Site> TrouveParKey(string Uid, int Rno)
+        public async Task<Site> TrouveParId(uint id)
         {
-            Site site = await _context.Site.Where(s => s.Uid == Uid && s.Rno == Rno).FirstOrDefaultAsync();
+            Site site = await _context.Site.Where(s => s.Id == id).FirstOrDefaultAsync();
             return site;
         }
 
         // implémentation des membres abstraits
-        protected override void CopieVueDansDonnée(SiteVue de, Site vers)
-        {
-            if (de.Url != null)
-            {
-                vers.Url = de.Url;
-            }
-            if (de.Titre != null)
-            {
-                vers.Titre = de.Titre;
-            }
-        }
-
-        protected override void CopieVuePartielleDansDonnée(SiteVue de, Site vers, Site pourComplèter)
-        {
-            vers.Url = de.Url ?? pourComplèter.Url;
-            vers.Titre = de.Titre ?? pourComplèter.Titre;
-            vers.Ouvert = de.Ouvert ?? pourComplèter.Ouvert;
-        }
-
         public override Site CréeDonnée()
         {
             return new Site();
         }
 
-        public override SiteVue CréeVue(Site donnée)
+        protected override void CopieAjoutDansDonnée(ISiteData de, Site vers)
         {
-            SiteVue vue = new SiteVue
-            {
-                Url = donnée.Url,
-                Titre = donnée.Titre,
-                Ouvert = donnée.Ouvert,
-            };
-            vue.CopieKey(donnée);
-            return vue;
+            Site.CopieData(de, vers);
         }
 
-        public async Task<List<SiteVue>> ListeVues()
+        protected override void CopieEditeDansDonnée(SiteAEditer de, Site vers)
         {
-            List<Site> sites = await _context.Site.ToListAsync();
-            return sites
-                .Select(s => CréeVue(s))
-                .ToList();
+            Site.CopieDataSiPasNull(de, vers);
+        }
+
+        protected override void CopieVuePartielleDansDonnée(SiteAEditer de, Site vers, Site pourCompléter)
+        {
+            Site.CopieDataSiPasNullOuComplète(de, vers, pourCompléter);
         }
 
         /// <summary>
@@ -215,8 +99,7 @@ namespace KalosfideAPI.Sites
             // ajout de l'archive
             ArchiveSite archive = new ArchiveSite
             {
-                Uid = site.Uid,
-                Rno = site.Rno,
+                Id = site.Id,
                 Ouvert = false,
                 Date = DateTime.Now
             };
@@ -242,8 +125,7 @@ namespace KalosfideAPI.Sites
             // ajout de l'archive
             ArchiveSite archive = new ArchiveSite
             {
-                Uid = site.Uid,
-                Rno = site.Rno,
+                Id = site.Id,
                 Ouvert = true,
                 Date = dateCatalogue ?? DateTime.Now
             };
@@ -263,14 +145,14 @@ namespace KalosfideAPI.Sites
         }
 
         /// <summary>
-        /// Vérifie s'il existe un Site autre que celui défini par la KeyUidRno ayant une certaine Url.
+        /// Vérifie s'il existe un Site autre que celui défini par l'Id ayant une certaine Url.
         /// </summary>
         /// <param name="url">Url du Site à rechercher</param>
-        /// <param name="key">Objet ayant la KeyUidRno d'un Site</param>
+        /// <param name="id">Id d'un Site</param>
         /// <returns>true s'il existe un Site ayant cette Url</returns>
-        public async Task<bool> UrlPriseParAutre(AKeyUidRno key, string url)
+        public async Task<bool> UrlPriseParAutre(uint id, string url)
         {
-            return await _dbSet.Where(site => site.Url == url && (site.Uid != key.Uid || site.Rno != key.Rno)).AnyAsync();
+            return await _dbSet.Where(site => site.Url == url && site.Id == id).AnyAsync();
         }
 
         /// <summary>
@@ -284,23 +166,35 @@ namespace KalosfideAPI.Sites
         }
 
         /// <summary>
-        /// Vérifie s'il existe un Site autre que celui défini par la KeyUidRno ayant un certain Titre.
+        /// Vérifie s'il existe un Site autre que celui défini par l'Id ayant un certain Titre.
         /// </summary>
         /// <param name="titre">Titre du Site à rechercher</param>
-        /// <param name="key">Objet ayant la KeyUidRno d'un Site</param>
+        /// <param name="id">Id d'un Site</param>
         /// <returns>true s'il existe un Site ayant ce Titre</returns>
-        public async Task<bool> TitrePrisParAutre(AKeyUidRno key, string titre)
+        public async Task<bool> TitrePrisParAutre(uint id, string titre)
         {
-            return await _dbSet.Where(site => site.Titre == titre && (site.Uid != key.Uid || site.Rno != key.Rno)).AnyAsync();
+            return await _dbSet.Where(site => site.Titre == titre && site.Id == id).AnyAsync();
         }
 
-        private async Task ValideEdite(Site donnée, ModelStateDictionary modelState)
+        private async Task ValideAjoute(Site site, ModelStateDictionary modelState)
         {
-            if (await UrlPriseParAutre(donnée, donnée.Url))
+            if (await UrlPrise(site.Url))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "Url", "nomPris");
             }
-            if (await TitrePrisParAutre(donnée, donnée.Titre))
+            if (await TitrePris(site.Titre))
+            {
+                ErreurDeModel.AjouteAModelState(modelState, "titre", "nomPris");
+            }
+        }
+
+        private async Task ValideEdite(Site site, ModelStateDictionary modelState)
+        {
+            if (await UrlPriseParAutre(site.Id, site.Url))
+            {
+                ErreurDeModel.AjouteAModelState(modelState, "Url", "nomPris");
+            }
+            if (await TitrePrisParAutre(site.Id, site.Titre))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "titre", "nomPris");
             }

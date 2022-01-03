@@ -30,14 +30,14 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// retourne le catalogue complet du site actuellement en vigueur
         /// </summary>
-        /// <param name="site"></param>
+        /// <param name="idSite"></param>
         /// <returns></returns>
-        public async Task<Catalogue> Complet(Site site)
+        public async Task<Catalogue> Complet(uint idSite)
         {
             Catalogue catalogue = new Catalogue
             {
-                Produits = await _produitService.ProduitsDeCatalogue(site),
-                Catégories = await _catégorieService.CatégoriesDeCatalogue(site)
+                Produits = await _produitService.ProduitsDeCatalogue(idSite),
+                Catégories = await _catégorieService.CatégoriesDeCatalogue(idSite)
             };
             return catalogue;
         }
@@ -45,14 +45,14 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// retourne le catalogue des disponibilités du site actuellement en vigueur
         /// </summary>
-        /// <param name="site"></param>
+        /// <param name="idSite"></param>
         /// <returns></returns>
-        public async Task<Catalogue> Disponibles(Site site)
+        public async Task<Catalogue> Disponibles(uint idSite)
         {
             Catalogue catalogue = new Catalogue
             {
-                Produits = await _produitService.ProduitsDeCatalogueDisponibles(site),
-                Catégories = await _catégorieService.CatégoriesDeCatalogueDesDisponibles(site)
+                Produits = await _produitService.ProduitsDeCatalogueDisponibles(idSite),
+                Catégories = await _catégorieService.CatégoriesDeCatalogueDesDisponibles(idSite)
             };
             return catalogue;
         }
@@ -69,8 +69,14 @@ namespace KalosfideAPI.Catalogues
         /// <returns>true si des modifications ont eu lieu, false sinon.</returns>
         public async Task<bool> ArchiveModifications(Site site, DateTime maintenant)
         {
-            bool modifié = await _produitService.TermineModification(site, maintenant);
-            modifié = modifié || await _catégorieService.TermineModification(site, maintenant);
+            DateTime dateDébut = site.Archives
+                .Where(a => a.Ouvert == false)
+                .OrderBy(a => a.Date)
+                .Select(a => a.Date)
+                .Last();
+
+            bool modifié = await _produitService.TermineModification(site.Id, dateDébut, maintenant);
+            modifié = modifié || await _catégorieService.TermineModification(site.Id, dateDébut, maintenant);
             return modifié;
         }
 

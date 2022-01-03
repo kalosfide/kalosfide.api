@@ -39,9 +39,7 @@
 
   <ItemGroup>
     <Compile Remove="Data\Administrateur.cs" />
-    <Compile Remove="Data\ArchiveClient.cs" />
     <Compile Remove="Data\ArchiveProduitArchiveCatégorie.cs" />
-    <Compile Remove="Data\Client.cs" />
     <Compile Remove="Data\Commande.cs" />
     <Compile Remove="Data\Document.cs" />
     <Compile Remove="Data\DétailCommande.cs" />

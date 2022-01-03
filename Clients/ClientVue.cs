@@ -1,58 +1,52 @@
 ﻿using System;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Roles;
+using KalosfideAPI.Utiles;
 
 namespace KalosfideAPI.Clients
 {
-    public class ClientVue : AKeyUidRno, IRoleData
+    /// <summary>
+    /// Contient les données de Client et l'Etat annulable sans l'Id du Site.
+    /// </summary>
+    public class ClientAEditer : AvecIdUint, IClientDataAnnullable
     {
-        public override string Uid { get; set; }
-        public override int Rno { get; set; }
         public string Nom { get; set; }
         public string Adresse { get; set; }
         public string Ville { get; set; }
-        public string Etat { get; set; }
-
-        public static RoleVue RoleVue(ClientVue vue)
-        {
-            return new RoleVue
-            {
-                Uid = vue.Uid,
-                Rno = vue.Rno,
-                Nom = vue.Nom,
-                Adresse = vue.Adresse
-            };
-        }
+        public EtatRole? Etat { get; set; }
     }
-    public class ClientVueAjoute : AKeyUidRno, IRoleData
+
+    /// <summary>
+    /// Contient l'Id du Site et les données de Client sans Etat.
+    /// </summary>
+    public class ClientAAjouter : IClientData
     {
         /// <summary>
-        /// Uid du site
+        /// Id du site
         /// </summary>
-        public override string Uid { get; set; }
-
-        /// <summary>
-        /// Rno du Site
-        /// </summary>
-        public override int Rno { get; set; }
+        public uint SiteId { get; set; }
 
         public string Nom { get; set; }
         public string Adresse { get; set; }
         public string Ville { get; set; }
-        public string Etat { get; set; }
     }
-    public class ClientEtatVue : AKeyUidRno, IRoleData
-    {
-        public override string Uid { get; set; }
-        public override int Rno { get; set; }
 
+    public class ClientData : IClientData
+    {
         public string Nom { get; set; }
         public string Adresse { get; set; }
 
         public string Ville { get; set; }
 
-        public string Etat { get; set; }
+    }
+    public class ClientEtatVue : AvecIdUint, IClientData
+    {
+        public string Nom { get; set; }
+        public string Adresse { get; set; }
+
+        public string Ville { get; set; }
+
+        public EtatRole Etat { get; set; }
 
         public DateTime Date0 { get; set; }
 
