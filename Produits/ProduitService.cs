@@ -56,7 +56,7 @@ namespace KalosfideAPI.Produits
         }
     }
 
-    public class ProduitService : AvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEditer>, IProduitService
+    public class ProduitService : AvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEnvoyer, ProduitAEditer>, IProduitService
     {
         public ProduitService(ApplicationContext context) : base(context)
         {
@@ -68,7 +68,7 @@ namespace KalosfideAPI.Produits
         }
         private bool VérifieTypeUnités(Produit donnée, ModelStateDictionary modelState)
         {
-            bool valide = donnée.TypeCommande == TypeCommande.Unité ? donnée.TypeMesure == TypeMesure.Aucune : donnée.TypeMesure != TypeMesure.Aucune;
+            bool valide = Produit.ValideTypes(donnée);
             if (valide)
             {
                 return true;
@@ -154,6 +154,11 @@ namespace KalosfideAPI.Produits
             };
         }
 
+        protected override ProduitAEnvoyer Ajouté(Produit donnée, DateTime date)
+        {
+            return ProduitAEnvoyer.AvecEtat(donnée);
+        }
+
         public async Task<bool> NomPris(uint idSite, string nom)
         {
             return await _dbSet
@@ -168,22 +173,22 @@ namespace KalosfideAPI.Produits
                 .AnyAsync();
         }
 
-        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(uint idSite)
+        public async Task<List<ProduitAEnvoyer>> ProduitsAEnvoyers(uint idSite)
         {
             List<Produit> produits = await _context.Produit
                 .Where(p => p.SiteId == idSite)
                 .Include(p => p.Lignes)
                 .ToListAsync();
-            return produits.Select(p => ProduitDeCatalogue.AvecEtat(p)).ToList();
+            return produits.Select(p => ProduitAEnvoyer.AvecEtat(p)).ToList();
         }
 
-        public async Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(uint idSite)
+        public async Task<List<ProduitAEnvoyer>> ProduitsDeCatalogueDisponibles(uint idSite)
         {
             List<Produit> produits = await _context.Produit
                 .Where(p => p.SiteId == idSite && p.Disponible)
                 .Include(p => p.Lignes)
                 .ToListAsync();
-            return produits.Select(p => ProduitDeCatalogue.SansEtatNiDate(p)).ToList();
+            return produits.Select(p => ProduitAEnvoyer.SansEtatNiDate(p)).ToList();
         }
 
         /// <summary>
@@ -195,7 +200,8 @@ namespace KalosfideAPI.Produits
         public async Task SupprimeLignesCommandesPasEnvoyées(Produit produit)
         {
             List<DocCLF> commandesPasEnvoyées = await _context.Docs
-                .Where(d => d.Date.HasValue && d.Type == TypeCLF.Commande && d.SiteId == produit.SiteId)
+                .Include(d => d.Client)
+                .Where(d => d.Date.HasValue && d.Type == TypeCLF.Commande && d.Client.SiteId == produit.SiteId)
                 .Include(d => d.Lignes)
                 .ToListAsync();
             List<LigneCLF> lignes = commandesPasEnvoyées.Aggregate(new List<LigneCLF>(),

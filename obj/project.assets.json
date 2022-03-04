@@ -50,7 +50,7 @@
           "lib/netstandard2.0/MailKit.dll": {}
         }
       },
-      "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.6": {
+      "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.18": {
         "type": "package",
         "dependencies": {
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "5.5.0"
@@ -2993,10 +2993,10 @@
         "mailkit.nuspec"
       ]
     },
-    "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.6": {
-      "sha512": "XT5yph4cdiMbas6FyvVafCKfg1QgPZM7Ssma7aDCG0Ee8JhZMMpXGottBeUC43/lDHCaw8wTq29HOKOTDB41vA==",
+    "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.18": {
+      "sha512": "aymAjo2uHu67eKYlD1b7VLgx9ixbUnl7X9ykr3M3Di8upjMSAF8VbIeY+/mIf5BRjK4hhLfCiR5asR7+jV4a5Q==",
       "type": "package",
-      "path": "microsoft.aspnetcore.authentication.jwtbearer/3.1.6",
+      "path": "microsoft.aspnetcore.authentication.jwtbearer/3.1.18",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -3004,7 +3004,7 @@
         "THIRD-PARTY-NOTICES.TXT",
         "lib/netcoreapp3.1/Microsoft.AspNetCore.Authentication.JwtBearer.dll",
         "lib/netcoreapp3.1/Microsoft.AspNetCore.Authentication.JwtBearer.xml",
-        "microsoft.aspnetcore.authentication.jwtbearer.3.1.6.nupkg.sha512",
+        "microsoft.aspnetcore.authentication.jwtbearer.3.1.18.nupkg.sha512",
         "microsoft.aspnetcore.authentication.jwtbearer.nuspec"
       ]
     },
@@ -9264,7 +9264,7 @@
     ".NETCoreApp,Version=v3.1": [
       "DocumentFormat.OpenXml >= 2.11.3",
       "MailKit >= 2.8.0",
-      "Microsoft.AspNetCore.Authentication.JwtBearer >= 3.1.6",
+      "Microsoft.AspNetCore.Authentication.JwtBearer >= 3.1.18",
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 3.1.6",
       "Microsoft.AspNetCore.WebUtilities >= 2.2.0",
       "Microsoft.EntityFrameworkCore.Proxies >= 3.1.6",
@@ -9332,7 +9332,7 @@
           },
           "Microsoft.AspNetCore.Authentication.JwtBearer": {
             "target": "Package",
-            "version": "[3.1.6, )"
+            "version": "[3.1.18, )"
           },
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": {
             "target": "Package",
@@ -9391,7 +9391,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.404\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\5.0.405\\RuntimeIdentifierGraph.json"
       }
     }
   }

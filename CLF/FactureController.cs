@@ -30,31 +30,31 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs dont le Documents contient les états de préparation des bons envoyés et sans synthèse de tous les clients.
         /// </summary>
-        /// <param name="idSite">Id du site</param>
+        /// <param name="id">Id du site</param>
         /// <returns></returns>
         [HttpGet("/api/facture/clients")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public new async Task<IActionResult> Clients([FromQuery] uint idSite)
+        public new async Task<IActionResult> Clients([FromQuery] uint id)
         {
-            return await base.Clients(idSite);
+            return await base.Clients(id);
         }
 
         /// <summary>
         /// Retourne un CLFDocs dont le champ Documents contient les documents envoyés et sans synthèse du client avec les lignes
         /// </summary>
-        /// <param name="idClient"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
         [HttpGet("/api/facture/client")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public new async Task<IActionResult> Client([FromQuery] uint idClient)
+        public new async Task<IActionResult> Client([FromQuery] uint id)
         {
-            return await base.Client(idClient);
+            return await base.Client(id);
         }
 
         /// <summary>

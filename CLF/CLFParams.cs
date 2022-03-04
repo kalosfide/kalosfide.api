@@ -168,7 +168,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Id du Site
         /// </summary>
-        public uint SiteId { get; set; }
+        public uint Id { get; set; }
 
         /// <summary>
         /// No du document

@@ -27,17 +27,17 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne la liste par client des bilans (nombre et total des montants) des documents par type.
         /// </summary>
-        /// <param name="idSite"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
         [HttpGet("/api/document/bilans")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Bilans([FromQuery] uint idSite)
+        public async Task<IActionResult> Bilans([FromQuery] uint id)
         {
             // la liste est demandée par le fournisseur
-            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carte = await CréeCarteFournisseur(id, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -91,7 +91,7 @@ namespace KalosfideAPI.CLF
         public async Task<IActionResult> ListeF([FromQuery] ParamsFiltreDoc paramsFiltre)
         {
             // la liste est demandée par le fournisseur, paramsFiltre a la clé du site
-            CarteUtilisateur carte = await CréeCarteFournisseur(paramsFiltre.Id, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carte = await CréeCarteFournisseur(paramsFiltre.Id, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -214,7 +214,7 @@ namespace KalosfideAPI.CLF
         public async Task<IActionResult> Cherche([FromQuery] ParamsChercheDoc paramsChercheDoc)
         {
             // paramsChercheDoc a la clé du site
-            CarteUtilisateur carte = await CréeCarteFournisseur(paramsChercheDoc.SiteId, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carte = await CréeCarteFournisseur(paramsChercheDoc.Id, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -224,7 +224,7 @@ namespace KalosfideAPI.CLF
             {
                 return BadRequest();
             }
-            CLFChercheDoc chercheDoc = await _service.ChercheDocument(paramsChercheDoc);
+            CLFDoc chercheDoc = await _service.ChercheDocument(paramsChercheDoc);
             return Ok(chercheDoc);
         }
 

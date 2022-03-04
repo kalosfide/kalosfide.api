@@ -85,5 +85,18 @@ namespace KalosfideAPI.Data
             entity.HasOne(i => i.Fournisseur).WithMany(f => f.Invitations).HasPrincipalKey(f => f.Id).HasForeignKey(i => i.Id);
             entity.HasOne(i => i.Client).WithOne().HasForeignKey<Invitation>(i => i.ClientId).OnDelete(DeleteBehavior.ClientSetNull);
         }
+
+        // utile
+
+        /// <summary>
+        /// Durée de validité d'un EmailToken généré par l'UserManager.
+        /// </summary>
+        public static TimeSpan DuréeValidité
+        {
+            get
+            {
+                return new TimeSpan(2, 2, 0);
+            }
+        }
     }
 }

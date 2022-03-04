@@ -189,7 +189,7 @@ namespace KalosfideAPI.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Etat")
+                    b.Property<int?>("Etat")
                         .HasColumnType("int");
 
                     b.Property<long?>("IdDernierSite")
@@ -276,7 +276,7 @@ namespace KalosfideAPI.Migrations
                     b.Property<DateTime>("Date")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime>("Envoi")
+                    b.Property<DateTime?>("Envoi")
                         .HasColumnType("datetime2");
 
                     b.Property<long>("Id")
@@ -287,7 +287,7 @@ namespace KalosfideAPI.Migrations
                     b.HasIndex("Id")
                         .IsUnique();
 
-                    b.ToTable("InvitationsSite");
+                    b.ToTable("DemandesSite");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.DocCLF", b =>
@@ -311,9 +311,6 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("int");
 
                     b.Property<long?>("NoGroupe")
-                        .HasColumnType("bigint");
-
-                    b.Property<long>("SiteId")
                         .HasColumnType("bigint");
 
                     b.Property<decimal?>("Total")
@@ -451,12 +448,12 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("TypeCommande")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasDefaultValue(1);
 
                     b.Property<int>("TypeMesure")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasDefaultValue(1);
 
                     b.HasKey("Id");
 
@@ -478,9 +475,6 @@ namespace KalosfideAPI.Migrations
                     b.Property<DateTime?>("DateCatalogue")
                         .HasColumnType("datetime2");
 
-                    b.Property<long?>("FournisseurId")
-                        .HasColumnType("bigint");
-
                     b.Property<bool>("Ouvert")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -495,8 +489,6 @@ namespace KalosfideAPI.Migrations
                         .HasMaxLength(200);
 
                     b.HasKey("Id");
-
-                    b.HasIndex("FournisseurId");
 
                     b.HasIndex("Url");
 
@@ -525,7 +517,7 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("Etat")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(0);
+                        .HasDefaultValue(1);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
@@ -855,10 +847,6 @@ namespace KalosfideAPI.Migrations
             modelBuilder.Entity("KalosfideAPI.Data.Site", b =>
                 {
                     b.HasOne("KalosfideAPI.Data.Fournisseur", "Fournisseur")
-                        .WithMany()
-                        .HasForeignKey("FournisseurId");
-
-                    b.HasOne("KalosfideAPI.Data.Fournisseur", null)
                         .WithOne("Site")
                         .HasForeignKey("KalosfideAPI.Data.Site", "Id")
                         .OnDelete(DeleteBehavior.Cascade)

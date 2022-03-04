@@ -39,7 +39,7 @@ namespace KalosfideAPI.Fournisseurs
     }
 
     [JsonObject(MemberSerialization.OptIn)]
-    public class FournisseurVue : AvecIdUint, IFournisseurData, IRoleEtat, ISiteData
+    public class FournisseurVue : AvecIdUint, IFournisseurData, IRoleEtat
     {
         [JsonProperty]
         public string Nom { get; set; }
@@ -67,17 +67,7 @@ namespace KalosfideAPI.Fournisseurs
         [JsonProperty]
         public DateTime DateEtat { get; set; }
 
-        /// <summary>
-        /// Url du Site
-        /// </summary>
-        [JsonProperty]
-        public string Url { get; set; }
-
-        /// <summary>
-        /// Titre du Site
-        /// </summary>
-        [JsonProperty]
-        public string Titre { get; set; }
+        public SiteAAjouter Site { get; set; }
 
         /// <summary>
         /// Email de l'Utilisateur
@@ -89,7 +79,9 @@ namespace KalosfideAPI.Fournisseurs
         {
             Id = fournisseur.Id;
             Fournisseur.CopieData(fournisseur, this);
-            Site.CopieData(fournisseur.Site, this);
+            Site = new SiteAAjouter();
+            Data.Site.CopieData(fournisseur.Site, Site);
+            Fournisseur.FixeRoleEtat(fournisseur, this);
             Email = fournisseur.Utilisateur.Email;
         }
     }

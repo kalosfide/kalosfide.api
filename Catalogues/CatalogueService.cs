@@ -36,7 +36,7 @@ namespace KalosfideAPI.Catalogues
         {
             Catalogue catalogue = new Catalogue
             {
-                Produits = await _produitService.ProduitsDeCatalogue(idSite),
+                Produits = await _produitService.ProduitsAEnvoyers(idSite),
                 Catégories = await _catégorieService.CatégoriesDeCatalogue(idSite)
             };
             return catalogue;

@@ -44,7 +44,7 @@ namespace KalosfideAPI.CLF
         /// <returns></returns>
         protected async Task<IActionResult> Clients(uint idSite)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -122,7 +122,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstFournisseur()
         {
-            CarteUtilisateur carte = await CréeCarteFournisseur(vérificateur.Site.Id, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseur(vérificateur.Site.Id, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -135,7 +135,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         protected async Task UtilisateurEstClientActifOuNouveau()
         {
-            CarteUtilisateur carte = await CréeCarteClientDeClient(vérificateur.IdClient, EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
+            CarteUtilisateur carte = await CréeCarteClientDeClient(vérificateur.IdClient, PermissionsEtatRole.Actif, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -149,7 +149,7 @@ namespace KalosfideAPI.CLF
         protected async Task UtilisateurEstClientActifOuNouveauOuFournisseur()
         {
             CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.IdClient, vérificateur.Site.Id,
-                EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
+                PermissionsEtatRole.Actif, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -167,7 +167,7 @@ namespace KalosfideAPI.CLF
         protected async Task UtilisateurEstClientPasFerméOuFournisseur()
         {
             CarteUtilisateur carte = await CréeCarteClientDeClientOuFournisseurDeSite(vérificateur.IdClient, vérificateur.Site.Id,
-                EtatsRolePermis.Actif, EtatsRolePermis.PasFermé);
+                PermissionsEtatRole.Actif, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 vérificateur.Erreur = carte.Erreur;
@@ -351,7 +351,7 @@ namespace KalosfideAPI.CLF
                 noBon = 0;
             }
 
-            RetourDeService<DocCLF> retour = await _service.AjouteBon(vérificateur.IdClient, vérificateur.Site, _type, noBon);
+            RetourDeService<DocCLF> retour = await _service.AjouteBon(vérificateur.IdClient, _type, noBon);
 
             if (!retour.Ok)
             {

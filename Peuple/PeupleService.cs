@@ -68,6 +68,32 @@ namespace KalosfideAPI.Peuple
         }
 
         /// <summary>
+        /// Trouve l'Utilisateur défini par la vue s'il existe. Sinon, crée l'Utilisateur défini par la vue.
+        /// </summary>
+        /// <param name="compteVue"></param>
+        /// <returns>un RetourDeService<Utilisateur> contenant </returns>
+        private async Task<RetourDeService<Utilisateur>> Utilisateur(ICréeCompteVue compteVue)
+        {
+            Utilisateur utilisateur = await _utilisateurService.UtilisateurDeEmail(compteVue.Email);
+            if (utilisateur != null)
+            {
+                Utilisateur vérifié = await _utilisateurService.UtilisateurVérifié(compteVue.Email, compteVue.Password);
+                if (vérifié == null)
+                {
+                    // il y a déjà un utilisateur avec l'email de la vue mais un mot de passe qui n'est pas celui de la vue
+                    return new RetourDeService<Utilisateur>(TypeRetourDeService.ModelError);
+                }
+                return new RetourDeService<Utilisateur>(vérifié);
+            }
+            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(compteVue);
+            if (retourUtilisateur.Ok)
+            {
+                await _utilisateurService.ConfirmeEmailDirect(retourUtilisateur.Entité);
+            }
+            return retourUtilisateur;
+        }
+
+        /// <summary>
         /// Crée un Fournisseur avec son Utilisateur, son Site et l'ajoute au Peuplement.
         /// Crée éventuellement les Clients sans Utilisateur du Site et les ajoute au Peuplement.
         /// Crée éventuellement les Catégories et les Produits du Site et les compte dans le Peuplement.
@@ -78,32 +104,32 @@ namespace KalosfideAPI.Peuple
         private async Task<RetourDeService> AjouteFournisseur(PeupleFournisseurVue vue, PeupleId peupleId)
         {
             uint id = peupleId.Fournisseur + 1;
-            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(vue);
+            RetourDeService<Utilisateur> retourUtilisateur = await Utilisateur(vue);
             if (!retourUtilisateur.Ok)
             {
                 return retourUtilisateur;
             }
             Utilisateur utilisateur = retourUtilisateur.Entité;
-            await _utilisateurService.ConfirmeEmailDirect(utilisateur);
             Fournisseur fournisseur = new Fournisseur
             {
                 Id = id,
                 UtilisateurId = utilisateur.Id,
+                Etat = EtatRole.Actif,
                 Siret = "légal" + id,
                 Site = new Site
                 {
+                    Id = id,
                     Ouvert = false
                 }
             };
             Role.CopieData(vue, fournisseur);
             Site.CopieData(vue, fournisseur.Site);
-            RetourDeService<Fournisseur> retourFournisseur = await _fournisseurService.Ajoute(fournisseur);
+            RetourDeService<Fournisseur> retourFournisseur = await _fournisseurService.AjouteSansValider(fournisseur);
             if (!retourFournisseur.Ok)
             {
                 return retourFournisseur;
             }
-            fournisseur = retourFournisseur.Entité;
-            fournisseur.Utilisateur = utilisateur;
+            await _utilisateurService.FixeIdDernierSite(utilisateur, id);
             peupleId.Fournisseur = id;
 
             RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
@@ -130,12 +156,12 @@ namespace KalosfideAPI.Peuple
                 PeuplementCatalogue catalogue = new PeuplementCatalogue(fournisseur.Id, nbCatégories, nbProduits, peupleId);
                 for (int j = 0; j < nbCatégories && retour.Ok; j++)
                 {
-                    retour = await _catégorieService.Ajoute(catalogue.Catégories.ElementAt(j));
+                    retour = await _catégorieService.AjouteSansValider(catalogue.Catégories.ElementAt(j));
                 }
 
                 for (int j = 0; j < nbProduits && retour.Ok; j++)
                 {
-                    retour = await _produitService.Ajoute(catalogue.Produits.ElementAt(j));
+                    retour = await _produitService.AjouteSansValider(catalogue.Produits.ElementAt(j));
                 }
                 DateTime dateFin = DateTime.Now;
                 await _produitService.TermineModification(fournisseur.Id, dateDébut, dateFin);
@@ -157,13 +183,12 @@ namespace KalosfideAPI.Peuple
         private async Task<RetourDeService> AjouteClient(PeupleClientVue vue, PeupleId peupleId)
         {
             uint id = peupleId.Client + 1;
-            RetourDeService<Utilisateur> retourUtilisateur = await _utilisateurService.CréeUtilisateur(vue);
+            RetourDeService<Utilisateur> retourUtilisateur = await Utilisateur(vue);
             if (!retourUtilisateur.Ok)
             {
                 return retourUtilisateur;
             }
             Utilisateur utilisateur = retourUtilisateur.Entité;
-            await _utilisateurService.ConfirmeEmailDirect(utilisateur);
             Client client = new Client
             {
                 Id = id,
@@ -172,10 +197,11 @@ namespace KalosfideAPI.Peuple
                 Etat = EtatRole.Nouveau
             };
             Role.CopieData(vue, client);
-            RetourDeService retour = await _clientService.Ajoute(client);
+            RetourDeService retour = await _clientService.AjouteSansValider(client);
             if (retour.Ok)
             {
                 peupleId.Client = id;
+                await _utilisateurService.FixeIdDernierSite(utilisateur, client.SiteId);
             }
             return retour;
         }
@@ -197,7 +223,7 @@ namespace KalosfideAPI.Peuple
                 Ville = "Ville" + id,
                 Etat = EtatRole.Actif
             };
-            RetourDeService retour = await _clientService.Ajoute(client);
+            RetourDeService retour = await _clientService.AjouteSansValider(client);
             if (retour.Ok)
             {
                 peupleId.Client = id;

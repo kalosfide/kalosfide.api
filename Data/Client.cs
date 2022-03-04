@@ -75,10 +75,7 @@ namespace KalosfideAPI.Data
 
         // utile
 
-        public static int JoursInactifAvantExclu()
-        {
-            return 60;
-        }
+        public static int NbJoursInactifAvantExclu = 60;
 
         public static void CopieData(IClientData de, IClientData vers)
         {
@@ -87,10 +84,12 @@ namespace KalosfideAPI.Data
         public static void CopieData(Client de, IClientDataAnnullable vers)
         {
             Role.CopieData(de, vers);
+            vers.Etat = de.Etat;
         }
         public static void CopieData(IClientDataAnnullable de, IClientDataAnnullable vers)
         {
             Role.CopieData(de, vers);
+            vers.Etat = de.Etat;
         }
         public static void CopieDataSiPasNull(IClientDataAnnullable de, IClientData vers)
         {
@@ -112,6 +111,21 @@ namespace KalosfideAPI.Data
         public static bool CopieDifférences(IClientData ancien, IClientDataAnnullable nouveau, IClientDataAnnullable différences)
         {
             return Role.CopieDifférences(ancien, nouveau, différences);
+        }
+
+        /// <summary>
+        /// Fixe un IRoleEtat avec l'Etat, la date de création et la date de l'état actuel d'un fournisseur
+        /// </summary>
+        /// <param name="client">le Fournisseur concerné</param>
+        /// <param name="roleEtat">le IRoleEtat à fixer</param>
+        public static void FixeRoleEtat(Client client, IRoleEtat roleEtat)
+        {
+            IEnumerable<ArchiveClient> archivesDansLordre = client.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
+            ArchiveClient création = archivesDansLordre.First();
+            ArchiveClient actuel = archivesDansLordre.Last();
+            roleEtat.Etat = actuel.Etat.Value;
+            roleEtat.Date0 = création.Date;
+            roleEtat.DateEtat = actuel.Date;
         }
 
         public static string[] AvérifierSansEspacesData

@@ -14,7 +14,7 @@ namespace KalosfideAPI.Catégories
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class CatégorieController : AvecIdUintController<Catégorie, CatégorieAAjouter, CatégorieAEditer>
+    public class CatégorieController : AvecIdUintController<Catégorie, CatégorieAAjouter, CatégorieAEnvoyer, CatégorieAEditer>
     {
 
         public CatégorieController(ICatégorieService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
@@ -31,7 +31,7 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(409)] // Conflict
         public new async Task<IActionResult> Ajoute(CatégorieAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -41,7 +41,7 @@ namespace KalosfideAPI.Catégories
             {
                 return BadRequest(ModelState);
             }
-            return await base.Ajoute( ajout);
+            return await base.Ajoute(ajout);
         }
 
         [HttpPut("/api/categorie/edite")]
@@ -58,7 +58,7 @@ namespace KalosfideAPI.Catégories
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -85,7 +85,7 @@ namespace KalosfideAPI.Catégories
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.Actif);
             return  await Supprime(carte, catégorie);
         }
 

@@ -73,7 +73,9 @@ namespace KalosfideAPI.Partages
             List<T> donnéesModifiées = new List<T>();
 
                 // recherche les archives enregistrées depuis le début de la modification
-            List<TArchive> nouvellesArchives = await ArchivesAvecDonnée(idSite).ToListAsync();
+            List<TArchive> nouvellesArchives = await ArchivesAvecDonnée(idSite)
+                .Where(a => a.Date > dateDébut)
+                .ToListAsync();
             if (nouvellesArchives.Count() == 0)
             {
                 return null;
@@ -114,9 +116,11 @@ namespace KalosfideAPI.Partages
     /// </summary>
     /// <typeparam name="T">Entité de la base de donnée</typeparam>
     /// <typeparam name="TAjout">Objet sans Id pour ajouter à la base de donnée</typeparam>
+    /// <typeparam name="TAjouté">Objet avec Id à retourner après un ajout à la base de donnée</typeparam>
     /// <typeparam name="TEdite">Objet avec Id et les champs éditables nullable</typeparam>
-    public abstract class AvecIdEtSiteIdService<T, TAjout, TEdite> : AvecIdUintService<T, TAjout, TEdite>, IAvecIdEtSiteIdService<T, TAjout, TEdite>
-         where T : AvecIdUint, IAvecSiteId where TEdite : AvecIdUint
+    public abstract class AvecIdEtSiteIdService<T, TAjout, TAjouté, TEdite>
+        : AvecIdUintService<T, TAjout, TAjouté, TEdite>, IAvecIdEtSiteIdService<T, TAjout, TAjouté, TEdite>
+         where T : AvecIdUint, IAvecSiteId where TAjouté : AvecIdUint where TEdite : AvecIdUint
     {
         protected AvecIdEtSiteIdService(ApplicationContext context) : base(context)
         {

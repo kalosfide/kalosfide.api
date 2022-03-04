@@ -46,14 +46,14 @@ namespace KalosfideAPI.Admin
         /// <summary>
         /// 
         /// </summary>
-        /// <param name="idFournisseur"></param>
+        /// <param name="id"></param>
         /// <returns></returns>
         [HttpGet("/api/admin/fournisseur")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Fournisseur([FromQuery] uint idFournisseur)
+        public async Task<IActionResult> Fournisseur([FromQuery] uint id)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteAdministrateur();
             if (carteUtilisateur.Erreur != null)
@@ -61,7 +61,7 @@ namespace KalosfideAPI.Admin
                 return carteUtilisateur.Erreur;
             }
 
-            FournisseurVue fournisseur = await _service.Fournisseur(idFournisseur);
+            FournisseurVue fournisseur = await _service.Fournisseur(id);
             if (fournisseur == null)
             {
                 return NotFound();

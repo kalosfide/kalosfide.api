@@ -63,7 +63,62 @@ namespace KalosfideAPI.Admin
             Id = fournisseur.Id;
             Fournisseur.CopieData(fournisseur, this);
             Site.CopieData(fournisseur.Site, this);
-            Email = fournisseur.Utilisateur.Email;
+            if (fournisseur.Utilisateur != null)
+            {
+                Email = fournisseur.Utilisateur.Email;
+            }
+            Fournisseur.FixeRoleEtat(fournisseur, this);
+        }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class DemandeFournisseurVue : AvecIdUint, IFournisseurData, ISiteData
+    {
+        [JsonProperty]
+        public string Nom { get; set; }
+        [JsonProperty]
+        public string Adresse { get; set; }
+        [JsonProperty]
+        public string Ville { get; set; }
+        [JsonProperty]
+        public string Siret { get; set; }
+
+        /// <summary>
+        /// Url du Site
+        /// </summary>
+        [JsonProperty]
+        public string Url { get; set; }
+
+        /// <summary>
+        /// Titre du Site
+        /// </summary>
+        [JsonProperty]
+        public string Titre { get; set; }
+
+        /// <summary>
+        /// Email de l'Utilisateur
+        /// </summary>
+        [JsonProperty]
+        public string Email { get; set; }
+
+        /// <summary>
+        /// Date de la demande.
+        /// </summary>
+        public DateTime Date { get; set; }
+
+        /// <summary>
+        /// Date d'envoi du message d'activation.
+        /// </summary>
+        public DateTime? Envoi { get; set; }
+
+        public DemandeFournisseurVue(DemandeSite demande)
+        {
+            Id = demande.Id;
+            Email = demande.Email;
+            Date = demande.Date;
+            Envoi = demande.Envoi;
+            Fournisseur.CopieData(demande.Fournisseur, this);
+            Site.CopieData(demande.Fournisseur.Site, this);
         }
     }
 

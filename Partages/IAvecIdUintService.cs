@@ -20,8 +20,9 @@ namespace KalosfideAPI.Partages
     /// </summary>
     /// <typeparam name="T">Entité de la base de donnée</typeparam>
     /// <typeparam name="TAjout">Objet sans Id pour ajouter à la base de donnée</typeparam>
+    /// <typeparam name="TAjouté">Objet avec Id à retourner après un ajout à la base de donnée</typeparam>
     /// <typeparam name="TEdite">Objet avec Id et les champs éditables nullable</typeparam>
-    public interface IAvecIdUintService<T, TAjout, TEdite> where T: AvecIdUint where TEdite: AvecIdUint
+    public interface IAvecIdUintService<T, TAjout, TAjouté, TEdite> where T: AvecIdUint where TAjouté : AvecIdUint where TEdite: AvecIdUint
     {
         /// <summary>
         /// validateur qui ajoute au ModelState les éventuelles erreurs de la donnée
@@ -45,16 +46,16 @@ namespace KalosfideAPI.Partages
         /// <returns></returns>
         DAvecIdUintValideModel<T> DValideSupprime();
 
-        Task<T> CréeDonnée(TAjout vue);
         T CréeDonnéeEditéeComplète(TEdite vue, T donnéePourCompléter);
 
         Task<T> Lit(uint id);
 
-        Task<RetourDeService<T>> Ajoute(TAjout ajout, ModelStateDictionary modelState);
+        Task<RetourDeService<TAjouté>> Ajoute(TAjout ajout, ModelStateDictionary modelState);
+        Task<RetourDeService<TAjouté>> Ajoute(TAjout ajout, ModelStateDictionary modelState, DateTime date);
 
-        Task<RetourDeService<T>> Ajoute(T donnée);
-        Task<RetourDeService<T>> Ajoute(T donnée, DateTime date);
-        void EditeSansSauver(T donnée, TEdite vue);
+        Task<RetourDeService<TAjouté>> AjouteSansValider(T donnée);
+        Task<RetourDeService<TAjouté>> AjouteSansValider(T donnée, DateTime date);
+
         Task<RetourDeService<T>> Edite(T donnée, TEdite nouveau);
         void SupprimeSansSauver(T donnée);
         Task<RetourDeService<T>> Supprime(T donnée);

@@ -11,7 +11,7 @@ namespace KalosfideAPI.Produits
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class ProduitController : AvecIdUintController<Produit, ProduitAAjouter, ProduitAEditer>
+    public class ProduitController : AvecIdUintController<Produit, ProduitAAjouter, ProduitAEnvoyer, ProduitAEditer>
     {
         public ProduitController(IProduitService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
@@ -27,7 +27,7 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(409)] // Conflict
         public async new Task<IActionResult> Ajoute(ProduitAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -55,7 +55,7 @@ namespace KalosfideAPI.Produits
                 return NotFound();
             }
             bool disponible = produit.Disponible;
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -90,7 +90,7 @@ namespace KalosfideAPI.Produits
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.Actif);
             return await Supprime(carte, produit);
         }
 

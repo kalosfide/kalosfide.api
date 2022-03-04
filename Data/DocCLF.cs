@@ -9,7 +9,7 @@ namespace KalosfideAPI.Data
 {
     public enum TypeCLF
     {
-        Commande,
+        Commande = 1,
         Livraison,
         Facture
     }
@@ -33,11 +33,6 @@ namespace KalosfideAPI.Data
         public TypeCLF Type { get; set; }
 
         // données
-
-        /// <summary>
-        /// Id du site
-        /// </summary>
-        public uint SiteId { get; set; }
 
         /// <summary>
         /// la date est fixée quand le bon de commande est envoyé.
@@ -125,7 +120,6 @@ namespace KalosfideAPI.Data
                 Id = id,
                 No = doc.No,
                 Type = doc.Type,
-                SiteId = doc.SiteId,
                 NbLignes = doc.NbLignes,
                 Total = doc.Total
             };

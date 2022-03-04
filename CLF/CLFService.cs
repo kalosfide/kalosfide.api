@@ -114,13 +114,13 @@ namespace KalosfideAPI.CLF
                 // est antérieure ou égale à la date passée en paramétre, le produit est utilisable dans son état actuel
                 ? null
                 // sinon il faut reconstituer l'état passé du produit à partir de ses archives
-                : ProduitDeCatalogue.ALaDate(g.Key.Produit.Archives, g.Key.Date)
+                : ProduitAEnvoyer.ALaDate(g.Key.Produit.Archives, g.Key.Date)
                 }
                 ).ToList();
 
             // Les données de produit nécessaires pour afficher les lignes dont les dates sont antérieures à celle
             // de la dernière modification du catalogue sont les membres ancienProduit qui ne sont pas null.
-            List<ProduitDeCatalogue> produits = produits_anciensProduits
+            List<ProduitAEnvoyer> produits = produits_anciensProduits
                 // Filtre les objets { produit, ancien };
                 .Where(p_d => p_d.ancienProduit != null)
                 // Ne garde 
@@ -136,7 +136,7 @@ namespace KalosfideAPI.CLF
                     DateTime date;
                     if (p_a.ancienProduit != null)
                     {
-                        idCatégorie = p_a.ancienProduit.CategorieId;
+                        idCatégorie = p_a.ancienProduit.CategorieId.Value;
                         date = p_a.ancienProduit.Date.Value;
                     }
                     else
@@ -164,9 +164,9 @@ namespace KalosfideAPI.CLF
                 .Join(idsCatégorie_datesProduit, c => c.Id, id_d => id_d.idCatégorie, (c, id_d) => new { catégorie = c, id_d.date });
 
             // Transforme ces objets dont la catégorie actuelle n'est pas applicable en l'état ancien de la catégorie reconstitué à partir des archives.
-            List<CatégorieDeCatalogue> catégories = catégories_dates
+            List<CatégorieAEnvoyer> catégories = catégories_dates
                 .Where(c_d => c_d.catégorie.Date > c_d.date)
-                .Select(c_d => CatégorieDeCatalogue.ALaDate(c_d.catégorie.Archives, c_d.date))
+                .Select(c_d => CatégorieAEnvoyer.ALaDate(c_d.catégorie.Archives, c_d.date))
                 .ToList();
 
 
@@ -202,13 +202,13 @@ namespace KalosfideAPI.CLF
                 // est antérieure ou égale à la date passée en paramétre, le produit est utilisable dans son état actuel
                 ? null
                 // sinon il faut reconstituer l'état passé du produit à partir de ses archives
-                : ProduitDeCatalogue.ALaDate(g.Key.Produit.Archives, g.Key.Date)
+                : ProduitAEnvoyer.ALaDate(g.Key.Produit.Archives, g.Key.Date)
                 }
                 );
 
             // Les données de produit nécessaires pour afficher les lignes dont les dates sont antérieures à celle
             // de la dernière modification du catalogue sont les membres ancienProduit qui ne sont pas null.
-            List<ProduitDeCatalogue> produits = produits_anciensProduits
+            List<ProduitAEnvoyer> produits = produits_anciensProduits
                 // Filtre les objets { produit, ancien };
                 .Where(p_d => p_d.ancienProduit != null)
                 // Ne garde 
@@ -224,7 +224,7 @@ namespace KalosfideAPI.CLF
                     DateTime date;
                     if (p_a.ancienProduit != null)
                     {
-                        idCatégorie = p_a.ancienProduit.CategorieId;
+                        idCatégorie = p_a.ancienProduit.CategorieId.Value;
                         date = p_a.ancienProduit.Date.Value;
                     }
                     else
@@ -251,9 +251,9 @@ namespace KalosfideAPI.CLF
                 .Join(idsCatégorie_datesProduit, c => c.Id, id_d => id_d.idCatégorie, (c, id_d) => new { catégorie = c, id_d.date });
 
             // Transforme ces objets dont la catégorie actuelle n'est pas applicable en l'état ancien de la catégorie reconstitué à partir des archives.
-            List<CatégorieDeCatalogue> catégories = catégories_dates
+            List<CatégorieAEnvoyer> catégories = catégories_dates
                 .Where(c_d => c_d.catégorie.Date > c_d.date)
-                .Select(c_d => CatégorieDeCatalogue.ALaDate(c_d.catégorie.Archives, c_d.date))
+                .Select(c_d => CatégorieAEnvoyer.ALaDate(c_d.catégorie.Archives, c_d.date))
                 .ToList();
 
 
@@ -279,7 +279,8 @@ namespace KalosfideAPI.CLF
         public async Task<CLFDocs> ClientsAvecBons(uint idSite, TypeCLF type)
         {
             List<DocCLF> docs = await _context.Docs
-                .Where(d => d.SiteId == idSite && d.Type == DocCLF.TypeBon(type))
+                .Include(d=>d.Client)
+                .Where(d => d.Client.SiteId == idSite && d.Type == DocCLF.TypeBon(type))
                 .Where(d => d.No == 0 || (d.Date != null && d.NoGroupe == null))
                 .Include(d => d.Lignes)
                 .AsNoTracking()
@@ -423,7 +424,8 @@ namespace KalosfideAPI.CLF
         public async Task<List<CLFClientBilanDocs>> ClientsAvecBilanDocuments(Site site)
         {
             var x = await _context.Docs
-                .Where(d => d.Date != null && d.SiteId == site.Id)
+                .Include(d => d.Client)
+                .Where(d => d.Date != null && d.Client.SiteId == site.Id)
                 .GroupBy(d => new { d.Id, d.Type })
                 .Select(g => new { g.Key, Nb = g.Count(), Total = g.Sum(d => d.Total.Value), Incomplet = g.Sum(d => d.Incomplet == true ? 1 : 0) })
                 .ToListAsync();
@@ -659,36 +661,30 @@ namespace KalosfideAPI.CLF
         /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.
         /// </summary>
         /// <param name="paramsChercheDoc">key du site, id et type du document</param>
-        /// <returns>un CLFChercheDoc contenant la key et le nom du client et la date si le document recherché existe, vide sinon</returns>
-        public async Task<CLFChercheDoc> ChercheDocument(ParamsChercheDoc paramsChercheDoc)
+        /// <returns>un CLFDoc contenant la key et le nom du client et la date si le document recherché existe, null sinon</returns>
+        public async Task<CLFDoc> ChercheDocument(ParamsChercheDoc paramsChercheDoc)
         {
             DocCLF doc = await _context.Docs
                 .Include(d => d.Client)
-                .Where(d => d.Client.SiteId == paramsChercheDoc.SiteId && d.No == paramsChercheDoc.No && d.Type == paramsChercheDoc.Type)
+                .Where(d => d.Client.SiteId == paramsChercheDoc.Id && d.No == paramsChercheDoc.No && d.Type == paramsChercheDoc.Type)
                 .FirstOrDefaultAsync();
             if (doc == null)
             {
-                return new CLFChercheDoc();
+                return null;
             }
-            return new CLFChercheDoc
-            {
-                Id = doc.Id,
-                Nom = doc.Client.Nom,
-                Date = doc.Date.Value
-            };
+            return CLFDoc.DeIdNomNoDate(doc);
         }
 
         #endregion // Lecture
 
         #region Action
 
-        public async Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, Site site, TypeCLF type, uint noDoc)
+        public async Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, TypeCLF type, uint noDoc)
         {
             DocCLF docCLF = new DocCLF
             {
                 Id = idClient,
                 No = noDoc,
-                SiteId = site.Id,
                 Type = type
             };
             _context.Docs.Add(docCLF);
@@ -727,6 +723,7 @@ namespace KalosfideAPI.CLF
                     Id = bon.Id,
                     No = bon.No,
                     Type = bon.Type,
+                    ProduitId = ligne.ProduitId,
                     TypeCommande = ligne.TypeCommande,
                 };
                 copie.Date = dateCatalogue;
@@ -797,6 +794,7 @@ namespace KalosfideAPI.CLF
                 Quantité = ligne.Quantité,
                 AFixer = ligne.AFixer,
                 Type = TypeCLF.Commande,
+                ProduitId = ligne.ProduitId,
                 TypeCommande = ligne.TypeCommande,
                 Date = site.DateCatalogue.Value
             };
@@ -1007,7 +1005,7 @@ namespace KalosfideAPI.CLF
                 }
             }
 
-            IEnumerable<ProduitDeCatalogue> anciensProduits = (await Tarif(docCLFs)).Produits.Select(p => p);
+            IEnumerable<ProduitAEnvoyer> anciensProduits = (await Tarif(docCLFs)).Produits.Select(p => p);
                 
             Tuple<List<LigneCLF>, decimal> lignes_coût = docCLFs
                 // fixe le NoGroupe de chaque bon
@@ -1033,7 +1031,7 @@ namespace KalosfideAPI.CLF
                 {
                     idProduit = o.produit.Id,
                     date = o.ancien_produit == null ? o.produit.Date : o.ancien_produit.Date,
-                    prix = o.ancien_produit == null ? o.produit.Prix : o.ancien_produit.Prix,
+                    prix = o.ancien_produit == null ? o.produit.Prix : o.ancien_produit.Prix.Value,
                     aFixer = o.lignes
                         .Select(l => l.AFixer.Value)
                         .Aggregate((decimal)0, (valeur, suivant) => valeur + suivant)

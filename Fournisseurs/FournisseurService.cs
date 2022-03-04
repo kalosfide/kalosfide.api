@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Roles;
@@ -33,12 +34,11 @@ namespace KalosfideAPI.Fournisseurs
         /// </summary>
         /// <param name="donnée"></param>
         /// <param name="date"></param>
-        public new void GèreAjout(Fournisseur donnée, DateTime date)
+        public override void GèreAjout(Fournisseur donnée, DateTime date)
         {
             base.GèreAjout(donnée, date);
             _gèreArchiveSite.GèreAjout(donnée.Site, date);
         }
-
 
         protected override void CopieDonnéeDansArchive(Fournisseur donnée, ArchiveFournisseur archive)
         {
@@ -56,7 +56,7 @@ namespace KalosfideAPI.Fournisseurs
             return modifié ? archive : null;
         }
     }
-    public class FournisseurService : AvecIdUintService<Fournisseur, FournisseurAAjouter, FournisseurAEditer>, IFournisseurService
+    public class FournisseurService : AvecIdUintService<Fournisseur, FournisseurAAjouter, Fournisseur, FournisseurAEditer>, IFournisseurService
     {
         private readonly ISiteService _siteService;
         private readonly IEnvoieEmailService _emailService;
@@ -108,11 +108,31 @@ namespace KalosfideAPI.Fournisseurs
             return new Fournisseur();
         }
 
+        protected override Fournisseur Ajouté(Fournisseur donnée, DateTime date)
+        {
+            Fournisseur ajouté = new Fournisseur
+            {
+                Id = donnée.Id,
+            };
+            Fournisseur.CopieData(donnée, ajouté);
+            ajouté.Site = new Site
+            {
+                Id = donnée.Id
+            };
+            Site.CopieData(donnée.Site, ajouté.Site);
+            return ajouté;
+        }
+
         protected override void CopieAjoutDansDonnée(FournisseurAAjouter de, Fournisseur vers)
         {
             Fournisseur.CopieData(de, vers);
-            vers.Site = new Site();
+            vers.Etat = EtatRole.Nouveau;
+            vers.Site = new Site
+            {
+                Id = vers.Id
+            };
             Site.CopieData(de.Site, vers.Site);
+            vers.Site.Ouvert = false;
         }
 
         protected override void CopieEditeDansDonnée(FournisseurAEditer de, Fournisseur vers)
@@ -129,12 +149,11 @@ namespace KalosfideAPI.Fournisseurs
         /// Cherche une demande de création de site à partir de l'Email.
         /// </summary>
         /// <param name="email">Email de la DemandeSite cherchée</param>
-        /// <returns>si elle existe, la DemandeSite retournée inclut son Fournisseur avec son Site</returns>
+        /// <returns>si elle existe, la DemandeSite retournée n'inclut pas son Fournisseur</returns>
         public async Task<DemandeSite> DemandeSite(string email)
         {
             return await _context.DemandeSite
                 .Where(d => d.Email == email)
-                .Include(d => d.Fournisseur).ThenInclude(f => f.Site)
                 .FirstOrDefaultAsync();
         }
 
@@ -151,20 +170,21 @@ namespace KalosfideAPI.Fournisseurs
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<RetourDeService<DemandeSite>> Ajoute(FournisseurAAjouter ajout)
+        /// <summary>
+        /// Ajoute une DemandeSite avec son Fournisseur et son Site. 
+        /// </summary>
+        /// <param name="ajout"></param>
+        /// <param name="modelState">ModelStateDictionary où inscrire les erreurs de validation</param>
+        /// <returns>un Objet contenant l'Id commun aux objets ajoutés et la Date de l'ajout.</returns>
+        public async new Task<RetourDeService<DemandeSiteDate>> Ajoute(FournisseurAAjouter ajout, ModelStateDictionary modelState)
         {
-            Fournisseur fournisseur = new Fournisseur();
-            Fournisseur.CopieData(ajout, fournisseur);
-            fournisseur.Site = new Site();
-            Site.CopieData(ajout.Site, fournisseur.Site);
             DateTime date = DateTime.Now;
-            RetourDeService<Fournisseur> retourFournisseur = await base.Ajoute(fournisseur, date);
-            RetourDeService<DemandeSite> retour;
+            RetourDeService<Fournisseur> retourFournisseur = await base.Ajoute(ajout, modelState, date);
             if (!retourFournisseur.Ok)
             {
-                return new RetourDeService<DemandeSite>(retourFournisseur);
+                return new RetourDeService<DemandeSiteDate>(retourFournisseur);
             }
-            fournisseur = retourFournisseur.Entité;
+            Fournisseur fournisseur = retourFournisseur.Entité;
             DemandeSite demande = new DemandeSite
             {
                 Email = ajout.Email,
@@ -172,12 +192,26 @@ namespace KalosfideAPI.Fournisseurs
                 Date = date
             };
             _context.DemandeSite.Add(demande);
-            retour = await SaveChangesAsync<DemandeSite>(demande);
-            if (retour.Ok)
+            DemandeSiteDate demandeDate = new DemandeSiteDate
             {
-                retour.Entité.Fournisseur = fournisseur;
-            }
-            return retour;
+                Id = fournisseur.Id,
+                Date = date
+            };
+            return  await SaveChangesAsync(demandeDate);
+        }
+
+        /// <summary>
+        /// Retourne la liste des DemandeSiteVue des DemandeSite enregistrées avec leurs Fournissuers.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<DemandeSiteVue>> Demandes()
+        {
+            List<DemandeSite> demandes = await _context.DemandeSite
+                .Include(demande => demande.Fournisseur).ThenInclude(fournisseur => fournisseur.Site)
+                .AsNoTracking()
+                .ToListAsync();
+            List<DemandeSiteVue> vues = demandes.Select(demande => new DemandeSiteVue(demande)).ToList();
+            return vues;
         }
 
         /// <summary>
@@ -209,7 +243,7 @@ namespace KalosfideAPI.Fournisseurs
         /// </summary>
         /// <param name="demande">DemandeSite à envoyer</param>
         /// <returns></returns>
-        public async Task<RetourDeService> EnvoieEmailDemandeSite(DemandeSite demande)
+        public async Task<RetourDeService<DemandeSiteEnvoi>> EnvoieEmailDemandeSite(DemandeSite demande)
         {
             Fournisseur fournisseur = await _context.Fournisseur
                 .Where(f => f.Id == demande.Id)
@@ -222,7 +256,11 @@ namespace KalosfideAPI.Fournisseurs
             demande.Envoi = DateTime.Now;
             await _emailService.EnvoieEmail<DemandeSite>(demande.Email, objet, message, urlBase, demande, null);
             _context.DemandeSite.Update(demande);
-            return await SaveChangesAsync();
+            DemandeSiteEnvoi demandeEnvoi = new DemandeSiteEnvoi
+            {
+               Envoi = DateTime.Now
+            };
+            return await SaveChangesAsync(demandeEnvoi);
         }
 
         /// <summary>
@@ -248,9 +286,14 @@ namespace KalosfideAPI.Fournisseurs
             return await SaveChangesAsync();
         }
 
+        /// <summary>
+        /// Retourne la liste des FournisseurVue des Fournissuers qui ont un Utilisateur.
+        /// </summary>
+        /// <returns></returns>
         public async Task<List<FournisseurVue>> Fournisseurs()
         {
             List<Fournisseur> fournisseurs = await _context.Fournisseur
+                .Where(fournisseur => fournisseur.UtilisateurId != null)
                 .Include(fournisseur => fournisseur.Utilisateur)
                 .Include(fournisseur => fournisseur.Site)
                 .Include(fournisseur => fournisseur.Archives)

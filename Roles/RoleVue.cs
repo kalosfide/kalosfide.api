@@ -9,7 +9,7 @@ namespace KalosfideAPI.Roles
     public class RoleEtat: IRoleEtat
     {
         /// <summary>
-        /// Une des valeurs de TypeEtatRole.
+        /// Une des valeurs de l'enum EtatRole.
         /// </summary>
         public EtatRole Etat { get; set; }
 

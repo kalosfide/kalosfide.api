@@ -30,27 +30,47 @@ namespace KalosfideAPI.Utiles
             await SendEmailAsync(email, objet, message);
         }
 
-        public async Task EnvoieEmail(string email, string objet, string message, string urlBase, string àEncoder, Dictionary<string, string> urlParams)
+        private async Task _EnvoieEmail(string email, string objet, string message, string urlBase, string àEncoder, DateTime? finValidité, List<KeyValuePair<string, string>> urlParams)
         {
-            string urlAvecParams = urlBase;
+            if (urlParams == null)
+            {
+                urlParams = new List<KeyValuePair<string, string>>();
+            }
             if (àEncoder != null)
             {
                 string token = _protector.Protect(àEncoder);
                 string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                urlAvecParams += "?code=" + code;
+                urlParams.Add(new KeyValuePair<string, string>("code", code));
             }
-            if (urlParams != null)
+            if (finValidité != null)
             {
-                foreach (KeyValuePair<string, string> param in urlParams)
-                {
-                    urlAvecParams += "&" + param.Key + "=" + param.Value;
-                }
+                string fin = finValidité.Value.ToString("o");
+                string finCode = Uri.EscapeDataString(fin);
+                urlParams.Add(new KeyValuePair<string, string>("fin", finCode));
             }
-            string corps = message + " en cliquant sur ce lien: <a href=\"" + urlAvecParams + "\">" + urlBase + "</a>";
+            string[] keyEgaleValues = urlParams.Select(keyValue => keyValue.Key + "=" + keyValue.Value).ToArray();
+            string paramétres = "?" + String.Join("&", keyEgaleValues);
+            string url = urlBase + paramétres;
+            string corps = message + " en cliquant sur ce lien: <a href=\"" + url + "\">" + urlBase + "</a>";
             await SendEmailAsync(email, objet, corps);
         }
+        public async Task EnvoieEmail(string email, string objet, string message, string urlBase, string àEncoder, DateTime finValidité, List<KeyValuePair<string, string>> urlParams)
+        {
+            await _EnvoieEmail(email, objet, message, urlBase, àEncoder, finValidité, urlParams);
+        }
 
-        public async Task EnvoieEmail<T>(string email, string objet, string message, string urlBase, T àEncoder, Dictionary<string, string> urlParams)
+        public async Task EnvoieEmail(string email, string objet, string message, string urlBase, string àEncoder, List<KeyValuePair<string, string>> urlParams)
+        {
+            await _EnvoieEmail(email, objet, message, urlBase, àEncoder, null, urlParams);
+        }
+
+        public async Task EnvoieEmail<T>(string email, string objet, string message, string urlBase, T àEncoder, DateTime finValidité, List<KeyValuePair<string, string>> urlParams)
+        {
+            string texteAEncoder = JsonSerializer.Serialize(àEncoder);
+            await _EnvoieEmail(email, objet, message, urlBase, texteAEncoder, finValidité, urlParams);
+        }
+
+        public async Task EnvoieEmail<T>(string email, string objet, string message, string urlBase, T àEncoder, List<KeyValuePair<string, string>> urlParams)
         {
             string texteAEncoder = JsonSerializer.Serialize(àEncoder);
             await EnvoieEmail(email, objet, message, urlBase, texteAEncoder, urlParams);

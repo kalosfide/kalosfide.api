@@ -30,12 +30,23 @@ namespace KalosfideAPI.Admin
         public async Task<List<FournisseurVue>> Fournisseurs()
         {
             List<Fournisseur> fournisseurs = await _context.Fournisseur
+                .Where(fournisseur => fournisseur.UtilisateurId != null)
                 .Include(fournisseur => fournisseur.Utilisateur)
                 .Include(fournisseur => fournisseur.Site)
                 .Include(fournisseur => fournisseur.Archives)
                 .AsNoTracking()
                 .ToListAsync();
             List<FournisseurVue> vues = fournisseurs.Select(fournisseur => new FournisseurVue(fournisseur)).ToList();
+            return vues;
+        }
+
+        public async Task<List<DemandeFournisseurVue>> DemandesFournisseurs()
+        {
+            List<DemandeSite> fournisseurs = await _context.DemandeSite
+                .Include(demande => demande.Fournisseur).ThenInclude(fournisseur => fournisseur.Site)
+                .AsNoTracking()
+                .ToListAsync();
+            List<DemandeFournisseurVue> vues = fournisseurs.Select(demande => new DemandeFournisseurVue(demande)).ToList();
             return vues;
         }
 

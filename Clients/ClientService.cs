@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
@@ -40,7 +41,7 @@ namespace KalosfideAPI.Clients
         }
     }
 
-    public class ClientService : AvecIdUintService<Client, ClientAAjouter, ClientAEditer>, IClientService
+    public class ClientService : AvecIdUintService<Client, ClientAAjouter, ClientEtatVue, ClientAEditer>, IClientService
     {
         private readonly IEnvoieEmailService _emailService;
 
@@ -96,11 +97,25 @@ namespace KalosfideAPI.Clients
             return new Client();
         }
 
+        protected override ClientEtatVue Ajouté(Client donnée, DateTime date)
+        {
+            ClientEtatVue vue = new ClientEtatVue
+            {
+                Id = donnée.Id,
+                Etat = donnée.Etat,
+                Date0 = date,
+                DateEtat = date
+            };
+            Client.CopieData(donnée, vue);
+            return vue;
+        }
+
         protected override void CopieAjoutDansDonnée(ClientAAjouter de, Client vers)
         {
+            vers.UtilisateurId = de.UtilisateurId;
             vers.SiteId = de.SiteId;
             Client.CopieData(de, vers);
-            vers.Etat = EtatRole.Nouveau;
+            vers.Etat = de.Etat;
         }
 
         protected override void CopieEditeDansDonnée(ClientAEditer de, Client vers)
@@ -128,7 +143,7 @@ namespace KalosfideAPI.Clients
             return utilisateur?.Email;
         }
 
-        private async Task<ClientEtatVue> ClientEtatVue(Client client, long maintenant, int joursInactifAvantExclu)
+        private async Task<ClientEtatVue> ClientEtatVue(Client client)
         {
             ArchiveClient archive = client.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date).Last();
             ClientEtatVue vue = new ClientEtatVue
@@ -140,8 +155,8 @@ namespace KalosfideAPI.Clients
             Client.CopieData(client, vue);
             if (archive.Etat == EtatRole.Inactif)
             {
-                TimeSpan timeSpan = new TimeSpan(maintenant - archive.Date.Ticks);
-                if (timeSpan.TotalDays > joursInactifAvantExclu)
+                DateTime finit = archive.Date.AddDays(Client.NbJoursInactifAvantExclu);
+                if (DateTime.Now > finit)
                 {
                     // changer l'état
                     await ChangeEtat(client, EtatRole.Fermé);
@@ -171,10 +186,10 @@ namespace KalosfideAPI.Clients
         /// et n'ayant pas d'Utilisateur ou ayant un Utilisateur d'Etat permis.
         /// </summary>
         /// <param name="idSite">Id du site</param>
-        /// <param name="étatsClientPermis">Array des EtatClient permis</param>
+        /// <param name="permissionsClient">Array des EtatClient permis</param>
         /// <param name="étatsUtilisateurPermis">Array des EtatUtilisateur permis</param>
         /// <returns></returns>
-        public async Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, EtatRole[] étatsClientPermis, EtatUtilisateur[] étatsUtilisateurPermis)
+        public async Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatRole permissionsClient, PermissionsEtatUtilisateur permissionsUtilisateur)
         {
             List<Client> clients = await _context.Client
                 .Where(client => client.SiteId == idSite)
@@ -182,13 +197,11 @@ namespace KalosfideAPI.Clients
                 .Include(client => client.Utilisateur)
                 .ToListAsync();
             List<ClientEtatVue> vues = new List<ClientEtatVue>();
-            long maintenant = DateTime.Now.Ticks;
-            int joursInactifAvantExclu = Client.JoursInactifAvantExclu();
             foreach (Client client in clients)
             {
-                ClientEtatVue vue = await ClientEtatVue(client, maintenant, joursInactifAvantExclu);
-                if ((client.Utilisateur == null || étatsUtilisateurPermis.Contains(client.Utilisateur.Etat))
-                    && étatsClientPermis.Contains(client.Etat))
+                ClientEtatVue vue = await ClientEtatVue(client);
+                if ((client.Utilisateur == null || permissionsUtilisateur.Permet(client.Utilisateur.Etat))
+                    && permissionsClient.Permet(client.Etat))
                 {
                     vues.Add(vue);
                 }
@@ -207,20 +220,6 @@ namespace KalosfideAPI.Clients
                 .Where(c => c.Id == idClient)
                 .Include(c => c.Site)
                 .Include(c => c.Utilisateur)
-                .FirstOrDefaultAsync();
-        }
-
-        /// <summary>
-        /// Retourne le client du site ayant le nom
-        /// </summary>
-        /// <param name="idSite"></param>
-        /// <param name="nom"></param>
-        /// <returns></returns>
-        public async Task<Client> ClientDeNom(uint idSite, string nom)
-        {
-            return await _context.Client
-                .Where(c => c.SiteId == idSite)
-                .Where(c => c.Nom == nom)
                 .FirstOrDefaultAsync();
         }
 
@@ -299,8 +298,8 @@ namespace KalosfideAPI.Clients
             string message = client == null
                 ? "Vous pouvez créer votre compte client de " + fournisseur.Site.Titre
                 : "";
-
-            await _emailService.EnvoieEmail<Invitation>(invitation.Email, objet, message, urlBase, invitation, null);
+            DateTime finValidité = invitation.Date.Add(Invitation.DuréeValidité);
+            await _emailService.EnvoieEmail<Invitation>(invitation.Email, objet, message, urlBase, invitation, finValidité, null);
         }
 
         /// <summary>
@@ -368,114 +367,49 @@ namespace KalosfideAPI.Clients
         #endregion
 
         /// <summary>
-        /// Crée un nouveau Client.
-        /// </summary>
-        /// <param name="idSite">Id du Site</param>
-        /// <param name="idUtilisateur">Id de l'Utilisateur</param>
-        /// <param name="vue">Données du Client à créer</param>
-        /// <returns></returns>
-        public async Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue)
-        {
-            // on crée le Client
-            Client client = new Client
-            {
-                UtilisateurId = idUtilisateur,
-                SiteId = idSite,
-                Etat = EtatRole.Nouveau
-            };
-            Client.CopieData(vue, client);
-
-            return await Ajoute(client);
-        }
-
-        /// <summary>
         /// Crée un nouveau Client et si il y a un ancien Client attribue ses archives et ses documents au client créé.
         /// </summary>
         /// <param name="idSite">Id du Site</param>
         /// <param name="idUtilisateur">Id de l'Utilisateur</param>
         /// <param name="vue">Données du Client à créer</param>
         /// <param name="clientInvité">Client créé par le fournisseur que le nouveau Client va prendre en charge</param>
+        /// <param name="modelState">ModelStateDictionary où inscrire les erreurs de validation</param>
         /// <returns></returns>
-        public async Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue, Client clientInvité)
+        public async Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue, Client clientInvité, ModelStateDictionary modelState)
         {
-            // on crée le Client
-            Client client = new Client
-            {
-                UtilisateurId = idUtilisateur,
-                SiteId = idSite,
-                Etat = EtatRole.Nouveau
-            };
-            Client.CopieData(vue, client);
             if (clientInvité == null)
             {
-                // il n'y a ni archives ni documents à récupérer
+                // il n'y a pas de compte existant à prendre en charge
+                // on crée le Client
+                ClientAAjouter client = new ClientAAjouter
+                {
+                    UtilisateurId = idUtilisateur,
+                    SiteId = idSite,
+                    Etat = EtatRole.Nouveau
+                };
+            
+                Client.CopieData(vue, client);
                 // on ajoute aux tables Client et ArchiveClient
-                return await Ajoute(client);
+                return await Ajoute(client, modelState);
             }
-
-            // il y a des archives et peut-être des documents à réattribuer
-            // on ajoute seulement à la table Client (sans utiliser Ajoute)
-            _context.Client.Add(client);
-            RetourDeService<Client> retour = await SaveChangesAsync(client);
-            if (!retour.Ok)
-            {
-                return retour;
-            }
-
-            // on doit attribuer au client créé les archives du Client existant
-            List<ArchiveClient> archives = await _context.ArchiveClient
-                .Where(a => a.Id == clientInvité.Id)
-                .ToListAsync();
-            archives = archives
-                .Select(a => ArchiveClient.Clone(client.Id, a))
-                .ToList();
-            // et ajouter une archive enregistrant le passage à l'état Nouveau
+            // l'utilisateur prend en charge un compte existant
+            clientInvité.UtilisateurId = idUtilisateur;
+            clientInvité.Etat = EtatRole.Nouveau;
+            Client.CopieData(vue, clientInvité);
             ArchiveClient archive = new ArchiveClient
             {
-                Id = client.Id,
+                Id = clientInvité.Id,
                 Etat = EtatRole.Nouveau,
                 Date = DateTime.Now
             };
-            archives.Add(archive);
-            _context.ArchiveClient.AddRange(archives);
+            Client.CopieData(clientInvité, archive);
 
-            // on doit attribuer au client créé les documents et les lignes du client existant et supprimer celui-ci
-            List<DocCLF> anciensDocs = await _context.Docs
-                .Where(d => d.Id == clientInvité.Id)
-                .ToListAsync();
-            // s'il n'y a pas de documents, il n'y a rien à réattribuer
-            if (anciensDocs.Count != 0)
-            {
-                List<LigneCLF> anciennesLignes = await _context.Lignes
-                    .Where(l => l.Id == clientInvité.Id)
-                    .ToListAsync();
-                // s'il n'y a pas de lignes, il n'y a rien à réattribuer
-                if (anciennesLignes.Count != 0)
-                {
-                    List<DocCLF> nouveauxDocs = anciensDocs
-                        .Select(d => DocCLF.Clone(client.Id, d))
-                        .ToList();
-                    List<LigneCLF> nouvellesLignes = anciennesLignes
-                        .Select(l => LigneCLF.Clone(client.Id, l))
-                        .ToList();
-                    _context.Docs.AddRange(nouveauxDocs);
-                    var r = await SaveChangesAsync();
-                    if (r.Ok)
-                    {
-                        _context.Lignes.AddRange(nouvellesLignes);
-                        r = await SaveChangesAsync();
-                    }
-                }
-            }
-
-            // supprime l'ancien client et en cascade ses archives, ses documents et ses lignes
-            SupprimeSansSauver(clientInvité);
-            _context.Client.Remove(clientInvité);
-            await SaveChangesAsync();
-            return retour;
+            _context.Client.Update(clientInvité);
+            _context.ArchiveClient.Add(archive);
+            return await SaveChangesAsync();
         }
 
-        public DateTime ChangeEtatSansSauver(Client client, EtatRole état)
+        private async Task<RetourDeService<ClientEtatVue>> ChangeEtat(Client client, EtatRole état)
         {
             client.Etat = état;
             _context.Client.Update(client);
@@ -487,12 +421,6 @@ namespace KalosfideAPI.Clients
                 Etat = état
             };
             _context.ArchiveClient.Add(archive);
-            return date;
-        }
-
-        private async Task<RetourDeService<ClientEtatVue>> ChangeEtat(Client client, EtatRole état)
-        {
-            DateTime date = ChangeEtatSansSauver(client, état);
             ClientEtatVue vue = new ClientEtatVue
             {
                 Id = client.Id,

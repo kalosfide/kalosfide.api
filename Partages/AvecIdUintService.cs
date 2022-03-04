@@ -18,11 +18,6 @@ namespace KalosfideAPI.Partages
     public interface IAvecIdUintGèreArchive<T, TEdite> where T : AvecIdUint where TEdite : AvecIdUint
     {
         /// <summary>
-        /// Ajoute une archive reprenant la clé et les champs de la donnée avec la date DateTime.Now.
-        /// </summary>
-        /// <param name="donnée"></param>
-        void GèreAjout(T donnée);
-        /// <summary>
         /// Ajoute une archive reprenant la clé et les champs de la donnée avec la date en paramétre.
         /// </summary>
         /// <param name="donnée"></param>
@@ -79,21 +74,13 @@ namespace KalosfideAPI.Partages
         /// </summary>
         /// <param name="donnée"></param>
         /// <param name="date"></param>
-        public void GèreAjout(T donnée, DateTime date)
+        public virtual void GèreAjout(T donnée, DateTime date)
         {
             TArchive archive = CréeArchive();
             archive.Id = donnée.Id;
             archive.Date = date;
             CopieDonnéeDansArchive(donnée, archive);
             _dbSetArchive.Add(archive);
-        }
-        /// <summary>
-        /// Ajoute une archive reprenant la clé et les champs de la donnée avec la date DateTime.Now.
-        /// </summary>
-        /// <param name="donnée"></param>
-        public void GèreAjout(T donnée)
-        {
-            GèreAjout(donnée, DateTime.Now);
         }
 
         /// <summary>
@@ -126,9 +113,10 @@ namespace KalosfideAPI.Partages
     /// </summary>
     /// <typeparam name="T">Entité de la base de donnée</typeparam>
     /// <typeparam name="TAjout">Objet sans Id pour ajouter à la base de donnée</typeparam>
+    /// <typeparam name="TAjouté">Objet avec Id à retourner après un ajout à la base de donnée</typeparam>
     /// <typeparam name="TEdite">Objet avec Id et les champs éditables nullable</typeparam>
-    public abstract class AvecIdUintService<T, TAjout, TEdite> : BaseService<T>, IAvecIdUintService<T, TAjout, TEdite>
-         where T : AvecIdUint where TEdite : AvecIdUint
+    public abstract class AvecIdUintService<T, TAjout, TAjouté, TEdite> : BaseService<T>, IAvecIdUintService<T, TAjout, TAjouté, TEdite>
+         where T : AvecIdUint where TAjouté : AvecIdUint where TEdite : AvecIdUint
     {
 
         protected DbSet<T> _dbSet;
@@ -151,6 +139,8 @@ namespace KalosfideAPI.Partages
         }
     
         public abstract T CréeDonnée();
+
+        protected abstract TAjouté Ajouté(T donnée, DateTime date);
 
         /// <summary>
         /// Copie dans la donnée tous les champs sauf l'Id.
@@ -177,15 +167,12 @@ namespace KalosfideAPI.Partages
         /// <returns></returns>
         protected abstract void CopieVuePartielleDansDonnée(TEdite de, T vers, T pourCompléter);
 
-        protected InclutRelations<T> _inclutRelations = null;
-
         protected AvecIdUintService(ApplicationContext context) : base(context)
         {
         }
 
-        public async Task<T> CréeDonnée(TAjout ajout)
+        protected async Task<uint> PremièreIdLibre()
         {
-            // recherche la première valeur libre dans la liste dans l'ordre croissant des valeurs numériques des Uid des utilisateurs existants
             uint[] ids = await _dbSet.Select(u => u.Id).OrderBy(id => id).ToArrayAsync();
             int nb = ids.Length;
             // si la première valeur (d'index 1 - 1) est 1, 1 n'est pas libre
@@ -198,10 +185,7 @@ namespace KalosfideAPI.Partages
             for (; id <= nb && id == ids[id - 1]; id++)
             {
             }
-            T donnée = CréeDonnée();
-            donnée.Id = id;
-            CopieAjoutDansDonnée(ajout, donnée);
-            return donnée;
+            return id;
         }
 
         public T CréeDonnéeEditéeComplète(TEdite vuePartielle, T donnéeEnregistrée)
@@ -217,39 +201,26 @@ namespace KalosfideAPI.Partages
             return await _dbSet.Where(donnée => donnée.Id == id).FirstOrDefaultAsync();
         }
 
-        public virtual void AjouteSansSauver(T donnée, DateTime date)
+        public async Task<RetourDeService<TAjouté>> AjouteSansValider(T donnée, DateTime date)
         {
             if (_gèreArchive != null)
             {
                 _gèreArchive.GèreAjout(donnée, date);
             }
             _dbSet.Add(donnée);
+            return await SaveChangesAsync(Ajouté(donnée, date));
         }
 
-        public virtual void AjouteSansSauver(T donnée)
+        public async Task<RetourDeService<TAjouté>> AjouteSansValider(T donnée)
         {
-            if (_gèreArchive != null)
-            {
-                _gèreArchive.GèreAjout(donnée);
-            }
-            _dbSet.Add(donnée);
+            return await AjouteSansValider(donnée, DateTime.Now);
         }
 
-        public async Task<RetourDeService<T>> Ajoute(T donnée, DateTime date)
+        public async Task<RetourDeService<TAjouté>> Ajoute(TAjout ajout, ModelStateDictionary modelState, DateTime date)
         {
-            AjouteSansSauver(donnée, date);
-            return await SaveChangesAsync(donnée);
-        }
-
-        public async Task<RetourDeService<T>> Ajoute(T donnée)
-        {
-            AjouteSansSauver(donnée);
-            return await SaveChangesAsync(donnée);
-        }
-
-        public async Task<RetourDeService<T>> Ajoute(TAjout ajout, ModelStateDictionary modelState)
-        {
-            T donnée = await CréeDonnée(ajout);
+            T donnée = CréeDonnée();
+            donnée.Id = await PremièreIdLibre();
+            CopieAjoutDansDonnée(ajout, donnée);
 
             DAvecIdUintValideModel<T> dValideAjoute = DValideAjoute();
             if (dValideAjoute != null)
@@ -257,14 +228,18 @@ namespace KalosfideAPI.Partages
                 await dValideAjoute(donnée, modelState);
                 if (!modelState.IsValid)
                 {
-                    return new RetourDeService<T>(TypeRetourDeService.ModelError);
+                    return new RetourDeService<TAjouté>(TypeRetourDeService.ModelError);
                 }
             }
-            return await Ajoute(donnée);
+            return await AjouteSansValider(donnée, date);
+
+        }
+        public async Task<RetourDeService<TAjouté>> Ajoute(TAjout ajout, ModelStateDictionary modelState)
+        {
+            return await Ajoute(ajout, modelState, DateTime.Now);
         }
 
-
-        public void EditeSansSauver(T donnée, TEdite vue)
+        public async Task<RetourDeService<T>> Edite(T donnée, TEdite vue)
         {
             if (_gèreArchive != null)
             {
@@ -275,11 +250,6 @@ namespace KalosfideAPI.Partages
                 CopieEditeDansDonnée(vue, donnée);
             }
             _dbSet.Update(donnée);
-        }
-
-        public async Task<RetourDeService<T>> Edite(T donnée, TEdite vue)
-        {
-            EditeSansSauver(donnée, vue);
             return await SaveChangesAsync(donnée);
         }
 

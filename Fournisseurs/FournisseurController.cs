@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Roles;
 using KalosfideAPI.Sécurité;
@@ -7,11 +8,12 @@ using KalosfideAPI.Utiles;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Fournisseurs
 {
-    public class FournisseurController: AvecIdUintController<Fournisseur, FournisseurAAjouter, FournisseurAEditer>
+    public class FournisseurController: AvecIdUintController<Fournisseur, FournisseurAAjouter, Fournisseur, FournisseurAEditer>
     {
         private readonly IEnvoieEmailService _emailService;
         private readonly ISiteService _siteService;
@@ -28,16 +30,36 @@ namespace KalosfideAPI.Fournisseurs
         private IFournisseurService _service { get => __service as IFournisseurService; }
 
         /// <summary>
+        /// Retourne la liste des FournisseurVue des Fournisseurs enregistrés.
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("api/fournisseur/liste")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(404)] // Not found
+        public async Task<IActionResult> Liste()
+        {
+            CarteUtilisateur carteUtilisateur = await CréeCarteAdministrateur();
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+
+            List<FournisseurVue> vues = await _service.Fournisseurs();
+            return Ok(vues);
+        }
+
+        /// <summary>
         /// Ajoute à la bdd un Fournisseur avec son Site sans Utilisateur.
         /// Enregistre une demande de création d'un nouveau site.
         /// </summary>
         /// <param name="ajout">FournisseurAAjouter définissant le site à créer</param>
         /// <returns></returns>
-        [HttpPost("demande")]
+        [HttpPost("api/fournisseur/demande")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [AllowAnonymous]
-        public async Task<IActionResult> Demande(FournisseurAAjouter ajout)
+        public async Task<IActionResult> Demande([FromBody] FournisseurAAjouter ajout)
         {
             DemandeSite demande = await _service.DemandeSite(ajout.Email);
             if (demande != null)
@@ -51,7 +73,37 @@ namespace KalosfideAPI.Fournisseurs
             {
                 return BadRequest(ModelState);
             }
-            return await base.Ajoute(ajout);
+
+            RetourDeService<DemandeSiteDate> retour = await _service.Ajoute(ajout, ModelState);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+            return RésultatCréé(retour.Entité);
+        }
+
+        /// <summary>
+        /// Retourne la liste des DemandeSite enregistrées avec leurs Fournisseurs.
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("api/fournisseur/demandes")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(404)] // Not found
+        public async Task<IActionResult> Demandes()
+        {
+            CarteUtilisateur carteUtilisateur = await CréeCarteAdministrateur();
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+
+            List<DemandeSiteVue> vues = await _service.Demandes();
+            return Ok(vues);
         }
 
         /// <summary>
@@ -61,7 +113,7 @@ namespace KalosfideAPI.Fournisseurs
         /// </summary>
         /// <param name="email">Email de la demande cherchée</param>
         /// <returns></returns>
-        [HttpPost("invite")]
+        [HttpPost("api/fournisseur/invite")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
@@ -80,12 +132,12 @@ namespace KalosfideAPI.Fournisseurs
                 return NotFound();
             }
 
-            RetourDeService retour = await _service.EnvoieEmailDemandeSite(demande);
+            RetourDeService<DemandeSiteEnvoi> retour = await _service.EnvoieEmailDemandeSite(demande);
             if (!retour.Ok)
             {
                 return SaveChangesActionResult(retour);
             }
-            return RésultatCréé(demande);
+            return RésultatCréé(retour.Entité);
         }
 
         /// <summary>
@@ -94,7 +146,7 @@ namespace KalosfideAPI.Fournisseurs
         /// </summary>
         /// <param name="code">code du lien du message email d'invitation</param>
         /// <returns></returns>
-        [HttpGet("demande")]
+        [HttpGet("api/fournisseur/demande")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [ProducesResponseType(404)] // Not found
@@ -114,7 +166,12 @@ namespace KalosfideAPI.Fournisseurs
             {
                 return NotFound();
             }
-            return Ok(enregistrée.Fournisseur);
+
+            Utilisateur utilisateur = await _utilisateurService.UtilisateurDeEmail(demande.Email);
+
+            DemandSiteAActiverData data = new DemandSiteAActiverData(enregistrée, utilisateur != null);
+
+            return Ok(data);
         }
 
         /// <summary>
@@ -123,11 +180,11 @@ namespace KalosfideAPI.Fournisseurs
         /// <param name="àActiver">DemandSiteAActiver qui contient un code contenant la DemandeSite originale
         /// et les coordonnées de connection</param>
         /// <returns></returns>
-        [HttpPost("active")]
+        [HttpPost("api/fournisseur/active")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [AllowAnonymous]
-        public async Task<IActionResult> Active(DemandSiteAActiver àActiver)
+        public async Task<IActionResult> Active([FromBody] DemandSiteAActiver àActiver)
         {
             DemandeSite demande = _service.DécodeDemandeSite(àActiver.Code);
             if (demande == null)
@@ -141,96 +198,55 @@ namespace KalosfideAPI.Fournisseurs
             {
                 return NotFound();
             }
-
-            // si les données définissant le Fournisseur et son Site n'ont pas été modifiées, c'est une activation
-            if (àActiver.Fournisseur == null && àActiver.Site == null)
+            // on cherche si l'Email de la demande correspond à un Utilisateur existant.
+            Utilisateur utilisateur = await UtilisateurService.UtilisateurDeEmail(àActiver.Email);
+            if (utilisateur == null)
             {
-                // on cherche si l'Email de la demande correspond à un Utilisateur existant.
-                Utilisateur utilisateur = await UtilisateurService.UtilisateurDeEmail(àActiver.Email);
+                // l'invité n'a pas de compte Kalosfide
+                //on crée l'Utilisateur
+                RetourDeService<Utilisateur> retourUser = await CréeUtilisateur(àActiver);
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+                if (!retourUser.Ok)
+                {
+                    return SaveChangesActionResult(retourUser);
+                }
+                utilisateur = retourUser.Entité;
+            }
+            else
+            {
+                // l'utilisateur a un compte Kalosfide
+                // on vérifie le mot de passe
+                utilisateur = await UtilisateurService.UtilisateurVérifié(àActiver.Email, àActiver.Password);
                 if (utilisateur == null)
                 {
-                    // l'invité n'a pas de compte Kalosfide
-                    //on crée l'Utilisateur
-                    RetourDeService<Utilisateur> retourUser = await CréeUtilisateur(àActiver);
-                    if (!ModelState.IsValid)
-                    {
-                        return BadRequest(ModelState);
-                    }
-                    if (!retourUser.Ok)
-                    {
-                        return SaveChangesActionResult(retourUser);
-                    }
-                    utilisateur = retourUser.Entité;
+                    return RésultatBadRequest("Nom ou mot de passe invalide");
                 }
-                else
+                // l'utilisateur doit être actif
+                if (!PermissionsEtatUtilisateur.PasInactif.Permet(utilisateur.Etat))
                 {
-                    // l'utilisateur a un compte Kalosfide
-                    // on vérifie le mot de passe
-                    utilisateur = await UtilisateurService.UtilisateurVérifié(àActiver.Email, àActiver.Password);
-                    if (utilisateur == null)
-                    {
-                        return RésultatBadRequest("Nom ou mot de passe invalide");
-                    }
-                    // l'utilisateur doit être actif
-                    if(utilisateur.Etat != EtatUtilisateur.Actif)
-                    {
-                        return RésultatInterdit("Utilisateur non actif");
-                    }
+                    return RésultatInterdit("Utilisateur non actif");
                 }
-                // on lie le Fournisseur à l'utilisateur
-                RetourDeService retour = await _service.FixeUtilisateur(enregistrée.Fournisseur, utilisateur);
-                if (!retour.Ok)
-                {
-                    return SaveChangesActionResult(retour);
-                }
-
-                // Supprime la DemandeSite de la table
-                await _service.Supprime(enregistrée);
-
-                // confirme l'email si ce n'est pas fait
-                if (!utilisateur.EmailConfirmed)
-                {
-                    await UtilisateurService.ConfirmeEmailDirect(utilisateur);
-                }
-
-                return await Connecte(utilisateur);
             }
-
-            if (àActiver.Fournisseur != null)
+            // on lie le Fournisseur à l'utilisateur
+            RetourDeService retour = await UtilisateurService.FixeUtilisateur(enregistrée.Fournisseur, utilisateur);
+            if (!retour.Ok)
             {
-                VérifieSansEspacesDataAnnulable(àActiver.Fournisseur, Fournisseur.AvérifierSansEspacesDataAnnulable);
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-                // il faut éditer le Fournisseur
-                RetourDeService retour = await _service.Edite(enregistrée.Fournisseur, àActiver.Fournisseur);
-                if (!retour.Ok)
-                {
-                    return SaveChangesActionResult(retour);
-                }
-            }
-            if (àActiver.Site != null)
-            {
-                VérifieSansEspacesDataAnnulable(àActiver.Site, Site.AvérifierSansEspacesDataAnnulable);
-                if (!ModelState.IsValid)
-                {
-                    return BadRequest(ModelState);
-                }
-                // il faut éditer le Site
-                RetourDeService retour = await _siteService.Edite(enregistrée.Fournisseur.Site, àActiver.Site);
-                if (!retour.Ok)
-                {
-                    return SaveChangesActionResult(retour);
-                }
+                return SaveChangesActionResult(retour);
             }
 
-            RetourDeService retourEmail = await _service.EnvoieEmailDemandeSite(demande);
-            if (!retourEmail.Ok)
+            // Supprime la DemandeSite de la table
+            await _service.Supprime(enregistrée);
+
+            // confirme l'email si ce n'est pas fait
+            if (!utilisateur.EmailConfirmed)
             {
-                return SaveChangesActionResult(retourEmail);
+                await UtilisateurService.ConfirmeEmailDirect(utilisateur);
             }
-            return RésultatCréé(demande);
+
+            return await Connecte(utilisateur);
         }
 
         /// <summary>

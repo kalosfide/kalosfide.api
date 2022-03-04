@@ -94,6 +94,7 @@ namespace KalosfideAPI.Utiles
                             // on le remplace par un espace
                             sortie[i++] = ' ';
                             aprésEspace = true;
+                            continue;
                         }
                         else
                         {
@@ -101,9 +102,6 @@ namespace KalosfideAPI.Utiles
                             continue;
                         }
 
-                        sortie[i++] = c;
-                        aprésEspace = true;
-                        continue;
                     }
                     // le char n'est pas un WhiteSpace on l'ajoute à la sortie
                     sortie[i++] = c;
@@ -154,7 +152,7 @@ namespace KalosfideAPI.Utiles
                 {
                     throw new SansEspacesException("La propriété n'existe pas.");
                 }
-                if (property.GetType() != typeof(string))
+                if (property.PropertyType != typeof(string))
                 {
                     throw new SansEspacesException("Le type de la propriété n'est pas string.");
                 }

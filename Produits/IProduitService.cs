@@ -5,11 +5,11 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Produits
 {
-    public interface IProduitService: IAvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEditer>
+    public interface IProduitService: IAvecIdEtSiteIdService<Produit, ProduitAAjouter, ProduitAEnvoyer, ProduitAEditer>
     {
 
-        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogue(uint idSite);
-        Task<List<ProduitDeCatalogue>> ProduitsDeCatalogueDisponibles(uint idSite);
+        Task<List<ProduitAEnvoyer>> ProduitsAEnvoyers(uint idSite);
+        Task<List<ProduitAEnvoyer>> ProduitsDeCatalogueDisponibles(uint idSite);
 
         Task<bool> NomPris(uint idSite, string nom);
         Task<bool> NomPrisParAutre(uint idSite, uint idProduit, string nom);

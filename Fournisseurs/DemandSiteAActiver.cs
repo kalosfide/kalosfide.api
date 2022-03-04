@@ -1,6 +1,8 @@
-﻿using KalosfideAPI.Data.Keys;
+﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Sites;
 using KalosfideAPI.Utilisateurs;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -9,17 +11,70 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Fournisseurs
 {
-    public class DemandSiteAActiver : AvecIdUint, ICréeCompteVue
+
+    public class DemandeSiteDate : AvecIdUint
     {
         /// <summary>
-        /// Présent uniquement si l'utilisateur a modifié les valeurs enregistrées avec la DemandeSite
+        /// Date de la demande.
         /// </summary>
-        public FournisseurAEditer Fournisseur { get; set; }
-        /// <summary>
-        /// Présent uniquement si l'utilisateur a modifié les valeurs enregistrées avec la DemandeSite
-        /// </summary>
-        public SiteAEditer Site { get; set; }
+        public DateTime Date { get; set; }
 
+    }
+
+    public class DemandeSiteEnvoi
+    {
+        /// <summary>
+        /// Date d'envoi du message d'activation.
+        /// </summary>
+        public DateTime? Envoi { get; set; }
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class DemandeSiteVueSansDates : IFournisseurData
+    {
+        [JsonProperty]
+        public string Nom { get; set; }
+        [JsonProperty]
+        public string Adresse { get; set; }
+        [JsonProperty]
+        public string Ville { get; set; }
+        [JsonProperty]
+        public string Siret { get; set; }
+
+        /// <summary>
+        /// Url et Titre du Site
+        /// </summary>
+        [JsonProperty]
+        public SiteAAjouter Site { get; set; }
+
+        /// <summary>
+        /// Email de l'Utilisateur
+        /// </summary>
+        [JsonProperty]
+        public string Email { get; set; }
+
+        public DemandeSiteVueSansDates(DemandeSite demande)
+        {
+            Email = demande.Email;
+            Site = new SiteAAjouter();
+            Fournisseur.CopieData(demande.Fournisseur, this);
+            Data.Site.CopieData(demande.Fournisseur.Site, Site);
+        }
+
+    }
+
+    public class DemandSiteAActiverData : DemandeSiteVueSansDates
+    {
+        public bool EstUtilisateur { get; set; }
+
+        public DemandSiteAActiverData(DemandeSite demande, bool estUtilisateur) : base(demande)
+        {
+            EstUtilisateur = estUtilisateur;
+        }
+    }
+
+    public class DemandSiteAActiver : ICréeCompteVue
+    {
         /// <summary>
         /// Email de l'Utilisateur à créer.
         /// </summary>
@@ -38,5 +93,27 @@ namespace KalosfideAPI.Fournisseurs
         [Required]
         public string Code { get; set; }
 
+    }
+
+    [JsonObject(MemberSerialization.OptIn)]
+    public class DemandeSiteVue : DemandeSiteVueSansDates
+    {
+        public uint Id { get; set; }
+        /// <summary>
+        /// Date de la demande.
+        /// </summary>
+        public DateTime Date { get; set; }
+
+        /// <summary>
+        /// Date d'envoi du message d'activation.
+        /// </summary>
+        public DateTime? Envoi { get; set; }
+
+        public DemandeSiteVue(DemandeSite demande) : base(demande)
+        {
+            Id = demande.Id;
+            Date = demande.Date;
+            Envoi = demande.Envoi;
+        }
     }
 }

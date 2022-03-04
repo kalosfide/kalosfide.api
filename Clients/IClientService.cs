@@ -1,11 +1,12 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Partages;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Clients
 {
-    public interface IClientService: IAvecIdUintService<Client, ClientAAjouter, ClientAEditer>
+    public interface IClientService: IAvecIdUintService<Client, ClientAAjouter, ClientEtatVue, ClientAEditer>
     {
 
         /// <summary>
@@ -13,10 +14,10 @@ namespace KalosfideAPI.Clients
         /// et n'ayant pas d'Utilisateur ou ayant un Utilisateur d'Etat permis.
         /// </summary>
         /// <param name="idSite">Id du site</param>
-        /// <param name="étatsClientPermis">Array des EtatClient permis</param>
-        /// <param name="étatsUtilisateurPermis">Array des EtatUtilisateur permis</param>
+        /// <param name="permissionsClient">Array des EtatClient permis</param>
+        /// <param name="permissionsUtilisateur">Array des EtatUtilisateur permis</param>
         /// <returns></returns>
-        Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, EtatRole[] étatsClientPermis, EtatUtilisateur[] étatsUtilisateurPermis);
+        Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatRole permissionsClient, PermissionsEtatUtilisateur permissionsUtilisateur);
 
         /// <summary>
         /// Retourne l'email de l'utilsateur si le client gère son compte
@@ -24,14 +25,6 @@ namespace KalosfideAPI.Clients
         /// <param name="idClient">objet ayant la clé du client</param>
         /// <returns>null si le client ne gère pas son compte</returns>
         Task<string> Email(uint idClient);
-
-        /// <summary>
-        /// Retourne le client du site ayant le nom
-        /// </summary>
-        /// <param name="idSite"></param>
-        /// <param name="nom"></param>
-        /// <returns></returns>
-        Task<Client> ClientDeNom(uint idSite, string nom);
 
         /// <summary>
         /// Cherche un Client d'un site à partir de l'Email de son Utilisateur.
@@ -108,17 +101,9 @@ namespace KalosfideAPI.Clients
         /// <param name="idUtilisateur">Id de l'Utilisateur</param>
         /// <param name="vue">Données du Client à créer</param>
         /// <param name="clientInvité">Client créé par le fournisseur que le nouveau Client va prendre en charge</param>
+        /// <param name="modelState">ModelStateDictionary où inscrire les erreurs de validation</param>
         /// <returns></returns>
-        Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue, Client clientInvité);
-
-        /// <summary>
-        /// Crée un nouveau Client.
-        /// </summary>
-        /// <param name="idSite">Id du Site</param>
-        /// <param name="idUtilisateur">Id de l'Utilisateur</param>
-        /// <param name="vue">Données du Client à créer</param>
-        /// <returns></returns>
-        Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue);
+        Task<RetourDeService> CréeClient(uint idSite, string idUtilisateur, IClientData vue, Client clientInvité, ModelStateDictionary modelState);
 
         /// <summary>
         /// Lit dans le bdd un Client avec Site et Utilisateur.

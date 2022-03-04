@@ -16,9 +16,10 @@ namespace KalosfideAPI.Partages
     /// </summary>
     /// <typeparam name="T">Entité de la base de donnée</typeparam>
     /// <typeparam name="TAjout">Objet sans Id pour ajouter à la base de donnée</typeparam>
+    /// <typeparam name="TAjouté">Objet avec Id à retourner après un ajout à la base de donnée</typeparam>
     /// <typeparam name="TEdite">Objet avec Id et les champs éditables nullable</typeparam>
-    public interface IAvecIdEtSiteIdService<T, TAjout, TEdite> : IAvecIdUintService<T, TAjout, TEdite>
-         where T : AvecIdUint, IAvecSiteId where TEdite : AvecIdUint
+    public interface IAvecIdEtSiteIdService<T, TAjout, TAjouté, TEdite> : IAvecIdUintService<T, TAjout, TAjouté, TEdite>
+         where T : AvecIdUint, IAvecSiteId where TAjouté : AvecIdUint where TEdite : AvecIdUint
     {
         /// <summary>
         /// Termine une période de modification des données.

@@ -29,6 +29,8 @@ namespace KalosfideAPI.Clients
         public string Nom { get; set; }
         public string Adresse { get; set; }
         public string Ville { get; set; }
+        public string UtilisateurId { get; set; }
+        public EtatRole Etat { get; set; }
     }
 
     public class ClientData : IClientData
@@ -39,7 +41,7 @@ namespace KalosfideAPI.Clients
         public string Ville { get; set; }
 
     }
-    public class ClientEtatVue : AvecIdUint, IClientData
+    public class ClientEtatVue : AvecIdUint, IClientData, IRoleEtat
     {
         public string Nom { get; set; }
         public string Adresse { get; set; }

@@ -11,12 +11,14 @@ namespace KalosfideAPI.Partages
     /// </summary>
     /// <typeparam name="T">Entité de la base de donnée</typeparam>
     /// <typeparam name="TAjout">Objet sans Id pour ajouter à la base de donnée</typeparam>
+    /// <typeparam name="TAjouté">Objet avec Id à retourner après un ajout à la base de donnée</typeparam>
     /// <typeparam name="TEdite">Objet avec Id et les champs éditables nullable</typeparam>
-    public abstract class AvecIdUintController<T, TAjout, TEdite> : AvecCarteController where T : AvecIdUint where TEdite : AvecIdUint
+    public abstract class AvecIdUintController<T, TAjout, TAjouté, TEdite> : AvecCarteController
+        where T : AvecIdUint where TAjouté : AvecIdUint where TEdite : AvecIdUint
     {
-        protected IAvecIdUintService<T, TAjout, TEdite> __service;
+        protected IAvecIdUintService<T, TAjout, TAjouté, TEdite> __service;
 
-        public AvecIdUintController(IAvecIdUintService<T, TAjout, TEdite> service, IUtilisateurService utilisateurService) : base(utilisateurService)
+        public AvecIdUintController(IAvecIdUintService<T, TAjout, TAjouté,  TEdite> service, IUtilisateurService utilisateurService) : base(utilisateurService)
         {
             __service = service;
         }
@@ -28,7 +30,7 @@ namespace KalosfideAPI.Partages
         /// <returns></returns>
         protected async Task<IActionResult> Ajoute(TAjout ajout)
         {
-            RetourDeService<T> retour = await __service.Ajoute(ajout, ModelState);
+            RetourDeService<TAjouté> retour = await __service.Ajoute(ajout, ModelState);
             if (retour.ModelError)
             {
                 return BadRequest(ModelState);

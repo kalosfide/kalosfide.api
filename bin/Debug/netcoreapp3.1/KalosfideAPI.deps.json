@@ -33,7 +33,7 @@
         "dependencies": {
           "DocumentFormat.OpenXml": "2.11.3",
           "MailKit": "2.8.0",
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "3.1.6",
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "3.1.18",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "3.1.6",
           "Microsoft.AspNetCore.WebUtilities": "2.2.0",
           "Microsoft.EntityFrameworkCore.Proxies": "3.1.6",
@@ -370,14 +370,14 @@
           "lib/netstandard2.0/MailKit.dll": {}
         }
       },
-      "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.6": {
+      "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.18": {
         "dependencies": {
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "5.5.0"
         },
         "runtime": {
           "lib/netcoreapp3.1/Microsoft.AspNetCore.Authentication.JwtBearer.dll": {
-            "assemblyVersion": "3.1.6.0",
-            "fileVersion": "3.100.620.31714"
+            "assemblyVersion": "3.1.18.0",
+            "fileVersion": "3.100.1821.36504"
           }
         },
         "compile": {
@@ -4108,12 +4108,12 @@
       "path": "mailkit/2.8.0",
       "hashPath": "mailkit.2.8.0.nupkg.sha512"
     },
-    "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.6": {
+    "Microsoft.AspNetCore.Authentication.JwtBearer/3.1.18": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-XT5yph4cdiMbas6FyvVafCKfg1QgPZM7Ssma7aDCG0Ee8JhZMMpXGottBeUC43/lDHCaw8wTq29HOKOTDB41vA==",
-      "path": "microsoft.aspnetcore.authentication.jwtbearer/3.1.6",
-      "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.3.1.6.nupkg.sha512"
+      "sha512": "sha512-aymAjo2uHu67eKYlD1b7VLgx9ixbUnl7X9ykr3M3Di8upjMSAF8VbIeY+/mIf5BRjK4hhLfCiR5asR7+jV4a5Q==",
+      "path": "microsoft.aspnetcore.authentication.jwtbearer/3.1.18",
+      "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.3.1.18.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Cryptography.Internal/3.1.6": {
       "type": "package",

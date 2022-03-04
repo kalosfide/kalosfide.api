@@ -66,7 +66,7 @@ namespace KalosfideAPI.Data
             var entité = builder.Entity<Fournisseur>();
 
             entité.HasKey(f => f.Id);
-            entité.HasOne(f => f.Site).WithOne().HasForeignKey<Site>(s => s.Id);
+            entité.HasOne(f => f.Site).WithOne(s => s.Fournisseur).HasForeignKey<Site>(s => s.Id);
             entité.HasOne(f => f.Utilisateur).WithMany(u => u.Fournisseurs).HasForeignKey(f => f.UtilisateurId).HasPrincipalKey(u => u.Id);
 
             // Les entités Site et Fournisseur partagent une même table
@@ -88,12 +88,14 @@ namespace KalosfideAPI.Data
         {
             Role.CopieData(de, vers);
             vers.Siret = de.Siret;
+            vers.Etat = de.Etat;
         }
         public static void CopieData(IFournisseurDataAnnullable de, IFournisseurDataAnnullable vers)
         {
             Role.CopieData(de, vers);
             vers.Siret = de.Siret;
-        }
+            vers.Etat = de.Etat;
+       }
         public static void CopieDataSiPasNull(IFournisseurDataAnnullable de, IFournisseurData vers)
         {
             Role.CopieDataSiPasNull(de, vers);
@@ -124,6 +126,21 @@ namespace KalosfideAPI.Data
                 modifié = true;
             }
             return modifié;
+        }
+
+        /// <summary>
+        /// Fixe un IRoleEtat avec l'Etat, la date de création et la date de l'état actuel d'un fournisseur
+        /// </summary>
+        /// <param name="fournisseur">le Fournisseur concerné</param>
+        /// <param name="roleEtat">le IRoleEtat à fixer</param>
+        public static void FixeRoleEtat(Fournisseur fournisseur, IRoleEtat roleEtat)
+        {
+            IEnumerable<ArchiveFournisseur> archivesDansLordre = fournisseur.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date);
+            ArchiveFournisseur création = archivesDansLordre.First();
+            ArchiveFournisseur actuel = archivesDansLordre.Last();
+            roleEtat.Etat = actuel.Etat.Value;
+            roleEtat.Date0 = création.Date;
+            roleEtat.DateEtat = actuel.Date;
         }
 
         public static string[] AvérifierSansEspacesData

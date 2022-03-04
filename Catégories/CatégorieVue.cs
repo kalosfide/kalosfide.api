@@ -9,7 +9,6 @@ namespace KalosfideAPI.Catégories
 {
     /// <summary>
     /// Contient tous les champs d'une Catégorie sans Date sans Id avec SiteId.
-    /// Objet envoyé en liste dans un tarif.
     /// </summary>
     public class CatégorieAAjouter: ICatégorieData
     {
@@ -19,8 +18,6 @@ namespace KalosfideAPI.Catégories
     }
     /// <summary>
     /// Contient tous les champs d'une Catégorie sans Date avec Id sans SiteId.
-    /// Contient tous les champs de données avec Date et Id d'une Catégorie sans SiteId.
-    /// Objet envoyé en liste dans un tarif.
     /// </summary>
     public class CatégorieAEditer: AvecIdUint, ICatégorieDataAnnulable
     {
@@ -33,7 +30,7 @@ namespace KalosfideAPI.Catégories
     /// Contient tous les champs d'une Catégorie avec Date et Id sans SiteId.
     /// Objet envoyé en liste dans un tarif.
     /// </summary>
-    public class CatégorieDeCatalogue: AvecIdUint, ICatégorieData
+    public class CatégorieAEnvoyer: AvecIdUint, ICatégorieData
     {
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
@@ -41,14 +38,14 @@ namespace KalosfideAPI.Catégories
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public DateTime? Date { get; set; }
 
-        private CatégorieDeCatalogue(uint id)
+        private CatégorieAEnvoyer(uint id)
         {
             Id = id;
         }
 
-        public static CatégorieDeCatalogue SansDate(Catégorie catégorie)
+        public static CatégorieAEnvoyer SansDate(Catégorie catégorie)
         {
-            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(catégorie.Id);
+            CatégorieAEnvoyer catégorieDeCatalogue = new CatégorieAEnvoyer(catégorie.Id);
             Catégorie.CopieData(catégorie, catégorieDeCatalogue);
             return catégorieDeCatalogue;
         }
@@ -59,10 +56,10 @@ namespace KalosfideAPI.Catégories
         /// <param name="archives">archives d'une catégorie</param>
         /// <param name="date">date d'une fin de modification de catalogue passée</param>
         /// <returns></returns>
-        public static CatégorieDeCatalogue ALaDate(IEnumerable<ArchiveCatégorie> archives, DateTime date)
+        public static CatégorieAEnvoyer ALaDate(IEnumerable<ArchiveCatégorie> archives, DateTime date)
         {
             ArchiveCatégorie[] archivesAvantDate = archives.Where(a => a.Date < date).OrderBy(a => a.Date).ToArray();
-            CatégorieDeCatalogue catégorieDeCatalogue = new CatégorieDeCatalogue(archivesAvantDate.First().Id)
+            CatégorieAEnvoyer catégorieDeCatalogue = new CatégorieAEnvoyer(archivesAvantDate.First().Id)
             {
                 Date = date
             };

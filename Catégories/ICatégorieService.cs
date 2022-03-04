@@ -5,10 +5,10 @@ using System.Threading.Tasks;
 
 namespace KalosfideAPI.Catégories
 {
-    public interface ICatégorieService: IAvecIdEtSiteIdService<Catégorie, CatégorieAAjouter, CatégorieAEditer>
+    public interface ICatégorieService: IAvecIdEtSiteIdService<Catégorie, CatégorieAAjouter, CatégorieAEnvoyer, CatégorieAEditer>
     {
-        Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogue(uint idSite);
-        Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogueDesDisponibles(uint idSite);
+        Task<List<CatégorieAEnvoyer>> CatégoriesDeCatalogue(uint idSite);
+        Task<List<CatégorieAEnvoyer>> CatégoriesDeCatalogueDesDisponibles(uint idSite);
         Task<bool> NomPris(string nom);
         Task<bool> NomPrisParAutre(uint id, string nom);
     }

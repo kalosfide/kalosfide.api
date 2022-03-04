@@ -48,9 +48,34 @@ namespace KalosfideAPI.Clients
     public class InvitationContexte
     {
         [JsonProperty]
+        public string Email { get; set; }
+
+        [JsonProperty]
         public Fournisseur Fournisseur { get; set; }
+
+        [JsonProperty]
+        public Site Site  { get; set; }
 
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public Client Client { get; set; }
+        public bool EstUtilisateur { get; set; }
+
+        public InvitationContexte(Invitation invitation, bool estUtilisateur)
+        {
+            EstUtilisateur = estUtilisateur;
+            Email = invitation.Email;
+            Fournisseur = new Fournisseur
+            {
+                Id = invitation.Id,
+            };
+            Fournisseur.CopieData(invitation.Fournisseur, Fournisseur);
+            Site = new Site();
+            Site.CopieData(invitation.Fournisseur.Site, Site);
+            if (invitation.Client != null)
+            {
+                Client = new Client();
+                Client.CopieData(invitation.Client, Client);
+            }
+        }
     }
 }

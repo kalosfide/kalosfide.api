@@ -55,7 +55,7 @@ namespace KalosfideAPI.Catégories
             Catégorie.CopieDataSiPasNull(de, vers);
         }
     }
-    public class CatégorieService : AvecIdEtSiteIdService<Catégorie, CatégorieAAjouter, CatégorieAEditer>, ICatégorieService
+    public class CatégorieService : AvecIdEtSiteIdService<Catégorie, CatégorieAAjouter, CatégorieAEnvoyer, CatégorieAEditer>, ICatégorieService
     {
         public CatégorieService(ApplicationContext context) : base(context)
         {
@@ -124,22 +124,27 @@ namespace KalosfideAPI.Catégories
             return new Catégorie();
         }
 
-        public async Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogue(uint idSite)
+        protected override CatégorieAEnvoyer Ajouté(Catégorie donnée, DateTime date)
+        {
+            return CatégorieAEnvoyer.SansDate(donnée);
+        }
+
+        public async Task<List<CatégorieAEnvoyer>> CatégoriesDeCatalogue(uint idSite)
         {
             List<Catégorie> catégories = await _context.Catégorie
                 .Where(c => c.SiteId == idSite)
                 .ToListAsync();
-            return catégories.Select(c => CatégorieDeCatalogue.SansDate(c)).ToList();
+            return catégories.Select(c => CatégorieAEnvoyer.SansDate(c)).ToList();
         }
 
-        public async Task<List<CatégorieDeCatalogue>> CatégoriesDeCatalogueDesDisponibles(uint idSite)
+        public async Task<List<CatégorieAEnvoyer>> CatégoriesDeCatalogueDesDisponibles(uint idSite)
         {
             List<Catégorie> catégories = await _context.Catégorie
                 .Where(c => c.SiteId == idSite)
                 .Include(c => c.Produits)
                 .Where(c => c.Produits.Where(p => p.Disponible).Any())
                 .ToListAsync();
-            return catégories.Select(c => CatégorieDeCatalogue.SansDate(c)).ToList();
+            return catégories.Select(c => CatégorieAEnvoyer.SansDate(c)).ToList();
         }
 
     }

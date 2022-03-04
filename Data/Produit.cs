@@ -13,14 +13,14 @@ namespace KalosfideAPI.Data
 
     public enum TypeMesure
     {
-        Aucune,
+        Aucune = 1,
         Kilo,
         Litre
     }
 
     public enum TypeCommande
     {
-        Unité,
+        Unité = 1,
         Vrac,
         UnitéOuVrac
     }
@@ -144,7 +144,6 @@ namespace KalosfideAPI.Data
             vers.TypeCommande = de.TypeCommande;
             vers.TypeMesure = de.TypeMesure;
             vers.Prix = de.Prix;
-            vers.Disponible = de.Disponible;
         }
         public static void CopieDataSiPasNull(IProduitDataAnnulable de, IProduitData vers)
         {
@@ -238,6 +237,30 @@ namespace KalosfideAPI.Data
             {
                 return new string[] { "Nom" };
             }
+        }
+
+        public static bool ValideTypes(TypeMesure typeMesure, TypeCommande typeCommande)
+        {
+            if (typeCommande == TypeCommande.Unité)
+            {
+                // un produit qui se commande à l'unité ne doit pas être mesuré
+                return typeMesure == TypeMesure.Aucune;
+            }
+            return typeMesure != TypeMesure.Aucune;
+        }
+
+        public static bool ValideTypes(Produit produit)
+        {
+            return ValideTypes(produit.TypeMesure, produit.TypeCommande);
+        }
+
+        public static TypeCommande[] TypesCommandeCompatibles(TypeMesure typeMesure)
+        {
+            if (typeMesure == TypeMesure.Aucune)
+            {
+                return new TypeCommande[] { TypeCommande.Unité };
+            }
+            return new TypeCommande[] { TypeCommande.Vrac, TypeCommande.UnitéOuVrac };
         }
 
     }

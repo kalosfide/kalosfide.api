@@ -59,7 +59,7 @@ namespace KalosfideAPI.Partages
         /// <param name="àVérifier">Array d'objets contenant les noms des propriétés à traiter et les actions à effectuer si la valeur
         /// de la propriété est nulle ou vide.
         /// Si pour l'un des noms l'objet n'a pas de propriété de ce nom ou si la propriété n'est pas de type string, une exception est levée.</param>
-        public void VérifieSansEspaces(object objet, SansEspacesPropertyDef[] àVérifier)
+        protected void VérifieSansEspaces(object objet, SansEspacesPropertyDef[] àVérifier)
         {
             SansEspaces sansEspaces = SansEspaces.AuDébutNiALaFinNiSuccessifs;
             sansEspaces.FixeValeur(objet, àVérifier);
@@ -94,7 +94,7 @@ namespace KalosfideAPI.Partages
         /// <param name="àVérifier">Array d'objets contenant les noms des propriétés à traiter et les actions à effectuer si la valeur
         /// de la propriété est nulle ou vide.
         /// Si pour l'un des noms l'objet n'a pas de propriété de ce nom ou si la propriété n'est pas de type string, une exception est levée.</param>
-        public void VérifieSansEspacesData(object objet, string[] nomsPropriétés)
+        protected void VérifieSansEspacesData(object objet, string[] nomsPropriétés)
         {
             Func<string, SansEspacesPropertyDef> créeDef = (string nomPropriété) => new SansEspacesPropertyDef(nomPropriété)
             {
@@ -113,7 +113,7 @@ namespace KalosfideAPI.Partages
         /// <param name="àVérifier">Array d'objets contenant les noms des propriétés à traiter et les actions à effectuer si la valeur
         /// de la propriété est nulle ou vide.
         /// Si pour l'un des noms l'objet n'a pas de propriété de ce nom ou si la propriété n'est pas de type string, une exception est levée.</param>
-        public void VérifieSansEspacesDataAnnulable(object objet, string[] nomsPropriétés)
+        protected void VérifieSansEspacesDataAnnulable(object objet, string[] nomsPropriétés)
         {
             SansEspacesPropertyDef créeDef(string nomPropriété) => new SansEspacesPropertyDef(nomPropriété)
             {

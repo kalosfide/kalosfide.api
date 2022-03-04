@@ -12,18 +12,56 @@ namespace KalosfideAPI.Data
 {
     public enum EtatRole
     {
-        Nouveau,
+        Nouveau = 1,
         Actif,
         Inactif,
         Fermé
     }
 
-    public static class EtatsRolePermis
+    public class PermissionsEtatRole
     {
-        public static EtatRole[] Nouveau { get { return new EtatRole[] { EtatRole.Nouveau }; } }
-        public static EtatRole[] Actif { get { return new EtatRole[] { EtatRole.Actif }; } }
-        public static EtatRole[] PasInactif { get { return new EtatRole[] { EtatRole.Nouveau, EtatRole.Actif }; } }
-        public static EtatRole[] PasFermé { get { return new EtatRole[] { EtatRole.Nouveau, EtatRole.Actif, EtatRole.Inactif }; } }
+        private EtatRole[] EtatsPermis { get; set; }
+        private PermissionsEtatRole(EtatRole[] étatsPermis)
+        {
+            EtatsPermis = étatsPermis;
+        }
+        public bool Permet(EtatRole état)
+        {
+            return EtatsPermis == null || EtatsPermis.Contains(état);
+        }
+        public static PermissionsEtatRole Actif
+        {
+            get
+            {
+                return new PermissionsEtatRole(new EtatRole[]
+                {
+                    EtatRole.Actif,
+                });
+            }
+        }
+        public static PermissionsEtatRole PasInactif
+        {
+            get
+            {
+                return new PermissionsEtatRole(new EtatRole[]
+                {
+                    EtatRole.Nouveau,
+                    EtatRole.Actif,
+                });
+            }
+        }
+        public static PermissionsEtatRole PasFermé
+        {
+            get
+            {
+                return new PermissionsEtatRole(new EtatRole[]
+                {
+                    EtatRole.Nouveau,
+                    EtatRole.Actif,
+                    EtatRole.Inactif
+                });
+            }
+        }
     }
 
     // Interfaces communs aux entités Client et Fournisseur
@@ -186,6 +224,13 @@ namespace KalosfideAPI.Data
             }
         }
 
+        public static void CopieEtat(IRoleEtat de, IRoleEtat vers)
+        {
+            vers.Etat = de.Etat;
+            vers.Date0 = de.Date0;
+            vers.DateEtat = de.DateEtat;
+        }
+
         public static void CopiePréférences(IRolePréférences de, IRolePréférences vers)
         {
             vers.FormatNomFichierCommande = de.FormatNomFichierCommande;
@@ -205,6 +250,10 @@ namespace KalosfideAPI.Data
         public static void CopieArchivesEtat(Client client, IRoleEtat roleEtat)
         {
             CopieArchivesEtat((IEnumerable<IArchiveRole>)client.Archives, roleEtat);
+        }
+        public static void CopieArchivesEtat(Fournisseur fournisseur, IRoleEtat roleEtat)
+        {
+            CopieArchivesEtat((IEnumerable<IArchiveRole>)fournisseur.Archives, roleEtat);
         }
 
     }

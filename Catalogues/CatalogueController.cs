@@ -45,15 +45,15 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Complet([FromQuery] uint idSite)
+        public async Task<IActionResult> Complet([FromQuery] uint id)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.PasFermé);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
             }
 
-            Catalogue catalogue = await _service.Complet(idSite);
+            Catalogue catalogue = await _service.Complet(id);
 
             return Ok(catalogue);
         }
@@ -63,15 +63,15 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Disponible([FromQuery] uint idSite)
+        public async Task<IActionResult> Disponible([FromQuery] uint id)
         {
-            CarteUtilisateur carte = await CréeCarteUsager(idSite, EtatsRolePermis.PasFermé, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carte = await CréeCarteUsager(id, PermissionsEtatRole.PasFermé, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
             }
 
-            Catalogue catalogue = await _service.Disponibles(idSite);
+            Catalogue catalogue = await _service.Disponibles(id);
 
             return Ok(catalogue);
         }
@@ -86,9 +86,9 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Etat([FromQuery] uint idSite)
+        public async Task<IActionResult> Etat([FromQuery] uint id)
         {
-            CarteUtilisateur carte = await CréeCarteUsager(idSite, EtatsRolePermis.PasFermé, EtatsRolePermis.PasFermé);
+            CarteUtilisateur carte = await CréeCarteUsager(id, PermissionsEtatRole.PasFermé, PermissionsEtatRole.PasFermé);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -104,7 +104,7 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// Commence une modification du catalogue
         /// </summary>
-        /// <param name="idSite">Id du site</param>
+        /// <param name="id">Id du site</param>
         /// <returns></returns>
         [HttpPost("/api/catalogue/commence")]
         [ProducesResponseType(201)] // created
@@ -112,9 +112,9 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Commence([FromQuery] uint idSite)
+        public async Task<IActionResult> Commence([FromQuery] uint id)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.Actif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
@@ -139,7 +139,7 @@ namespace KalosfideAPI.Catalogues
         /// <summary>
         /// Termine la modification du catalogue
         /// </summary>
-        /// <param name="idSite">Id du site</param>
+        /// <param name="id">Id du site</param>
         /// <returns></returns>
         [HttpPost("/api/catalogue/termine")]
         [ProducesResponseType(201)] // created
@@ -147,9 +147,9 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Termine([FromQuery] uint idSite)
+        public async Task<IActionResult> Termine([FromQuery] uint id)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.Actif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
@@ -157,7 +157,7 @@ namespace KalosfideAPI.Catalogues
 
             Site site = carteUtilisateur.Fournisseur.Site;
 
-            if (!site.Ouvert)
+            if (site.Ouvert)
             {
                 return RésultatBadRequest("Ouverture incorrecte");
             }

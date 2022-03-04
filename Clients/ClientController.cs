@@ -14,7 +14,7 @@ namespace KalosfideAPI.Clients
     [ApiController]
     [Route("UidRnoNo")]
     [Authorize]
-    public class ClientController : AvecIdUintController<Client, ClientAAjouter, ClientAEditer>
+    public class ClientController : AvecIdUintController<Client, ClientAAjouter, ClientEtatVue, ClientAEditer>
     {
         private readonly IUtileService _utile;
 
@@ -39,10 +39,10 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public new async Task<IActionResult> Ajoute([FromQuery] ClientAAjouter ajout)
+        public new async Task<IActionResult> Ajoute(ClientAAjouter ajout)
         {
             // seul le fournisseur du site peut créer un client
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseur(ajout.SiteId, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -70,7 +70,7 @@ namespace KalosfideAPI.Clients
                 return NotFound();
             }
 
-            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(vue.Id, EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
+            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(vue.Id, PermissionsEtatRole.Actif, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -102,7 +102,7 @@ namespace KalosfideAPI.Clients
             }
 
             // seul le fournisseur actif peut changer l'état d'un client
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(client.Site.Id, EtatsRolePermis.Actif);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(client.SiteId, PermissionsEtatRole.Actif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
@@ -110,7 +110,7 @@ namespace KalosfideAPI.Clients
 
             if (état == EtatRole.Actif)
             {
-                // on ne peut pas désactiver un client d'Etat déjà Actif
+                // on ne peut pas activer un client d'Etat déjà Actif
                 if (client.Etat == EtatRole.Actif)
                 {
                     return BadRequest();
@@ -149,9 +149,9 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Active([FromQuery] uint idClient)
+        public async Task<IActionResult> Active([FromQuery] uint id)
         {
-            return await Etat(idClient, EtatRole.Actif);
+            return await Etat(id, EtatRole.Actif);
         }
 
         [HttpPut("/api/client/inactive")]
@@ -161,9 +161,9 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Inactive([FromQuery] uint idClient)
+        public async Task<IActionResult> Inactive([FromQuery] uint id)
         {
-            return await Etat(idClient, EtatRole.Inactif);
+            return await Etat(id, EtatRole.Inactif);
         }
 
         [HttpGet("/api/client/lit")]
@@ -171,16 +171,16 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Lit([FromQuery] uint idClient)
+        public async Task<IActionResult> Lit([FromQuery] uint id)
         {
-            Client client = await _service.Lit(idClient);
+            Client client = await _service.Lit(id);
             if (client == null)
             {
                 // le compte n'existe pas
                 return NotFound();
             }
 
-            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(idClient, EtatsRolePermis.Actif, EtatsRolePermis.PasInactif);
+            CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(id, PermissionsEtatRole.Actif, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -194,18 +194,17 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Liste([FromQuery] uint idSite)
+        public async Task<IActionResult> Liste([FromQuery] uint id)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(idSite, EtatsRolePermis.Actif);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.PasInactif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
             }
 
             // Array des EtatUtilisateur du client permis
-            EtatUtilisateur[] étatsUtilisateurPermis = new EtatUtilisateur[] { EtatUtilisateur.Nouveau, EtatUtilisateur.Actif };
-            List<ClientEtatVue> clients = await _service.ClientsDuSite(idSite, EtatsRolePermis.Actif, étatsUtilisateurPermis);
-            List<InvitationVue> invitations = await _service.InvitationsSansId(idSite);
+            List<ClientEtatVue> clients = await _service.ClientsDuSite(id, PermissionsEtatRole.PasInactif, PermissionsEtatUtilisateur.PasInactif);
+            List<InvitationVue> invitations = await _service.InvitationsSansId(id);
             return Ok(new
             {
                 Clients = clients,
@@ -220,7 +219,7 @@ namespace KalosfideAPI.Clients
         /// </summary>
         /// <param name="invitation">Invitation</param>
         /// <returns></returns>
-        [HttpPost("invitation")]
+        [HttpPost("/api/client/invitation")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [ProducesResponseType(401)] // Unauthorized
@@ -228,7 +227,7 @@ namespace KalosfideAPI.Clients
         public async Task<IActionResult> Invitation([FromBody] Invitation invitation)
         {
             // l'invitation a le même Id que le Fournisseur qui l'envoie
-            CarteUtilisateur carte = await CréeCarteFournisseur(invitation.Id, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseur(invitation.Id, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -256,20 +255,30 @@ namespace KalosfideAPI.Clients
                 {
                     if (enregistrée.Email != invitation.Email)
                     {
-                        return RésultatBadRequest("Une invitation à prendre en charge ce client a déjà été envoyée.");
+                        return RésultatBadRequest("Une invitation à prendre en charge ce client a déjà été envoyée à une autre adresse email.");
                     }
                 }
             }
 
-            // Vérifie que l'utilisateur invité n'est pas le Fournisseur du site
-            if (carte.Utilisateur.Email==invitation.Email)
+            // Cherche une invitation existant du même Fournisseur au même email
+            if (enregistrée == null)
             {
-                return RésultatBadRequest("L'utilisateur invité est le Fournisseur du site.");
+                enregistrée = await _service.LitInvitation(invitation);
             }
-            // Vérifie que l'utilisateur invité n'est pas déjà client du site
-            if (await _service.ClientDeEmail(invitation.Id, invitation.Email) != null)
+
+            // S'il n'y en a pas, c'est un ajout
+            if (enregistrée == null)
             {
-                return RésultatBadRequest("L'utilisateur invité est déjà client du site.");
+                // Vérifie que l'utilisateur invité n'est pas le Fournisseur du site
+                if (carte.Utilisateur.Email == invitation.Email)
+                {
+                    return RésultatBadRequest("L'utilisateur invité est le Fournisseur du site.");
+                }
+                // Vérifie que l'utilisateur invité n'est pas déjà client du site
+                if (await _service.ClientDeEmail(invitation.Id, invitation.Email) != null)
+                {
+                    return RésultatBadRequest("L'utilisateur invité est déjà client du site.");
+                }
             }
 
             // l'invitation est Ok
@@ -278,18 +287,14 @@ namespace KalosfideAPI.Clients
             // envoie l'invitation
             await _service.EnvoieEmailInvitation(invitation, carte.Fournisseur, client);
 
-            // Engistre l'envoi
-            if (enregistrée == null)
-            {
-                enregistrée = await _service.LitInvitation(invitation);
-            }
+            // Enregistre l'envoi
             RetourDeService retour = await _service.EnregistreInvitation(invitation, enregistrée);
             if (!retour.Ok)
             {
                 return SaveChangesActionResult(retour);
             }
 
-            return RésultatCréé(invitation);
+            return RésultatCréé(new InvitationVue(invitation));
         }
 
         /// <summary>
@@ -298,7 +303,7 @@ namespace KalosfideAPI.Clients
         /// </summary>
         /// <param name="code">code du lien du message email d'invitation</param>
         /// <returns></returns>
-        [HttpGet("invitation")]
+        [HttpGet("/api/client/invitation")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [ProducesResponseType(404)] // Not found
@@ -319,22 +324,30 @@ namespace KalosfideAPI.Clients
                 return NotFound();
             }
 
-            InvitationContexte contexte = new InvitationContexte
+            DateTime finValidité = invitation.Date.Add(Data.Invitation.DuréeValidité);
+            if (finValidité < DateTime.Now)
             {
-                Fournisseur = enregistrée.Fournisseur,
-                Client = enregistrée.Client
-            };
+                return BadRequest("Code périmé");
+            }
+
+            if (enregistrée.Fournisseur.Etat != EtatRole.Actif)
+            {
+                return RésultatInterdit("Etat fournisseur pas Actif");
+            }
+
+            Utilisateur utilisateur = await _utilisateurService.UtilisateurDeEmail(invitation.Email);
+            InvitationContexte contexte = new InvitationContexte(enregistrée, utilisateur != null);
             return Ok(contexte);
         }
 
-        [HttpDelete("invitation")]
+        [HttpDelete("/api/client/invitation")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(404)] // Not found
         public async Task<IActionResult> AnnuleInvitation([FromQuery] InvitationKey key)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseur(key.Id, EtatsRolePermis.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseur(key.Id, PermissionsEtatRole.Actif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -351,14 +364,14 @@ namespace KalosfideAPI.Clients
         }
 
 
-        [HttpPost("nouveau")]
+        [HttpPost("/api/client/nouveau")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
         [ProducesResponseType(404)] // Not found
         [AllowAnonymous]
         public async Task<IActionResult> Nouveau([FromBody] DevenirClientVue vue)
         {
-            // Vérifie que Nom et Adresse sont présents et non vides
+            // Vérifie que Nom et Adresse et Ville sont présents et non vides
             VérifieSansEspacesData(vue, Client.AvérifierSansEspacesData);
             if (!ModelState.IsValid)
             {
@@ -366,27 +379,27 @@ namespace KalosfideAPI.Clients
             }
 
             // Vérifie que l'invitation est présente et valide
-            IActionResult absentOuInvalide = RésultatBadRequest("Invitation absente ou invalide");
+            string absentOuInvalide = "Invitation absente ou invalide";
             if (vue.Code == null)
             {
-                return absentOuInvalide;
+                return RésultatBadRequest(absentOuInvalide);
             }
             Invitation invitation = _service.DécodeInvitation(vue.Code);
             if (invitation == null)
             {
-                return absentOuInvalide;
+                return RésultatBadRequest(absentOuInvalide);
             }
             if (vue.Email != invitation.Email)
             {
                 // l'email de la réponse n'est pas celui de l'invitation décodée
-                return absentOuInvalide;
+                return RésultatBadRequest(absentOuInvalide);
             }
 
             // Vérifie qu'il y a une invitation enregistrée identique à l'invitation de la vue
             Invitation enregistrée = await _service.InvitationEnregistrée(invitation);
             if (enregistrée == null)
             {
-                return absentOuInvalide;
+                return RésultatBadRequest(absentOuInvalide);
             }
 
             Utilisateur utilisateur = await UtilisateurService.UtilisateurDeEmail(vue.Email);
@@ -415,26 +428,19 @@ namespace KalosfideAPI.Clients
                 }
             }
 
-            // Vérifie que Nom et Adresse sont présents et non vides
-            VérifieSansEspacesData(vue, Client.AvérifierSansEspacesData);
-            if (!ModelState.IsValid)
+            // crée le Client
+            RetourDeService retour = await _service.CréeClient(enregistrée.Id, utilisateur.Id, vue, enregistrée.Client, ModelState);
+            if (retour.ModelError)
             {
                 return BadRequest(ModelState);
             }
-
-            // vérifie que le Nom est libre
-            Client client = await _service.ClientDeNom(enregistrée.Id, vue.Nom);
-            if (client != null && (enregistrée.ClientId == null || enregistrée.Client.Id != client.Id))
-            {
-                return RésultatBadRequest("nom", "nomPris");
-            }
-
-            // crée le Client
-            RetourDeService retour = await _service.CréeClient(enregistrée.Id, utilisateur.Id, vue, enregistrée.Client);
             if (!retour.Ok)
             {
                 return SaveChangesActionResult(retour);
             }
+
+            // enregistre le Site comme étant le dernier visité par l'utilisateur
+            await UtilisateurService.FixeIdDernierSite(utilisateur, enregistrée.Id);
 
             // Supprime l'invitation de la table
             await _service.SupprimeInvitation(enregistrée);

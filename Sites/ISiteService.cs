@@ -1,11 +1,12 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using System;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Sites
 {
-    public interface ISiteService : IAvecIdUintService<Site, ISiteData, SiteAEditer>
+    public interface ISiteService : IAvecIdUintService<Site, ISiteData, Site, SiteAEditer>
     {
 
         GèreArchiveSite GèreArchiveSite { get; }

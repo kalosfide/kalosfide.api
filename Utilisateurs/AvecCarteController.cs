@@ -4,6 +4,7 @@ using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
+using KalosfideAPI.Sécurité.Identifiants;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Generic;
@@ -69,30 +70,32 @@ namespace KalosfideAPI.Utilisateurs
             return carteUtilisateur;
         }
 
-        private async Task FixeFournisseur(CarteUtilisateur carte, Fournisseur fournisseur, EtatRole[] étatsSitePermis)
+        private async Task FixeFournisseur(CarteUtilisateur carte, Fournisseur fournisseur, PermissionsEtatRole permissions)
         {
-            if (!étatsSitePermis.Contains(fournisseur.Etat))
+            if (!permissions.Permet(fournisseur.Etat))
             {
                 carte.Erreur = RésultatInterdit("EtatSite interdit");
                 return;
             }
             carte.Fournisseur = fournisseur;
+            carte.Site = fournisseur.Site;
             await carte.ArchiveDernierSite(fournisseur.Id);
         }
 
-        private async Task FixeClient(CarteUtilisateur carte, Client client, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        private async Task FixeClient(CarteUtilisateur carte, Client client, PermissionsEtatRole permissionsFournisseur, PermissionsEtatRole permissionsClient)
         {
-            if (!étatsSitePermis.Contains(client.Site.Fournisseur.Etat))
+            if (!permissionsFournisseur.Permet(client.Site.Fournisseur.Etat))
             {
                 carte.Erreur = RésultatInterdit("EtatSite interdit");
                 return;
             }
-            if (!étatsClientPermis.Contains(client.Etat))
+            if (!permissionsClient.Permet(client.Etat))
             {
                 carte.Erreur = RésultatInterdit("EtatClient interdit");
                 return;
             }
             carte.Client = client;
+            carte.Site = client.Site;
             await carte.ArchiveDernierSite(client.Site.Id);
         }
 
@@ -104,7 +107,7 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="keySite">objet ayant les Uid et Rno du site</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas usager actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteUsager(uint idSite, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        protected async Task<CarteUtilisateur> CréeCarteUsager(uint idSite, PermissionsEtatRole permissionsFournisseur, PermissionsEtatRole permissionsClient)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -115,7 +118,7 @@ namespace KalosfideAPI.Utilisateurs
             Fournisseur fournisseur = carteUtilisateur.Utilisateur.Fournisseurs.Where(f => f.Id == idSite).FirstOrDefault();
             if (fournisseur != null)
             {
-                await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
+                await FixeFournisseur(carteUtilisateur, fournisseur, permissionsFournisseur);
                 return carteUtilisateur;
             }
 
@@ -125,7 +128,7 @@ namespace KalosfideAPI.Utilisateurs
                 carteUtilisateur.Erreur = RésultatInterdit("Pas usager");
                 return carteUtilisateur;
             }
-            await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
+            await FixeClient(carteUtilisateur, client, permissionsFournisseur, permissionsClient);
             return carteUtilisateur;
         }
 
@@ -139,7 +142,7 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="idSite">Id du site</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas fournisseur actif ou nouveau du site, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteFournisseur(uint idSite, EtatRole[] étatsSitePermis)
+        protected async Task<CarteUtilisateur> CréeCarteFournisseur(uint idSite, PermissionsEtatRole permissionsFournisseur)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -155,7 +158,7 @@ namespace KalosfideAPI.Utilisateurs
                 return carteUtilisateur;
             }
 
-            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
+            await FixeFournisseur(carteUtilisateur, fournisseur, permissionsFournisseur);
             return carteUtilisateur;
         }
 
@@ -169,7 +172,7 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="idClient">Id du client</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas le client de la clé, Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientDeClient(uint idClient, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        protected async Task<CarteUtilisateur> CréeCarteClientDeClient(uint idClient, PermissionsEtatRole permissionsFournisseur, PermissionsEtatRole permissionsClient)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -186,7 +189,7 @@ namespace KalosfideAPI.Utilisateurs
                 return carteUtilisateur;
             }
 
-            await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
+            await FixeClient(carteUtilisateur, client, permissionsFournisseur, permissionsClient);
             return carteUtilisateur;
         }
 
@@ -201,7 +204,8 @@ namespace KalosfideAPI.Utilisateurs
         /// <param name="idClient">Id du client</param>
         /// <param name="idSite">Id du site</param>
         /// <returns></returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientDeClientOuFournisseurDeSite(uint idClient, uint idSite, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        protected async Task<CarteUtilisateur> CréeCarteClientDeClientOuFournisseurDeSite(uint idClient, uint idSite,
+            PermissionsEtatRole permissionsFournisseur, PermissionsEtatRole permissionsClient)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -214,7 +218,7 @@ namespace KalosfideAPI.Utilisateurs
                 .FirstOrDefault();
             if (client != null)
             {
-                await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
+                await FixeClient(carteUtilisateur, client, permissionsFournisseur, permissionsClient);
                 return carteUtilisateur;
             }
 
@@ -226,7 +230,7 @@ namespace KalosfideAPI.Utilisateurs
                 carteUtilisateur.Erreur = RésultatInterdit("Ni client ni fournisseur");
                 return carteUtilisateur;
             }
-            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
+            await FixeFournisseur(carteUtilisateur, fournisseur, permissionsFournisseur);
             return carteUtilisateur;
         }
 
@@ -240,7 +244,8 @@ namespace KalosfideAPI.Utilisateurs
         /// </summary>
         /// <param name="idClient">objet ayant les Uid et Rno du client</param>
         /// <returns></returns>
-        protected async Task<CarteUtilisateur> CréeCarteClientOuFournisseurDeClient(uint idClient, EtatRole[] étatsSitePermis, EtatRole[] étatsClientPermis)
+        protected async Task<CarteUtilisateur> CréeCarteClientOuFournisseurDeClient(uint idClient,
+            PermissionsEtatRole permissionsFournisseur, PermissionsEtatRole permissionsClient)
         {
             CarteUtilisateur carteUtilisateur = await CréeCarteUtilisateur();
             if (carteUtilisateur.Erreur != null)
@@ -253,7 +258,7 @@ namespace KalosfideAPI.Utilisateurs
                 .FirstOrDefault();
             if (client != null)
             {
-                await FixeClient(carteUtilisateur, client, étatsSitePermis, étatsClientPermis);
+                await FixeClient(carteUtilisateur, client, permissionsFournisseur, permissionsClient);
                 return carteUtilisateur;
             }
             Fournisseur fournisseur = await carteUtilisateur.FournisseurDeClient(idClient);
@@ -262,7 +267,7 @@ namespace KalosfideAPI.Utilisateurs
                 carteUtilisateur.Erreur = NotFound();
                 return carteUtilisateur;
             }
-            await FixeFournisseur(carteUtilisateur, fournisseur, étatsSitePermis);
+            await FixeFournisseur(carteUtilisateur, fournisseur, permissionsFournisseur);
             return carteUtilisateur;
         }
 
@@ -277,9 +282,9 @@ namespace KalosfideAPI.Utilisateurs
         /// <param name="idSite">objet ayant les Uid et Rno du site</param>
         /// <returns>la carte a l'erreur Forbid si l'utilisateur n'est pas fournisseur actif du site, Conflict si le site n'est pas d'état Catalogue,
         /// Unauthorized si la session est périmée</returns>
-        protected async Task<CarteUtilisateur> CréeCarteFournisseurCatalogue(uint idSite, EtatRole[] étatsSitePermis)
+        protected async Task<CarteUtilisateur> CréeCarteFournisseurCatalogue(uint idSite, PermissionsEtatRole permissionsFournisseur)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, étatsSitePermis);
+            CarteUtilisateur carte = await CréeCarteFournisseur(idSite, permissionsFournisseur);
             if (carte.Erreur == null)
             {
                 Site site = carte.Fournisseur.Site;
@@ -324,7 +329,7 @@ namespace KalosfideAPI.Utilisateurs
         /// <returns>un OkObjectResult contenant l'Identifiant de l'utilisateur</returns>
         protected async Task<IActionResult> Connecte(Utilisateur utilisateur)
         {
-            if (utilisateur.Etat == EtatUtilisateur.Banni)
+            if (!PermissionsEtatUtilisateur.PasFermé.Permet(utilisateur.Etat))
             {
                 return RésultatInterdit("Cet utilisateur n'est pas autorisé");
             }

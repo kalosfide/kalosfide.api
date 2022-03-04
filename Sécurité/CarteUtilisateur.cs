@@ -2,6 +2,7 @@
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
+using KalosfideAPI.Sécurité.Identifiants;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
@@ -139,6 +140,9 @@ namespace KalosfideAPI.Sécurité
                 .OrderByDescending(x => x.date)
                 .Select(x => x.idSite);
 
+            identifiant.IdDernierSite = idSites.First();
+            idSites = idSites.Where(id => id != 0);
+
             foreach (uint idSite in idSites)
             {
                 Fournisseur fournisseur = Utilisateur.Fournisseurs.Where(f => f.Id == idSite).FirstOrDefault();
@@ -153,7 +157,6 @@ namespace KalosfideAPI.Sécurité
                 }
             }
 
-            DateTime? dateDernièreDéconnection = null;
             int sessionId = Utilisateur.SessionId; // > 0 car l'utilisateur est connecté
             sessionId--; // id de la session précédente
             if (sessionId > 0)
@@ -165,9 +168,7 @@ namespace KalosfideAPI.Sécurité
                         .FirstOrDefault();
                 if (dernièreDéconnection != null)
                 {
-                    dateDernièreDéconnection = dernièreDéconnection.Date;
-                    // on inscrit l'Id du dernier Site ou 0 si l'utilisateur était sur l'AppSite
-                    identifiant.IdDernierSite = dernièreDéconnection.IdDernierSite.Value;
+                    identifiant.Déconnection = dernièreDéconnection.Date;
                 }
             }
 
@@ -199,28 +200,26 @@ namespace KalosfideAPI.Sécurité
                         }
                     };
                     queryNouveauxDocs = _context.Docs
-                        .Where(docCLF => docCLF.SiteId == site.Id && docCLF.Type == TypeCLF.Commande);
-                    nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeKey(docCLF);
+                        .Include(docCLF => docCLF.Client)
+                        .Where(docCLF => docCLF.Client.SiteId == site.Id && docCLF.Type == TypeCLF.Commande);
+                    nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeIdNomNoDate(docCLF);
                 }
                 else
                 {
                     queryNouveauxDocs = _context.Docs
-                        .Where(docCLF => docCLF.SiteId == site.Id && (docCLF.Type == TypeCLF.Livraison || docCLF.Type == TypeCLF.Facture));
+                        .Include(docCLF => docCLF.Client)
+                        .Where(docCLF => docCLF.Client.SiteId == site.Id && (docCLF.Type == TypeCLF.Livraison || docCLF.Type == TypeCLF.Facture));
                     nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeNoType(docCLF);
                 }
-                if (sessionId == 0)
+                // on ne joint les nouveaux docs que s'il y a eu déconnection
+                if (identifiant.Déconnection != null)
                 {
-                    // c'est la première connection
-                    site.NouveauxDocs = new List<CLFDoc>();
-                }
-                else
-                {
-                    // on ne joint les nouveaux docs que s'il y a eu déconnection
-                    if (dateDernièreDéconnection != null)
+                    List<DocCLF> nouveauxDocCLFs = await queryNouveauxDocs
+                        .Where(docCLF => docCLF.Date >= identifiant.Déconnection)
+                        .ToListAsync();
+                    // on ne joint les nouveaux docs que s'il y en a
+                    if (nouveauxDocCLFs.Count > 0)
                     {
-                        List<DocCLF> nouveauxDocCLFs = await queryNouveauxDocs
-                            .Where(docCLF => docCLF.Date >= dateDernièreDéconnection)
-                            .ToListAsync();
                         site.NouveauxDocs = nouveauxDocCLFs
                             .Select(docCLF => nouveauCLFDoc(docCLF))
                             .ToList();
@@ -228,10 +227,22 @@ namespace KalosfideAPI.Sécurité
                 }
             }
 
-            DemandeSite demandeSite = await _context.DemandeSite.Where(ns => ns.Email == identifiant.Email).FirstOrDefaultAsync();
-            if (demandeSite != null)
+            List<DemandeSite> demandesSite = await _context.DemandeSite
+                .Where(ds => ds.Email == identifiant.Email)
+                .Include(ds => ds.Fournisseur).ThenInclude(f => f.Site)
+                .ToListAsync();
+            if (demandesSite.Count > 0)
             {
-                identifiant.NouveauSite = demandeSite;
+                identifiant.DemandesSite = demandesSite.Select(demandeSite => new DemandeSiteDIdentifiant(demandeSite)).ToList();
+            }
+
+            List<Invitation> invitations = await _context.Invitation
+                .Where(i => i.Email == identifiant.Email)
+                .Include(i => i.Fournisseur).ThenInclude(f => f.Site)
+                .ToListAsync();
+            if (invitations.Count > 0)
+            {
+                identifiant.Invitations = invitations.Select(invitation => new InvitationDIdentifiant(invitation)).ToList();
             }
 
             return identifiant;

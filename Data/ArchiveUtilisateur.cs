@@ -17,7 +17,7 @@ namespace KalosfideAPI.Data
 
         // données
         public string Email { get; set; }
-        public EtatUtilisateur Etat { get; set; }
+        public EtatUtilisateur? Etat { get; set; }
 
         /// <summary>
         /// à vérifier et mettre à jour à chaque action de l'utilisateur

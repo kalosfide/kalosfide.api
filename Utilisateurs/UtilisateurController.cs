@@ -85,6 +85,35 @@ namespace KalosfideAPI.Utilisateurs
             return Ok();
         }
 
+        [HttpPost("idSite")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        public async Task<IActionResult> IdSite([FromQuery] uint id)
+        {
+            CarteUtilisateur carte;
+            if (id == 0)
+            {
+                carte = await CréeCarteUtilisateur();
+            }
+            else
+            {
+                Site site = await _siteService.TrouveParId(id);
+                if (site == null)
+                {
+                    return NotFound();
+                }
+                carte = await CréeCarteUsager(id, PermissionsEtatRole.PasFermé, PermissionsEtatRole.PasFermé);
+            }
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+
+            RetourDeService retour = await _utilisateurService.FixeIdDernierSite(carte.Utilisateur, id);
+            return SaveChangesActionResult(retour);
+        }
 
         #region Compte
 
@@ -145,17 +174,19 @@ namespace KalosfideAPI.Utilisateurs
             return Ok();
         }
 
-        [HttpPost("reinitialiseMotDePasse")]
+        [HttpPost("réinitialiseMotDePasse")]
         [ProducesResponseType(200)] // Ok
         [AllowAnonymous]
         public async Task<IActionResult> RéinitialiseMotDePasse([FromBody] RéinitialiseMotDePasseVue vue)
         {
-            Utilisateur user = await UtilisateurService.UtilisateurDeId(vue.Id);
-            bool réinitialisé = false;
-            if (user != null)
+            TokenDaté tokenDaté = _utilisateurService.DécodeTokenDaté(vue.Code);
+            DateTime finValidité = tokenDaté.Date.Add(_utilisateurService.DuréeValiditéTokenRéinitialiseMotDePasse);
+            if (finValidité < DateTime.Now)
             {
-                réinitialisé = await UtilisateurService.RéinitialiseMotDePasse(user, vue.Code, vue.Password);
+                return BadRequest("Code périmé");
             }
+
+            bool réinitialisé = await UtilisateurService.RéinitialiseMotDePasse(vue.Id, tokenDaté.Token, vue.Password);
             if (!réinitialisé)
             {
                 return BadRequest();
@@ -182,13 +213,13 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(400)] // Bad request
         public async Task<IActionResult> ChangeEmail([FromBody] ChangeEmailVue vue)
         {
-            Utilisateur user = await UtilisateurService.UtilisateurDeEmail(vue.Email);
-            if (user != null)
+            Utilisateur utilisateur = await UtilisateurService.UtilisateurDeEmail(vue.Email);
+            if (utilisateur != null)
             {
                 return RésultatBadRequest("email", "nomPris");
             }
-            user = await UtilisateurService.UtilisateurDeId(vue.Id);
-            await UtilisateurService.EnvoieEmailChangeEmail(user, vue.Email);
+            utilisateur = await UtilisateurService.UtilisateurDeId(vue.Id);
+            await UtilisateurService.EnvoieEmailChangeEmail(utilisateur, vue.Email);
             return Ok();
         }
 
@@ -196,12 +227,13 @@ namespace KalosfideAPI.Utilisateurs
         [ProducesResponseType(200)] // Ok
         public async Task<IActionResult> ConfirmeChangeEmail([FromBody] ConfirmeChangeEmailVue vue)
         {
-            Utilisateur user = await UtilisateurService.UtilisateurDeId(vue.Id);
-            bool changé = false;
-            if (user != null && vue.Email != null)
+            TokenDaté tokenDaté = _utilisateurService.DécodeTokenDaté(vue.Code);
+            DateTime finValidité = tokenDaté.Date.Add(_utilisateurService.DuréeValiditéTokenRéinitialiseMotDePasse);
+            if (finValidité < DateTime.Now)
             {
-                changé = await UtilisateurService.ChangeEmail(user, vue.Email, vue.Code);
+                return BadRequest("Code périmé");
             }
+            bool changé = await UtilisateurService.ChangeEmail(vue.Id, vue.Email, tokenDaté.Token);
             if (changé)
             {
                 return Ok();
@@ -210,41 +242,6 @@ namespace KalosfideAPI.Utilisateurs
         }
 
         #endregion // Compte
-
-        // GET api/utilisateur/?id
-        [HttpGet("{id}")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Lit(string id)
-        {
-            CarteUtilisateur carte = await CréeCarteAdministrateur();
-            if (carte.Erreur != null)
-            {
-                return carte.Erreur;
-            }
-
-            Utilisateur utilisateur = await UtilisateurService.UtilisateurDeId(id);
-            if (utilisateur == null)
-            {
-                return NotFound();
-            }
-            return Ok(utilisateur);
-        }
-
-        // GET api/utilisateur
-        [HttpGet]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Liste()
-        {
-            CarteUtilisateur carte = await CréeCarteAdministrateur();
-            if (carte.Erreur != null)
-            {
-                return carte.Erreur;
-            }
-
-            return Ok(await UtilisateurService.Lit());
-        }
 
         // DELETE api/utilisateur/5
         [HttpDelete("{id}")]

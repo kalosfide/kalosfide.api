@@ -4,6 +4,7 @@ using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using System;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -89,13 +90,46 @@ namespace KalosfideAPI.Utilisateurs
 
         Task EnvoieEmailConfirmeCompte(Utilisateur user);
 
+        TokenDaté DécodeTokenDaté(string code);
+
+        /// <summary>
+        /// Durée de validité d'un PasswordResetToken généré par l'UserManager.
+        /// </summary>
+        TimeSpan DuréeValiditéTokenRéinitialiseMotDePasse { get; }
+
+        /// <summary>
+        /// Envoie un email avec un lien ayant en QueryParams l'Id de l'utilisateur et un code représentant le cryptage
+        /// d'un TokenDaté contenant un PasswordResetToken généré par l'UserManager et la date d'envoi.
+        /// </summary>
+        /// <param name="utilisateur">Utilisateur dont on veut réinitialiser le mot de passe</param>
+        /// <returns></returns>
         Task EnvoieEmailRéinitialiseMotDePasse(Utilisateur user);
-        Task<bool> RéinitialiseMotDePasse(Utilisateur user, string code, string motDePasse);
+
+        /// <summary>
+        /// Réinitialise le mot de passe d'un utilisateur.
+        /// </summary>
+        /// <param name="id">Id de Utilisateur dont on veut réinitialiser le mot de passe</param>
+        /// <param name="token">PasswordResetToken généré par l'UserManager</param>
+        /// <param name="motDePasse"></param>
+        /// <returns>true, si le mot de passe a été changé; false, sinon.</returns>
+        Task<bool> RéinitialiseMotDePasse(string id, string token, string motDePasse);
 
         Task<bool> ChangeMotDePasse(Utilisateur user, string motDePasse, string nouveauMotDePasse);
 
+        /// <summary>
+        /// Durée de validité d'un EmailToken généré par l'UserManager.
+        /// </summary>
+        TimeSpan DuréeValiditéTokenChangeEmail { get; }
         Task EnvoieEmailChangeEmail(Utilisateur user, string nouvelEmail);
-        Task<bool> ChangeEmail(Utilisateur user, string nouvelEmail, string code);
+
+        /// <summary>
+        /// Change l'Email d'un Utilisateur.
+        /// </summary>
+        /// <param name="id">Id de Utilisateur qui veut changer d'Email</param>
+        /// <param name="nouvelEmail"></param>
+        /// <param name="token">EmailToken généré par l'UserManager</param>
+        /// <returns></returns>
+        Task<bool> ChangeEmail(string id, string nouvelEmail, string token);
 
         /// <summary>
         /// Retourne vrai si la confimation de l'email a eu lieu
@@ -112,6 +146,16 @@ namespace KalosfideAPI.Utilisateurs
         Task Déconnecte(CarteUtilisateur carteUtilisateur);
         
         Task<List<Utilisateur>> Lit();
+
+        Task<RetourDeService> FixeIdDernierSite(Utilisateur utilisateur, uint id);
+
+        /// <summary>
+        /// Fixe l'UtilisateurId du Fournisseur et enregistre dans la bdd.
+        /// </summary>
+        /// <param name="fournisseur">Fournisseur d'une DemandeSite à activer</param>
+        /// <param name="utilisateur">Utilisateur affecté à ce Fournisseur</param>
+        /// <returns></returns>
+        Task<RetourDeService> FixeUtilisateur(Fournisseur fournisseur, Utilisateur utilisateur);
 
     }
 }

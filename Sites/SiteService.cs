@@ -1,4 +1,5 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Utiles;
@@ -24,6 +25,7 @@ namespace KalosfideAPI.Sites
         protected override void CopieDonnéeDansArchive(Site donnée, ArchiveSite archive)
         {
             Site.CopieData(donnée, archive);
+            archive.Ouvert = donnée.Ouvert;
         }
 
         protected override ArchiveSite CréeArchiveDesDifférences(Site donnée, SiteAEditer vue)
@@ -37,7 +39,7 @@ namespace KalosfideAPI.Sites
         }
     }
 
-    public class SiteService : AvecIdUintService<Site, ISiteData, SiteAEditer>, ISiteService
+    public class SiteService : AvecIdUintService<Site, ISiteData, Site, SiteAEditer>, ISiteService
     {
         private readonly IUtileService _utile;
 
@@ -70,6 +72,16 @@ namespace KalosfideAPI.Sites
         public override Site CréeDonnée()
         {
             return new Site();
+        }
+
+        protected override Site Ajouté(Site donnée, DateTime date)
+        {
+            Site ajouté = new Site
+            {
+                Id = donnée.Id,
+            };
+            Site.CopieData(donnée, ajouté);
+            return ajouté;
         }
 
         protected override void CopieAjoutDansDonnée(ISiteData de, Site vers)
@@ -180,11 +192,11 @@ namespace KalosfideAPI.Sites
         {
             if (await UrlPrise(site.Url))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "Url", "nomPris");
+                ErreurDeModel.AjouteAModelState(modelState, "site.url", "nomPris");
             }
             if (await TitrePris(site.Titre))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "titre", "nomPris");
+                ErreurDeModel.AjouteAModelState(modelState, "site.titre", "nomPris");
             }
         }
 
@@ -192,7 +204,7 @@ namespace KalosfideAPI.Sites
         {
             if (await UrlPriseParAutre(site.Id, site.Url))
             {
-                ErreurDeModel.AjouteAModelState(modelState, "Url", "nomPris");
+                ErreurDeModel.AjouteAModelState(modelState, "url", "nomPris");
             }
             if (await TitrePrisParAutre(site.Id, site.Titre))
             {

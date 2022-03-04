@@ -24,6 +24,14 @@ namespace KalosfideAPI.CLF
         public uint Id { get; set; }
 
         /// <summary>
+        /// Nom du client
+        /// Présent uniquement si le document est envoyé sans ses lignes pour servir à définir un lien.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string Nom { get; set; }
+
+
+        /// <summary>
         /// No du document, incrémenté automatiquement par client pour les commandes, par site pour les livraisons et factures
         /// </summary>
         public uint No { get; set; }
@@ -124,16 +132,18 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Crée un document à envoyer avec seulement l'Id du client et le No du document.
+        /// Crée un document à envoyer avec seulement l'Id et le nom du client, le No et la Date du document.
         /// </summary>
         /// <param name="docCLF">document dans la bdd</param>
         /// <returns></returns>
-        public static CLFDoc DeKey(DocCLF docCLF)
+        public static CLFDoc DeIdNomNoDate(DocCLF docCLF)
         {
             CLFDoc clfDoc = new CLFDoc
             {
                 Id = docCLF.Id,
-                No = docCLF.No
+                Nom = docCLF.Client.Nom,
+                No = docCLF.No,
+                Date = docCLF.Date
             };
             return clfDoc;
         }

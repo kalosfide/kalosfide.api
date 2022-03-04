@@ -9,10 +9,56 @@ namespace KalosfideAPI.Data
 {
     public enum EtatUtilisateur
     {
-        Nouveau,
+        Nouveau = 1,
         Actif,
         Inactif,
         Banni
+    }
+
+    public class PermissionsEtatUtilisateur
+    {
+        private EtatUtilisateur[] EtatsPermis { get; set; }
+        private PermissionsEtatUtilisateur(EtatUtilisateur[] étatsPermis)
+        {
+            EtatsPermis = étatsPermis;
+        }
+        public bool Permet(EtatUtilisateur état)
+        {
+            return EtatsPermis == null || EtatsPermis.Contains(état);
+        }
+        public static PermissionsEtatUtilisateur Actif
+        {
+            get
+            {
+                return new PermissionsEtatUtilisateur(new EtatUtilisateur[]
+                {
+                    EtatUtilisateur.Actif
+                });
+            }
+        }
+        public static PermissionsEtatUtilisateur PasInactif
+        {
+            get
+            {
+                return new PermissionsEtatUtilisateur(new EtatUtilisateur[]
+                {
+                    EtatUtilisateur.Nouveau,
+                    EtatUtilisateur.Actif
+                });
+            }
+        }
+        public static PermissionsEtatUtilisateur PasFermé
+        {
+            get
+            {
+                return new PermissionsEtatUtilisateur(new EtatUtilisateur[]
+                {
+                    EtatUtilisateur.Nouveau,
+                    EtatUtilisateur.Actif,
+                    EtatUtilisateur.Inactif
+                });
+            }
+        }
     }
 
     public class Utilisateur : IdentityUser

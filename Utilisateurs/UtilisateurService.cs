@@ -167,7 +167,6 @@ namespace KalosfideAPI.Utilisateurs
             }
             string userId = claims.Where(c => c.Type == JwtClaims.UserId).First()?.Value;
             string userName = claims.Where(c => c.Type == JwtClaims.UserName).First()?.Value;
-            string uid = claims.Where(c => c.Type == JwtClaims.UtilisateurId).First()?.Value;
             int sessionId = int.Parse(claims.Where(c => c.Type == JwtClaims.SessionId).First()?.Value);
 
             Utilisateur utilisateur = await _context.Utilisateur
@@ -213,7 +212,7 @@ namespace KalosfideAPI.Utilisateurs
         /// <returns></returns>
         public async Task<RetourDeService<Utilisateur>> CréeUtilisateur(ICréeCompteVue vue)
         {
-            Utilisateur applicationUser = new Utilisateur
+            Utilisateur utilisateur = new Utilisateur
             {
                 UserName = vue.Email,
                 Email = vue.Email,
@@ -221,7 +220,7 @@ namespace KalosfideAPI.Utilisateurs
             };
             try
             {
-                IdentityResult identityResult = await _userManager.CreateAsync(applicationUser, vue.Password);
+                IdentityResult identityResult = await _userManager.CreateAsync(utilisateur, vue.Password);
                 if (!identityResult.Succeeded)
                 {
                     return new RetourDeService<Utilisateur>(identityResult);
@@ -229,15 +228,15 @@ namespace KalosfideAPI.Utilisateurs
 
                 ArchiveUtilisateur archive = new ArchiveUtilisateur
                 {
-                    Id = applicationUser.Id,
-                    Email = applicationUser.Email,
+                    Id = utilisateur.Id,
+                    Email = utilisateur.Email,
                     Etat = EtatUtilisateur.Nouveau,
                     Date = DateTime.Now
                 };
                 _context.ArchiveUtilisateur.Add(archive);
-                await SaveChangesAsync();
+                var retour = await SaveChangesAsync(utilisateur);
 
-                return new RetourDeService<Utilisateur>(applicationUser);
+                return new RetourDeService<Utilisateur>(utilisateur);
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -267,14 +266,19 @@ namespace KalosfideAPI.Utilisateurs
 
         #region Compte
 
+        public TokenDaté DécodeTokenDaté(string code)
+        {
+            return _emailService.DécodeCodeDeEmail<TokenDaté>(code);
+        }
+
         public async Task EnvoieEmailConfirmeCompte(Utilisateur user)
         {
             string objet = "Confirmation de votre compte " + ClientApp.Nom;
             string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeEmail);
-            Dictionary<string, string> urlParams = new Dictionary<string, string>
+            List<KeyValuePair<string, string>> urlParams = new List<KeyValuePair<string, string>>
             {
-                { "email", user.Email }
+                new KeyValuePair<string, string>( "email", user.Email )
             };
 
             string message = "Veuillez confirmer votre compte";
@@ -302,24 +306,58 @@ namespace KalosfideAPI.Utilisateurs
 
         }
 
-        public async Task EnvoieEmailRéinitialiseMotDePasse(Utilisateur user)
+        /// <summary>
+        /// Durée de validité d'un PasswordResetToken généré par l'UserManager.
+        /// </summary>
+        public TimeSpan DuréeValiditéTokenRéinitialiseMotDePasse
+        {
+            get
+            {
+                return new TimeSpan(0, 2, 0);
+            }
+        }
+
+        /// <summary>
+        /// Envoie un email avec un lien ayant en QueryParams l'Id de l'utilisateur et un code représentant le cryptage
+        /// d'un TokenDaté contenant un PasswordResetToken généré par l'UserManager et la date d'envoi.
+        /// </summary>
+        /// <param name="utilisateur">Utilisateur dont on veut réinitialiser le mot de passe</param>
+        /// <returns></returns>
+        public async Task EnvoieEmailRéinitialiseMotDePasse(Utilisateur utilisateur)
         {
             string objet = "Mot de passe oublié";
-            string token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.RéinitialiseMotDePasse);
-            Dictionary<string, string> urlParams = new Dictionary<string, string>
+            string token = await _userManager.GeneratePasswordResetTokenAsync(utilisateur);
+            TokenDaté tokenDaté = new TokenDaté
             {
-                { "id", user.Id }
+                Token = token,
+                Date = DateTime.Now
+            };
+            DateTime finValidité = tokenDaté.Date.Add(DuréeValiditéTokenRéinitialiseMotDePasse);
+            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.RéinitialiseMotDePasse);
+            List<KeyValuePair<string, string>> urlParams = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>( "id", utilisateur.Id )
             };
             string message = "Vous pourrez mettre à jour votre mot de passe";
 
-            await _emailService.EnvoieEmail(user.Email, objet, message, urlBase, token, urlParams);
+            await _emailService.EnvoieEmail(utilisateur.Email, objet, message, urlBase, tokenDaté, finValidité, urlParams);
         }
 
-        public async Task<bool> RéinitialiseMotDePasse(Utilisateur user, string code, string motDePasse)
+        /// <summary>
+        /// Réinitialise le mot de passe d'un utilisateur.
+        /// </summary>
+        /// <param name="id">Id de Utilisateur dont on veut réinitialiser le mot de passe</param>
+        /// <param name="token">PasswordResetToken généré par l'UserManager</param>
+        /// <param name="motDePasse"></param>
+        /// <returns>true, si le mot de passe a été changé; false, sinon.</returns>
+        public async Task<bool> RéinitialiseMotDePasse(string id, string token, string motDePasse)
         {
-            string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            IdentityResult result = await _userManager.ResetPasswordAsync(user, token, motDePasse);
+            Utilisateur utilisateur = await UtilisateurDeId(id);
+            if (utilisateur == null)
+            {
+                return false;
+            }
+            IdentityResult result = await _userManager.ResetPasswordAsync(utilisateur, token, motDePasse);
             return result.Succeeded;
         }
 
@@ -329,25 +367,59 @@ namespace KalosfideAPI.Utilisateurs
             return result.Succeeded;
         }
 
-        public async Task EnvoieEmailChangeEmail(Utilisateur user, string nouvelEmail)
+        /// <summary>
+        /// Durée de validité d'un EmailToken généré par l'UserManager.
+        /// </summary>
+        public TimeSpan DuréeValiditéTokenChangeEmail
+        {
+            get
+            {
+                return new TimeSpan(0, 2, 0);
+            }
+        }
+
+        /// <summary>
+        /// Envoie un email avec un lien ayant en QueryParams l'Id et l'Email de l'utilisateur et un code représentant le cryptage
+        /// d'un TokenDaté contenant un EmailToken généré par l'UserManager et la date d'envoi.
+        /// </summary>
+        /// <param name="utilisateur">Utilisateur qui veut changer d'Email</param>
+        /// <returns></returns>
+        public async Task EnvoieEmailChangeEmail(Utilisateur utilisateur, string nouvelEmail)
         {
             string objet = "Changement d'adresse email";
-            string token = await _userManager.GenerateChangeEmailTokenAsync(user, nouvelEmail);
-            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeChangeEmail);
-            Dictionary<string, string> urlParams = new Dictionary<string, string>
+            string token = await _userManager.GenerateChangeEmailTokenAsync(utilisateur, nouvelEmail);
+            TokenDaté tokenDaté = new TokenDaté
             {
-                { "id", user.Id },
-                { "email", user.Email }
+                Token = token,
+                Date = DateTime.Now
+            };
+            DateTime finValidité = tokenDaté.Date.Add(DuréeValiditéTokenChangeEmail);
+            string urlBase = ClientApp.Url(ClientApp.Compte, ClientApp.ConfirmeChangeEmail);
+            List<KeyValuePair<string, string>> urlParams = new List<KeyValuePair<string, string>>
+            {
+                new KeyValuePair<string, string>("id", utilisateur.Id),
+                new KeyValuePair<string, string>("email", nouvelEmail)
             };
             string message = "Le changement de votre adresse mail sera confirmé";
 
-            await _emailService.EnvoieEmail(nouvelEmail, objet, message, urlBase, token, urlParams);
+            await _emailService.EnvoieEmail(nouvelEmail, objet, message, urlBase, tokenDaté, finValidité, urlParams);
         }
 
-        public async Task<bool> ChangeEmail(Utilisateur user, string nouvelEmail, string code)
+        /// <summary>
+        /// Change l'Email d'un Utilisateur.
+        /// </summary>
+        /// <param name="id">Id de Utilisateur qui veut changer d'Email</param>
+        /// <param name="nouvelEmail"></param>
+        /// <param name="token">EmailToken généré par l'UserManager</param>
+        /// <returns></returns>
+        public async Task<bool> ChangeEmail(string id, string nouvelEmail, string token)
         {
-            string token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
-            IdentityResult result = await _userManager.ChangeEmailAsync(user, nouvelEmail, token);
+            Utilisateur utilisateur = await UtilisateurDeId(id);
+            if (utilisateur == null)
+            {
+                return false;
+            }
+            IdentityResult result = await _userManager.ChangeEmailAsync(utilisateur, nouvelEmail, token);
             return result.Succeeded;
         }
 
@@ -419,7 +491,6 @@ namespace KalosfideAPI.Utilisateurs
                 Id = utilisateur.Id,
                 Date = DateTime.Now,
                 SessionId = utilisateur.SessionId,
-                IdDernierSite = carteUtilisateur.IdDernierSite
             };
             _context.ArchiveUtilisateur.Add(archive);
             await _context.SaveChangesAsync();
@@ -429,6 +500,40 @@ namespace KalosfideAPI.Utilisateurs
         {
             return await _context.Utilisateur
                 .ToListAsync();
+        }
+
+        public async Task<RetourDeService> FixeIdDernierSite(Utilisateur utilisateur, uint id)
+        {
+            ArchiveUtilisateur enregistrée = await _context.ArchiveUtilisateur
+                .Where(a => a.Id == utilisateur.Id && a.IdDernierSite != null)
+                .OrderBy(a => a.Date)
+                .LastOrDefaultAsync();
+            if (enregistrée != null && enregistrée.IdDernierSite == id)
+            {
+                return new RetourDeService(TypeRetourDeService.Ok);
+            }
+            ArchiveUtilisateur archive = new ArchiveUtilisateur
+            {
+                Id = utilisateur.Id,
+                Date = DateTime.Now,
+                IdDernierSite = id
+            };
+            _context.ArchiveUtilisateur.Add(archive);
+            return await SaveChangesAsync();
+        }
+
+        /// <summary>
+        /// Fixe l'UtilisateurId et l'Etat actif du Fournisseur et enregistre dans la bdd.
+        /// </summary>
+        /// <param name="fournisseur">Fournisseur d'une DemandeSite à activer</param>
+        /// <param name="utilisateur">Utilisateur affecté à ce Fournisseur</param>
+        /// <returns></returns>
+        public async Task<RetourDeService> FixeUtilisateur(Fournisseur fournisseur, Utilisateur utilisateur)
+        {
+            fournisseur.UtilisateurId = utilisateur.Id;
+            fournisseur.Etat = EtatRole.Actif;
+            _context.Fournisseur.Update(fournisseur);
+            return await FixeIdDernierSite(utilisateur, fournisseur.Id);
         }
 
     }

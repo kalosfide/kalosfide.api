@@ -56,7 +56,7 @@ namespace KalosfideAPI.CLF
         /// <returns>un CLFDocs dont le champ Documents contient le CLFDoc de la dernière commande du client</returns>
         Task<CLFDocs> CommandeEnCours(uint idClient);
 
-        Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, Site site, TypeCLF type, uint noDoc);
+        Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, TypeCLF type, uint noDoc);
         /// <summary>
         /// Enregistre comme lignes d'un nouveau bon des copies des lignes d'un document précédent
         /// dont le produit est toujours disponible en mettant à jour s'il y a lieu la date du catalogue applicable.
@@ -201,8 +201,8 @@ namespace KalosfideAPI.CLF
         /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.
         /// </summary>
         /// <param name="paramsChercheDoc">key du site, no et type du document</param>
-        /// <returns>un CLFChercheDoc contenant la key et le nom du client et la date si le document recherché existe, vide sinon</returns>
-        Task<CLFChercheDoc> ChercheDocument(ParamsChercheDoc paramsChercheDoc);
+        /// <returns>un CLFDoc contenant la key et le nom du client et la date si le document recherché existe, null sinon</returns>
+        Task<CLFDoc> ChercheDocument(ParamsChercheDoc paramsChercheDoc);
 
         /// <summary>
         /// Retourne un CLFDocs contenant la liste des résumés des documents envoyés à l'utilisateur

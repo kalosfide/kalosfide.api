@@ -1,12 +1,14 @@
 ﻿using KalosfideAPI.Data;
+using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Roles;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Fournisseurs
 {
-    public interface IFournisseurService: IAvecIdUintService<Fournisseur, FournisseurAAjouter, FournisseurAEditer>
+    public interface IFournisseurService: IAvecIdUintService<Fournisseur, FournisseurAAjouter, Fournisseur, FournisseurAEditer>
     {
         /// <summary>
         /// Cherche une demande de création de site à partir de l'Email.
@@ -21,8 +23,21 @@ namespace KalosfideAPI.Fournisseurs
         /// <param name="demande">DemandeSite cherchée</param>
         /// <returns>une DemandeSite qui inclut son Fournisseur avec son Site, si trouvée; null, sinon.</returns>
         Task<DemandeSite> DemandeSiteIdentique(DemandeSite demande);
+        new
 
-        Task<RetourDeService<DemandeSite>> Ajoute(FournisseurAAjouter ajout);
+        /// <summary>
+        /// Ajoute une DemandeSite avec son Fournisseur et son Site. 
+        /// </summary>
+        /// <param name="ajout"></param>
+        /// <param name="modelState">ModelStateDictionary où inscrire les erreurs de validation</param>
+        /// <returns>un Objet contenant l'Id commun aux objets ajoutés et la Date de l'ajout.</returns>
+        Task<RetourDeService<DemandeSiteDate>> Ajoute(FournisseurAAjouter ajout, ModelStateDictionary modelState);
+
+        /// <summary>
+        /// Retourne la liste des DemandeSiteVue des DemandeSite enregistrées avec leurs Fournissuers.
+        /// </summary>
+        /// <returns></returns>
+        Task<List<DemandeSiteVue>> Demandes();
 
         /// <summary>
         /// Supprime une DemandeSite et son Fournisseur de la bdd.
@@ -43,7 +58,7 @@ namespace KalosfideAPI.Fournisseurs
         /// </summary>
         /// <param name="demande">DemandeSite à envoyer</param>
         /// <returns></returns>
-        Task<RetourDeService> EnvoieEmailDemandeSite(DemandeSite demande);
+        Task<RetourDeService<DemandeSiteEnvoi>> EnvoieEmailDemandeSite(DemandeSite demande);
 
         /// <summary>
         /// DemandeSite contenue dans le code du lien envoyé dans le message email d'invitation.
@@ -60,7 +75,12 @@ namespace KalosfideAPI.Fournisseurs
         /// <returns></returns>
         Task<RetourDeService> FixeUtilisateur(Fournisseur fournisseur, Utilisateur utilisateur);
 
+        /// <summary>
+        /// Retourne la liste des FournisseurVue des Fournissuers qui ont un Utilisateur.
+        /// </summary>
+        /// <returns></returns>
         Task<List<FournisseurVue>> Fournisseurs();
+
         Task<FournisseurVue> LitFournisseur(uint idFournisseur);
 
         Task<RetourDeService<RoleEtat>> ChangeEtat(Fournisseur fournisseur, EtatRole etat);

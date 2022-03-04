@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
@@ -16,7 +17,7 @@ namespace KalosfideAPI.Data
         public string Email { get; set; }
 
         /// <summary>
-        /// Id du Fournisseur
+        /// Id du Fournisseur et du Site créés à l'enregistrement de la demande.
         /// </summary>
         [Required]
         public uint Id { get; set; }
@@ -29,9 +30,10 @@ namespace KalosfideAPI.Data
         /// <summary>
         /// Date d'envoi du message d'activation.
         /// </summary>
-        public DateTime Envoi { get; set; }
+        public DateTime? Envoi { get; set; }
 
         // navigation
+        [JsonIgnore]
         public virtual Fournisseur Fournisseur { get; set; }
 
         // création
@@ -43,7 +45,7 @@ namespace KalosfideAPI.Data
 
             entité.HasOne(donnée => donnée.Fournisseur).WithOne().HasForeignKey<DemandeSite>(i => i.Id).OnDelete(DeleteBehavior.Cascade);
 
-            entité.ToTable("InvitationsSite");
+            entité.ToTable("DemandesSite");
         }
     }
 }

@@ -40,7 +40,7 @@ namespace KalosfideAPI.Migrations
                     LockoutEnd = table.Column<DateTimeOffset>(nullable: true),
                     LockoutEnabled = table.Column<bool>(nullable: false),
                     AccessFailedCount = table.Column<int>(nullable: false),
-                    Etat = table.Column<int>(nullable: false, defaultValue: 0),
+                    Etat = table.Column<int>(nullable: false, defaultValue: 1),
                     SessionId = table.Column<int>(nullable: false, defaultValue: 0)
                 },
                 constraints: table =>
@@ -76,7 +76,7 @@ namespace KalosfideAPI.Migrations
                     Id = table.Column<string>(nullable: false),
                     Date = table.Column<DateTime>(nullable: false),
                     Email = table.Column<string>(nullable: true),
-                    Etat = table.Column<int>(nullable: false),
+                    Etat = table.Column<int>(nullable: true),
                     IdDernierSite = table.Column<long>(nullable: true),
                     SessionId = table.Column<int>(nullable: true)
                 },
@@ -226,19 +226,19 @@ namespace KalosfideAPI.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "InvitationsSite",
+                name: "DemandesSite",
                 columns: table => new
                 {
                     Email = table.Column<string>(nullable: false),
                     Id = table.Column<long>(nullable: false),
                     Date = table.Column<DateTime>(nullable: false),
-                    Envoi = table.Column<DateTime>(nullable: false)
+                    Envoi = table.Column<DateTime>(nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_InvitationsSite", x => x.Email);
+                    table.PrimaryKey("PK_DemandesSite", x => x.Email);
                     table.ForeignKey(
-                        name: "FK_InvitationsSite_Fournisseur_Id",
+                        name: "FK_DemandesSite_Fournisseur_Id",
                         column: x => x.Id,
                         principalTable: "Fournisseur",
                         principalColumn: "Id",
@@ -253,18 +253,11 @@ namespace KalosfideAPI.Migrations
                     Url = table.Column<string>(maxLength: 200, nullable: true),
                     Titre = table.Column<string>(maxLength: 200, nullable: true),
                     Ouvert = table.Column<bool>(nullable: false, defaultValue: false),
-                    DateCatalogue = table.Column<DateTime>(nullable: true),
-                    FournisseurId = table.Column<long>(nullable: true)
+                    DateCatalogue = table.Column<DateTime>(nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Sites", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_Sites_Fournisseur_FournisseurId",
-                        column: x => x.FournisseurId,
-                        principalTable: "Fournisseur",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_Sites_Fournisseur_Id",
                         column: x => x.Id,
@@ -369,8 +362,8 @@ namespace KalosfideAPI.Migrations
                     Id = table.Column<long>(nullable: false),
                     Nom = table.Column<string>(maxLength: 200, nullable: false),
                     CategorieId = table.Column<long>(nullable: false),
-                    TypeMesure = table.Column<int>(nullable: false, defaultValue: 0),
-                    TypeCommande = table.Column<int>(nullable: false, defaultValue: 0),
+                    TypeMesure = table.Column<int>(nullable: false, defaultValue: 1),
+                    TypeCommande = table.Column<int>(nullable: false, defaultValue: 1),
                     Prix = table.Column<decimal>(type: "decimal(7,2)", nullable: false, defaultValue: 0m),
                     Disponible = table.Column<bool>(nullable: false),
                     Date = table.Column<DateTime>(nullable: false),
@@ -424,7 +417,6 @@ namespace KalosfideAPI.Migrations
                     Id = table.Column<long>(nullable: false),
                     No = table.Column<long>(nullable: false),
                     Type = table.Column<int>(nullable: false),
-                    SiteId = table.Column<long>(nullable: false),
                     Date = table.Column<DateTime>(nullable: true),
                     NoGroupe = table.Column<long>(nullable: true),
                     NbLignes = table.Column<int>(nullable: true),
@@ -601,6 +593,12 @@ namespace KalosfideAPI.Migrations
                 column: "UtilisateurId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_DemandesSite_Id",
+                table: "DemandesSite",
+                column: "Id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Fournisseur_UtilisateurId",
                 table: "Fournisseur",
                 column: "UtilisateurId");
@@ -616,12 +614,6 @@ namespace KalosfideAPI.Migrations
                 name: "IX_Invitation_Id",
                 table: "Invitation",
                 column: "Id");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_InvitationsSite_Id",
-                table: "InvitationsSite",
-                column: "Id",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Lignes_ProduitId",
@@ -648,11 +640,6 @@ namespace KalosfideAPI.Migrations
                 table: "Produits",
                 columns: new[] { "Id", "Nom" },
                 unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Sites_FournisseurId",
-                table: "Sites",
-                column: "FournisseurId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Sites_Url",
@@ -708,10 +695,10 @@ namespace KalosfideAPI.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
-                name: "Invitation");
+                name: "DemandesSite");
 
             migrationBuilder.DropTable(
-                name: "InvitationsSite");
+                name: "Invitation");
 
             migrationBuilder.DropTable(
                 name: "Lignes");

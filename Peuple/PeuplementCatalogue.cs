@@ -23,8 +23,8 @@ namespace KalosfideAPI.Peuple
             Random random = new Random();
             Array types = Enum.GetValues(typeof(TypeMesure));
             TypeMesure typeMesure = (TypeMesure)types.GetValue(random.Next(types.Length));
-            types = Enum.GetValues(typeof(TypeCommande));
-            TypeCommande typeCommande = (TypeCommande)types.GetValue(random.Next(types.Length));
+            TypeCommande[] typesCommande = Data.Produit.TypesCommandeCompatibles(typeMesure);
+            TypeCommande typeCommande = typesCommande[random.Next(typesCommande.Length)];
             decimal prix = .01m * Prix[random.Next(Prix.Length - 1)];
             bool disponible = random.Next(100) >= 5;
             Produit produit = new Produit
