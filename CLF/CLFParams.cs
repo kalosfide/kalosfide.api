@@ -20,7 +20,7 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient l'Id du client, le No du document et la date du catalogue du site.
+    /// Contient l'Id du client, le No du document et, si l'utilisateur est le client, la date du catalogue chargé par l'utilisateur.
     /// </summary>
     public class ParamsKeyDoc: IKeyDocSansType
     {
@@ -41,7 +41,7 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient l'Id du client et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client et, si l'utilisateur est le client, la date du catalogue chargé par l'utilisateur.
     /// </summary>
     public class ParamsKeyClient
     {
@@ -57,7 +57,18 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient l'Id du client, le No du document, le ProduitId de la ligne et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client et, si l'utilisateur est le client, la date du catalogue chargé par l'utilisateur.
+    /// </summary>
+    public class ParamsCréeBon: ParamsKeyClient
+    {
+        /// <summary>
+        /// Indique s'il faut copier les lignes.
+        /// </summary>
+        public bool? Copie { get; set; }
+    }
+
+    /// <summary>
+    /// Contient l'Id du client, le No du document, le ProduitId de la ligne et, si l'utilisateur est le client, la date du catalogue chargé par l'utilisateur.
     /// </summary>
     public class ParamsSupprimeLigne: ParamsKeyDoc
     {
@@ -68,7 +79,7 @@ namespace KalosfideAPI.CLF
     }
 
     /// <summary>
-    /// Contient l'Id du client, le No du document, le ProduitId et la Date de la ligne et la date du catalogue de l'utilisateur.
+    /// Contient l'Id du client, le No du document, le ProduitId et la Date de la ligne et, si l'utilisateur est le client, la date du catalogue chargé par l'utilisateur.
     /// </summary>
     public class ParamsKeyLigne : IKeyLigneSansType
     {
@@ -157,7 +168,7 @@ namespace KalosfideAPI.CLF
         /// </summary>
         public DateTime? DateMin { get; set; }
 
-        /// <summary>
+        /// <summary>  
         /// Date maximum des documents à retourner
         /// </summary>
         public DateTime? DateMax { get; set; }

@@ -66,6 +66,11 @@ namespace KalosfideAPI.Catégories
             dValideSupprime = ValideSupprime;
         }
 
+        public async Task<Catégorie> CatégorieDeNom(string nom)
+        {
+            return await _dbSet.Where(c => c.Nom == nom).FirstOrDefaultAsync();
+        }
+
         public async Task<bool> NomPris(string nom)
         {
             return await _dbSet.Where(c => c.Nom == nom).AnyAsync();

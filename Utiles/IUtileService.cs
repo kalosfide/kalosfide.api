@@ -18,13 +18,6 @@ namespace KalosfideAPI.Utiles
         Task<int> NbDisponibles(uint idSite);
 
         /// <summary>
-        /// Cherche un Client à partir de son Id.
-        /// </summary>
-        /// <param name="idClient">Id du client</param>
-        /// <returns>le Client qui inclut son Site, si trouvé; null, sinon</returns>
-        Task<Client> ClientAvecSite(uint idClient);
-
-        /// <summary>
         /// Cherche un Produit à partir de son Id.
         /// </summary>
         /// <param name="idProduit">Id du Produit</param>

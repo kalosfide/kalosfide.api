@@ -1,10 +1,7 @@
 ﻿using System.Threading.Tasks;
 using KalosfideAPI.Data;
-using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
-using KalosfideAPI.Sites;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -31,7 +28,7 @@ namespace KalosfideAPI.Catégories
         [ProducesResponseType(409)] // Conflict
         public new async Task<IActionResult> Ajoute(CatégorieAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -58,7 +55,7 @@ namespace KalosfideAPI.Catégories
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -85,7 +82,7 @@ namespace KalosfideAPI.Catégories
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(catégorie.SiteId, PermissionsEtatRole.PasInactif);
             return  await Supprime(carte, catégorie);
         }
 

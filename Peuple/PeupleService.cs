@@ -1,15 +1,19 @@
 ﻿using KalosfideAPI.Catégories;
+using KalosfideAPI.CLF;
 using KalosfideAPI.Clients;
 using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Fournisseurs;
 using KalosfideAPI.Partages;
+using KalosfideAPI.Préférences;
 using KalosfideAPI.Produits;
 using KalosfideAPI.Sites;
+using KalosfideAPI.Utiles;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -23,6 +27,8 @@ namespace KalosfideAPI.Peuple
         private readonly IClientService _clientService;
         private readonly ICatégorieService _catégorieService;
         private readonly IProduitService _produitService;
+        private readonly ICLFService _clfService;
+        private readonly IPréférenceService _préférenceService;
 
         public PeupleService(ApplicationContext context,
             IUtilisateurService utilisateurService,
@@ -30,7 +36,9 @@ namespace KalosfideAPI.Peuple
             ISiteService siteService,
             IClientService clientService,
             ICatégorieService catégorieService,
-            IProduitService produitService
+            IProduitService produitService,
+            ICLFService clfService,
+            IPréférenceService préférenceService
             ) : base(context)
         {
             _utilisateurService = utilisateurService;
@@ -39,6 +47,8 @@ namespace KalosfideAPI.Peuple
             _clientService = clientService;
             _catégorieService = catégorieService;
             _produitService = produitService;
+            _clfService = clfService;
+            _préférenceService = préférenceService;
         }
 
         public async Task<bool> EstPeuplé()
@@ -133,27 +143,19 @@ namespace KalosfideAPI.Peuple
             peupleId.Fournisseur = id;
 
             RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
-            if (vue.Clients != null)
-            {
-                for (int i = 0; i < vue.Clients.Length && retour.Ok; i++)
-                {
-                    retour = await AjouteClient(vue.Clients[i], peupleId);
-                }
-            }
-            if (vue.ClientsSansCompte.HasValue)
-            {
-                for (int i = 0; i < vue.ClientsSansCompte.Value && retour.Ok; i++, id++)
-                {
-                    retour = await AjouteClient(peupleId);
-                }
 
-            }
+            PeuplementCatalogue catalogue = null;
             if (vue.Produits.HasValue)
             {
+                retour = await _préférenceService.Ajoute(new Préférence { Id = PréférenceId.UsageCatégories, SiteId = id, UtilisateurId = "tous", Valeur = "2" });
+                if (!retour.Ok)
+                {
+                    return retour;
+                }
                 DateTime dateDébut = DateTime.Now;
                 int nbProduits = vue.Produits.Value;
                 int nbCatégories = vue.Catégories ?? 1;
-                PeuplementCatalogue catalogue = new PeuplementCatalogue(fournisseur.Id, nbCatégories, nbProduits, peupleId);
+                catalogue = new PeuplementCatalogue(fournisseur.Id, nbCatégories, nbProduits, peupleId);
                 for (int j = 0; j < nbCatégories && retour.Ok; j++)
                 {
                     retour = await _catégorieService.AjouteSansValider(catalogue.Catégories.ElementAt(j));
@@ -171,6 +173,43 @@ namespace KalosfideAPI.Peuple
                     retour = await _siteService.TermineEtatCatalogue(fournisseur.Site, dateFin);
                 }
             }
+
+            List<Client> clients = new List<Client>();
+            if (vue.Clients != null)
+            {
+                for (int i = 0; i < vue.Clients.Length && retour.Ok; i++)
+                {
+                    retour = await AjouteClient(vue.Clients[i], peupleId, clients);
+                }
+            }
+            if (vue.ClientsSansCompte.HasValue)
+            {
+                for (int i = 0; i < vue.ClientsSansCompte.Value && retour.Ok; i++, id++)
+                {
+                    retour = await AjouteClient(peupleId);
+                }
+            }
+
+            if (!retour.Ok || catalogue == null || clients.Count == 0)
+            {
+                return retour;
+            }
+
+            Client client = clients[0];
+            retour = await _clientService.Active(client);
+            if (!retour.Ok)
+            {
+                return retour;
+            }
+            uint noBon = 1;
+            List<DocCLF> commandes = new List<DocCLF>();
+            RetourDeService<DocCLF> retourBon = await AjouteCommande(client.Id, catalogue.Produits, noBon++, fournisseur.Site);
+            if (!retourBon.Ok)
+            {
+                return new RetourDeService(retourBon);
+            }
+            commandes.Add(retourBon.Entité);
+            retour = await ModifieCatalogue(catalogue.Produits, fournisseur.Site);
             return retour;
         }
 
@@ -180,7 +219,7 @@ namespace KalosfideAPI.Peuple
         /// <param name="vue">PeupleClientVue définissant le Client à créer</param>
         /// <param name="peupleId">PeupleId contenant les Id des derniers objets créés</param>
         /// <returns></returns>
-        private async Task<RetourDeService> AjouteClient(PeupleClientVue vue, PeupleId peupleId)
+        private async Task<RetourDeService> AjouteClient(PeupleClientVue vue, PeupleId peupleId, List<Client> clients)
         {
             uint id = peupleId.Client + 1;
             RetourDeService<Utilisateur> retourUtilisateur = await Utilisateur(vue);
@@ -201,6 +240,7 @@ namespace KalosfideAPI.Peuple
             if (retour.Ok)
             {
                 peupleId.Client = id;
+                clients.Add(client);
                 await _utilisateurService.FixeIdDernierSite(utilisateur, client.SiteId);
             }
             return retour;
@@ -229,6 +269,153 @@ namespace KalosfideAPI.Peuple
                 peupleId.Client = id;
             }
             return retour;
+        }
+
+        private async Task<RetourDeService> ModifieCatalogue(List<Produit> produits, Site site)
+        {
+            RetourDeService retour = await _siteService.CommenceEtatCatalogue(site);
+            DateTime dateDébut = DateTime.Now;
+            int nbProduits = produits.Count;
+
+            Hasard<decimal> augmentations = new Hasard<decimal>(new List<ItemAvecPoids<decimal>>
+            {
+                new ItemAvecPoids<decimal>(0, 40),
+                new ItemAvecPoids<decimal>(10, 30),
+                new ItemAvecPoids<decimal>(20, 30),
+                new ItemAvecPoids<decimal>(-10, 10)
+                });
+            Hasard<bool> rendIndispo = new Hasard<bool>(new List<ItemAvecPoids<bool>>
+            {
+                new ItemAvecPoids<bool>(true, 1),
+                new ItemAvecPoids<bool>(false, 9)
+                });
+            Hasard<bool> rendDispo = new Hasard<bool>(new List<ItemAvecPoids<bool>>
+            {
+                new ItemAvecPoids<bool>(true, 2),
+                new ItemAvecPoids<bool>(false, 1)
+                });
+
+            for (int j = 0; j < nbProduits && retour.Ok; j++)
+            {
+                Produit produit = await _produitService.Lit(produits.ElementAt(j).Id);
+                decimal? prix = null;
+                decimal augmentation = augmentations.Suivant();
+                if (augmentation != 0)
+                {
+                    prix = produit.Prix * (1m + augmentation / 100m);
+                }
+                bool? disponible = null;
+                if (produit.Disponible)
+                {
+                    bool change = rendIndispo.Suivant();
+                    if (change)
+                    {
+                        disponible = false;
+                    }
+                }
+                else
+                {
+                    bool change = rendDispo.Suivant();
+                    if (change)
+                    {
+                        disponible = true;
+                    }
+
+                }
+
+                if (prix.HasValue || disponible.HasValue)
+                {
+                    ProduitAEditer produitAEditer = new ProduitAEditer
+                    {
+                        Prix = prix,
+                        Disponible = disponible
+                    };
+                    retour = await _produitService.Edite(produit, produitAEditer);
+
+                }
+            }
+            DateTime dateFin = DateTime.Now;
+            await _produitService.TermineModification(site.Id, dateDébut, dateFin);
+            if (nbProduits > 0)
+            {
+                retour = await _siteService.TermineEtatCatalogue(site, dateFin);
+            }
+            return retour;
+        }
+
+        private async Task<RetourDeService<DocCLF>> AjouteCommande(uint idClient, List<Produit> produits, uint no, Site site)
+        {
+            RetourDeService<DocCLF> retourBon = new RetourDeService<DocCLF>(TypeRetourDeService.Ok);
+            List<Produit> disponibles = produits.Where(p => p.Disponible).ToList();
+            if (disponibles.Count == 0)
+            {
+                return retourBon;
+            }
+            retourBon = await _clfService.AjouteBon(idClient, TypeCLF.Commande, no);
+            if (retourBon.Ok)
+            {
+                RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
+                DocCLF docCLF = retourBon.Entité;
+                for (int i = 0; i < disponibles.Count && retour.Ok; i++)
+                {
+                    Produit produit = disponibles[i];
+                    CLFLigne ligne = new CLFLigne
+                    {
+                        Id = idClient,
+                        No = no,
+                        ProduitId = produit.Id,
+                        Quantité = 10,
+                    };
+                    retour = await _clfService.AjouteLigneCommande(produit, ligne);
+                }
+                if (retour.Ok)
+                {
+                    retour = await _clfService.EnvoiCommande(site, docCLF);
+                }
+                else
+                {
+                    retourBon = new RetourDeService<DocCLF>(retour);
+                }
+            }
+            return retourBon;
+
+        }
+
+        private async Task<RetourDeService> AjouteLivraison(uint idClient, List<Produit> produits, uint no, Site site)
+        {
+            RetourDeService retour = new RetourDeService(TypeRetourDeService.Ok);
+            List<Produit> disponibles = produits.Where(p => p.Disponible).ToList();
+            if (disponibles.Count == 0)
+            {
+                return retour;
+            }
+            RetourDeService<DocCLF> retourBon = await _clfService.AjouteBon(idClient, TypeCLF.Commande, no);
+            if (retourBon.Ok)
+            {
+                DocCLF docCLF = retourBon.Entité;
+                for (int i = 0; i < disponibles.Count && retour.Ok; i++)
+                {
+                    Produit produit = disponibles[i];
+                    CLFLigne ligne = new CLFLigne
+                    {
+                        Id = idClient,
+                        No = no,
+                        ProduitId = produit.Id,
+                        Quantité = 10,
+                    };
+                    retour = await _clfService.AjouteLigneCommande(produit, ligne);
+                }
+                if (retour.Ok)
+                {
+                    retour = await _clfService.EnvoiCommande(site, docCLF);
+                }
+            }
+            else
+            {
+                retour = new RetourDeService(retourBon);
+            }
+            return retour;
+
         }
 
         public async Task<RetourDeService> Peuple()

@@ -55,19 +55,10 @@ namespace KalosfideAPI.Clients
             _emailService = emailService;
         }
 
-        public async Task<bool> NomPris(string nom)
-        {
-            return await _dbSet.Where(c => c.Nom == nom).AnyAsync();
-        }
-
-        public async Task<bool> NomPrisParAutre(uint id, string nom)
-        {
-            return await _dbSet.Where(c => c.Nom == nom && c.Id != id).AnyAsync();
-        }
-
         private async Task ValideAjoute(Client donnée, ModelStateDictionary modelState)
         {
-            if (await NomPris(donnée.Nom))
+            bool nomPris = await _dbSet.Where(c => c.SiteId == donnée.SiteId && c.Nom == donnée.Nom).AnyAsync();
+            if (nomPris)
             {
                 ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }
@@ -75,7 +66,8 @@ namespace KalosfideAPI.Clients
 
         private async Task ValideEdite(Client donnée, ModelStateDictionary modelState)
         {
-            if (await NomPrisParAutre(donnée.Id, donnée.Nom))
+            bool nomPris = await _dbSet.Where(c => c.Id != donnée.Id && c.SiteId == donnée.SiteId && c.Nom == donnée.Nom).AnyAsync();
+            if (nomPris)
             {
                 ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }
@@ -83,12 +75,18 @@ namespace KalosfideAPI.Clients
 
         private async Task ValideSupprime(Client donnée, ModelStateDictionary modelState)
         {
-            bool avecDocs = await _context.Docs
-                .Where(doc => donnée.Id == doc.Id)
-                .AnyAsync();
-            if (avecDocs)
+            if (donnée.UtilisateurId != null)
             {
-                ErreurDeModel.AjouteAModelState(modelState, "nonVide");
+                // l'utilisateur est le fournisseur du site mais le client gère son compte
+                ErreurDeModel.AjouteAModelState(modelState, "Il est impossible de supprimer un client qui gère son compte.");
+            }
+
+            bool avecDocsNonVirtuels = await _context.Doc
+                .Where(doc => donnée.Id == doc.Id && doc.No != 0)
+                .AnyAsync();
+            if (avecDocsNonVirtuels)
+            {
+                ErreurDeModel.AjouteAModelState(modelState, "Il est impossible de supprimer un client qui a des documents");
             }
         }
 
@@ -145,38 +143,44 @@ namespace KalosfideAPI.Clients
 
         private async Task<ClientEtatVue> ClientEtatVue(Client client)
         {
-            ArchiveClient archive = client.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date).Last();
             ClientEtatVue vue = new ClientEtatVue
             {
                 Id = client.Id,
-                    Date0 = client.Archives.First().Date,
-                    Email = client.Utilisateur?.Email,
+                Date0 = client.Archives.First().Date,
+                Email = client.Utilisateur?.Email,
             };
             Client.CopieData(client, vue);
+
+            ArchiveClient archive = client.Archives.Where(a => a.Etat != null).OrderBy(a => a.Date).Last();
+
+            bool étatInactifFini = false;
             if (archive.Etat == EtatRole.Inactif)
             {
                 DateTime finit = archive.Date.AddDays(Client.NbJoursInactifAvantExclu);
                 if (DateTime.Now > finit)
                 {
-                    // changer l'état
-                    await ChangeEtat(client, EtatRole.Fermé);
-                    vue.Etat = EtatRole.Fermé;
-                    vue.DateEtat = DateTime.Now;
+                    étatInactifFini = true;
                 }
             }
-            else
+            if (étatInactifFini)
             {
-                vue.Etat = client.Etat;
-                vue.DateEtat = archive.Date;
-                if (archive.Etat == EtatRole.Actif)
-                {
-                    bool avecDocuments = await _context.Docs
-                        .Where(d => d.Id == archive.Id)
-                        .Include(d => d.Lignes)
-                        .Where(d => d.Lignes.Any())
-                        .AnyAsync();
-                    vue.AvecDocuments = avecDocuments;
-                }
+                // changer l'état
+                await ChangeEtat(client, EtatRole.Fermé);
+                vue.Etat = EtatRole.Fermé;
+                vue.DateEtat = DateTime.Now;
+                return vue;
+            }
+
+            vue.Etat = client.Etat;
+            vue.DateEtat = archive.Date;
+            if (vue.Etat == EtatRole.Actif)
+            {
+                bool avecDocuments = await _context.Doc
+                    .Where(d => d.Id == archive.Id)
+                    .Include(d => d.Lignes)
+                    .Where(d => d.Lignes.Any())
+                    .AnyAsync();
+                vue.AvecDocuments = avecDocuments;
             }
             return vue;
         }
@@ -186,10 +190,9 @@ namespace KalosfideAPI.Clients
         /// et n'ayant pas d'Utilisateur ou ayant un Utilisateur d'Etat permis.
         /// </summary>
         /// <param name="idSite">Id du site</param>
-        /// <param name="permissionsClient">Array des EtatClient permis</param>
-        /// <param name="étatsUtilisateurPermis">Array des EtatUtilisateur permis</param>
+        /// <param name="permissionsUtilisateur">Array des EtatUtilisateur permis</param>
         /// <returns></returns>
-        public async Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatRole permissionsClient, PermissionsEtatUtilisateur permissionsUtilisateur)
+        public async Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatUtilisateur permissionsUtilisateur)
         {
             List<Client> clients = await _context.Client
                 .Where(client => client.SiteId == idSite)
@@ -200,8 +203,7 @@ namespace KalosfideAPI.Clients
             foreach (Client client in clients)
             {
                 ClientEtatVue vue = await ClientEtatVue(client);
-                if ((client.Utilisateur == null || permissionsUtilisateur.Permet(client.Utilisateur.Etat))
-                    && permissionsClient.Permet(client.Etat))
+                if (client.Utilisateur == null || permissionsUtilisateur.Permet(client.Utilisateur.Etat))
                 {
                     vues.Add(vue);
                 }
@@ -442,9 +444,9 @@ namespace KalosfideAPI.Clients
         /// <summary>
         /// Supprime toutes les modifications apportées à la bdd depuis et y compris la création du Client sur Invitation
         /// </summary>
-        /// <param name="clientNouveau">Client qui a été créé en répondant à une Invitation</param>
+        /// <param name="clientNouveau">Client d'Etat Nouveau qui a été créé en répondant à une Invitation</param>
         /// <returns>RetourDeService  d'un ClientEtatVue contenant un Client identique à celui que l'Invitation invitait à gérer s'il y en avait un, null sinon</returns>
-        public new async Task<RetourDeService<ClientEtatVue>> Supprime(Client clientNouveau)
+        public async Task<RetourDeService<ClientEtatVue>> Rétablit(Client clientNouveau)
         {
             Client rétabli = null;
             ClientEtatVue vue = null;
@@ -526,13 +528,13 @@ namespace KalosfideAPI.Clients
                 // date du passage à l'état nouveau
                 DateTime dateCréation = archives.ElementAt(indexCréation).Date;
                 // on doit attribuer au client créé les documents et les lignes du client créés avant le passage à l'état nouveau
-                List<DocCLF> anciensDocs = await _context.Docs
+                List<DocCLF> anciensDocs = await _context.Doc
                     .Where(d => d.Id == clientNouveau.Id && d.Date < dateCréation)
                     .ToListAsync();
                 // s'il n'y a pas de documents, il n'y a rien à réattribuer
                 if (anciensDocs.Count != 0)
                 {
-                    List<LigneCLF> anciennesLignes = await _context.Lignes
+                    List<LigneCLF> anciennesLignes = await _context.Ligne
                         .Where(l => l.Id == clientNouveau.Id && anciensDocs.Where(d => d.No == l.No).Any())
                         .ToListAsync();
                     // s'il n'y a pas de lignes, il n'y a rien à réattribuer
@@ -545,11 +547,11 @@ namespace KalosfideAPI.Clients
                         List<LigneCLF> nouvellesLignes = anciennesLignes
                             .Select(l => LigneCLF.Clone(rétabli.Id, l))
                             .ToList();
-                        _context.Docs.AddRange(nouveauxDocs);
+                        _context.Doc.AddRange(nouveauxDocs);
                         retour = await SaveChangesAsync();
                         if (retour.Ok)
                         {
-                            _context.Lignes.AddRange(nouvellesLignes);
+                            _context.Ligne.AddRange(nouvellesLignes);
                             retour = await SaveChangesAsync();
                         }
                         if (!retour.Ok)
@@ -580,7 +582,7 @@ namespace KalosfideAPI.Clients
                 return await ChangeEtat(clientActif, EtatRole.Inactif);
             }
             // le compte est géré par le fournisseur, il faut le fermer s'il y a des documents avec des lignes, le supprimer sinon
-            bool avecLignes = await _context.Lignes
+            bool avecLignes = await _context.Ligne
                 .Where(l => l.Id == clientActif.Id)
                 .AnyAsync();
             if (avecLignes)

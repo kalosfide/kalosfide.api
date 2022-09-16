@@ -1,6 +1,8 @@
 ﻿using System.Threading.Tasks;
+using KalosfideAPI.Catégories;
 using KalosfideAPI.Data;
 using KalosfideAPI.Partages;
+using KalosfideAPI.Préférences;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
@@ -13,8 +15,12 @@ namespace KalosfideAPI.Produits
     [Authorize]
     public class ProduitController : AvecIdUintController<Produit, ProduitAAjouter, ProduitAEnvoyer, ProduitAEditer>
     {
-        public ProduitController(IProduitService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
+        private readonly IPréférenceService _préférenceService;
+        private readonly ICatégorieService _catégorieService;
+        public ProduitController(ICatégorieService catégorieService, IPréférenceService préférenceService, IProduitService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
+            _catégorieService = catégorieService;
+            _préférenceService = préférenceService;
         }
 
         private IProduitService Service { get => __service as IProduitService; }
@@ -27,7 +33,7 @@ namespace KalosfideAPI.Produits
         [ProducesResponseType(409)] // Conflict
         public async new Task<IActionResult> Ajoute(ProduitAAjouter ajout)
         {
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(ajout.SiteId, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -36,6 +42,32 @@ namespace KalosfideAPI.Produits
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+            bool avecCatégories = await _préférenceService.AvecCatégories(ajout.SiteId);
+            if (!avecCatégories)
+            {
+                string nomSansCatégorie = _préférenceService.NomSansCatégorie();
+                Catégorie catégorieSansCatégorie = await _catégorieService.CatégorieDeNom(nomSansCatégorie);
+                uint idSansCatégorie;
+                if (catégorieSansCatégorie == null)
+                {
+                    CatégorieAAjouter catégorieAAjouter = new CatégorieAAjouter
+                    {
+                        Nom = nomSansCatégorie,
+                        SiteId = ajout.SiteId
+                    };
+                    RetourDeService<CatégorieAEnvoyer> retour = await _catégorieService.Ajoute(catégorieAAjouter, ModelState);
+                    if (!retour.Ok)
+                    {
+                        return SaveChangesActionResult(retour);
+                    }
+                    idSansCatégorie = retour.Entité.Id;
+                }
+                else
+                {
+                    idSansCatégorie = catégorieSansCatégorie.Id;
+                }
+                ajout.CategorieId = idSansCatégorie;
             }
             return await base.Ajoute(ajout);
         }
@@ -55,7 +87,7 @@ namespace KalosfideAPI.Produits
                 return NotFound();
             }
             bool disponible = produit.Disponible;
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
                 return carte.Erreur;
@@ -90,7 +122,7 @@ namespace KalosfideAPI.Produits
             {
                 return NotFound();
             }
-            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.Actif);
+            CarteUtilisateur carte = await CréeCarteFournisseurCatalogue(produit.SiteId, PermissionsEtatRole.PasInactif);
             return await Supprime(carte, produit);
         }
 

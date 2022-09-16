@@ -1,7 +1,7 @@
 ﻿using KalosfideAPI.Data;
 using KalosfideAPI.Data.Constantes;
 using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Erreurs;
+using KalosfideAPI.Fournisseurs;
 using KalosfideAPI.Partages;
 using KalosfideAPI.Sécurité;
 using KalosfideAPI.Sites;
@@ -26,16 +26,19 @@ namespace KalosfideAPI.Catalogues
         private readonly ICatalogueService _service;
         private readonly IUtileService _utile;
         private readonly ISiteService _siteService;
+        private readonly IFournisseurService _fournisseurService;
 
         public CatalogueController(ICatalogueService service,
             IUtileService utile,
             IUtilisateurService utilisateurService,
-            ISiteService siteService
+            ISiteService siteService,
+            IFournisseurService fournisseurService
             ) : base(utilisateurService)
         {
             _service = service;
             _utile = utile;
             _siteService = siteService;
+            _fournisseurService = fournisseurService;
         }
 
         #region Lectures
@@ -149,7 +152,7 @@ namespace KalosfideAPI.Catalogues
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Termine([FromQuery] uint id)
         {
-            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.Actif);
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.PasInactif);
             if (carteUtilisateur.Erreur != null)
             {
                 return carteUtilisateur.Erreur;
@@ -168,14 +171,24 @@ namespace KalosfideAPI.Catalogues
             {
                 return RésultatBadRequest("catalogueVide");
             }
+
+            // date commune à tous les enregistrement
             DateTime maintenant = DateTime.Now;
+            // enregistre les archives des produits modifiés apportées depuis le commencement de la modification
             bool modifié = await _service.ArchiveModifications(site, maintenant);
             DateTime? dateCatalogue = null;
             if (modifié)
             {
                 dateCatalogue = maintenant;
             }
-            RetourDeService<ArchiveSite> retour = await _siteService.TermineEtatCatalogue(site, dateCatalogue);
+            // enregistre l'ouverture du site et archive avec éventuellement la date de la fin de la modification du catalogue
+            RetourDeService retour = await _siteService.TermineEtatCatalogue(site, dateCatalogue);
+
+            // la fin de la première modification du catalogue fait passer le Fournisseur de l'état Nouveau à l'état Actif
+            if (carteUtilisateur.Fournisseur.Etat == EtatRole.Nouveau)
+            {
+                retour = await _fournisseurService.ChangeEtat(carteUtilisateur.Fournisseur, EtatRole.Actif);
+            }
 
             if (retour.Ok)
             {

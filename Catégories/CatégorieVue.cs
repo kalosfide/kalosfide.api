@@ -56,6 +56,26 @@ namespace KalosfideAPI.Catégories
         /// <param name="archives">archives d'une catégorie</param>
         /// <param name="date">date d'une fin de modification de catalogue passée</param>
         /// <returns></returns>
+        public static CatégorieAEnvoyer ALaDate(Catégorie catégorie, DateTime date)
+        {
+            ArchiveCatégorie[] archivesAvantDate = catégorie.Archives.Where(a => a.Date < date).OrderBy(a => a.Date).ToArray();
+            CatégorieAEnvoyer catégorieDeCatalogue = new CatégorieAEnvoyer(archivesAvantDate.First().Id)
+            {
+                Date = date
+            };
+            foreach (ArchiveCatégorie archive in archivesAvantDate)
+            {
+                Catégorie.CopieDataSiPasNull(archive, catégorieDeCatalogue);
+            }
+            return catégorieDeCatalogue;
+        }
+
+        /// <summary>
+        /// Retrouve l'état d'une catégorie à une date passée.
+        /// </summary>
+        /// <param name="archives">archives d'une catégorie</param>
+        /// <param name="date">date d'une fin de modification de catalogue passée</param>
+        /// <returns></returns>
         public static CatégorieAEnvoyer ALaDate(IEnumerable<ArchiveCatégorie> archives, DateTime date)
         {
             ArchiveCatégorie[] archivesAvantDate = archives.Where(a => a.Date < date).OrderBy(a => a.Date).ToArray();

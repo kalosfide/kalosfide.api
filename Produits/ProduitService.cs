@@ -118,7 +118,7 @@ namespace KalosfideAPI.Produits
 
         private async Task ValideSupprime(Produit donnée, ModelStateDictionary modelState)
         {
-            bool avecCommandes = await _context.Lignes
+            bool avecCommandes = await _context.Ligne
                 .Where(l => l.ProduitId == donnée.Id)
                 .AnyAsync();
             if (avecCommandes)
@@ -199,7 +199,7 @@ namespace KalosfideAPI.Produits
         /// <returns></returns>
         public async Task SupprimeLignesCommandesPasEnvoyées(Produit produit)
         {
-            List<DocCLF> commandesPasEnvoyées = await _context.Docs
+            List<DocCLF> commandesPasEnvoyées = await _context.Doc
                 .Include(d => d.Client)
                 .Where(d => d.Date.HasValue && d.Type == TypeCLF.Commande && d.Client.SiteId == produit.SiteId)
                 .Include(d => d.Lignes)
@@ -210,7 +210,7 @@ namespace KalosfideAPI.Produits
                     liste.AddRange(doc.Lignes.Where(ligne => ligne.ProduitId == produit.Id));
                     return liste;
                 });
-            _context.Lignes.RemoveRange(lignes);
+            _context.Ligne.RemoveRange(lignes);
             await _context.SaveChangesAsync();
         }
 

@@ -144,3 +144,17 @@ C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netc
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\scopedcss\bundle\KalosfideAPI.styles.css
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.csproj.AssemblyReference.cache
 C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\obj\Debug\netcoreapp3.1\KalosfideAPI.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\PdfSharp.Charting.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\PdfSharp.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\MigraDoc.DocumentObjectModel-gdi.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\MigraDoc.Rendering-gdi.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\MigraDoc.RtfRendering-gdi.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\PdfSharp-gdi.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\PdfSharp.Charting-gdi.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\PdfSharp.Charting.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\PdfSharp.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\MigraDoc.DocumentObjectModel-gdi.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\MigraDoc.Rendering-gdi.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\MigraDoc.RtfRendering-gdi.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\PdfSharp-gdi.resources.dll
+C:\Users\François Bonnefoi\Kalosfide\kalosfide.api\kalosfide.api\bin\Debug\netcoreapp3.1\de\PdfSharp.Charting-gdi.resources.dll

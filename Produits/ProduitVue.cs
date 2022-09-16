@@ -13,7 +13,7 @@ namespace KalosfideAPI.Produits
         public string Nom { get; set; }
         public uint CategorieId { get; set; }
         public TypeMesure TypeMesure { get; set; }
-        public TypeCommande TypeCommande { get; set; }
+        public bool? SCALP { get; set; }
         public decimal Prix { get; set; }
         public bool Disponible { get; set; }
     }
@@ -23,7 +23,7 @@ namespace KalosfideAPI.Produits
         public string Nom { get; set; }
         public uint? CategorieId { get; set; }
         public TypeMesure? TypeMesure { get; set; }
-        public TypeCommande? TypeCommande { get; set; }
+        public bool? SCALP { get; set; }
         public decimal? Prix { get; set; }
         public bool? Disponible { get; set; }
     }
@@ -44,7 +44,7 @@ namespace KalosfideAPI.Produits
         public uint? CategorieId { get; set; }
 
         [JsonProperty(NullValueHandling=NullValueHandling.Ignore)]
-        public TypeCommande? TypeCommande { get; set; }
+        public bool? SCALP { get; set; }
         [JsonProperty(NullValueHandling=NullValueHandling.Ignore)]
         public TypeMesure? TypeMesure { get; set; }
         [JsonProperty(NullValueHandling=NullValueHandling.Ignore)]
@@ -66,27 +66,62 @@ namespace KalosfideAPI.Produits
             return produitAEnvoyer;
         }
 
+        public static ProduitAEnvoyer AvecDate(Produit produit)
+        {
+            ProduitAEnvoyer produitAEnvoyer = SansEtatNiDate(produit);
+            produitAEnvoyer.Date = produit.Date;
+            return produitAEnvoyer;
+        }
+
         public static ProduitAEnvoyer AvecEtat(Produit produit)
         {
             ProduitAEnvoyer produitAEnvoyer = ProduitAEnvoyer.SansEtatNiDate(produit);
             produitAEnvoyer.Disponible = produit.Disponible;
             if (produit.Lignes != null)
             {
+                List<ArchiveProduit> archives = produit.Archives.Where(a => a.Prix.HasValue).OrderBy(a => a.Date).ToList();
                 produitAEnvoyer.Bilans = produit.Lignes
+                    .Where(l => l.Doc.Date.HasValue)
                     .GroupBy(l => l.Type)
-                    .Select(g => g.Aggregate(new ProduitBilan { Type = g.Key, Nb = 0, Quantité = 0 },
+                    .Select(g => g.Aggregate(new ProduitBilan { Type = g.Key, Nb = 0, Quantité = 0, Coût = 0 },
                     (ProduitBilan bilan, LigneCLF ligne) =>
                     {
                         bilan.Nb++;
-                        if (ligne.Quantité != null)
+                        if (bilan.Type == TypeCLF.Commande && produit.SCALP == true)
+                        {
+                            bilan.Incomplet = true;
+                        }
+                        else
                         {
                             bilan.Quantité += ligne.Quantité.Value;
+                            ArchiveProduit archive = archives.Where(a => a.Date == ligne.Date).First();
+                            bilan.Coût += ligne.Quantité.Value * archive.Prix.Value;
                         }
                         return bilan;
                     }))
                     .ToArray();
             }
             return produitAEnvoyer;
+        }
+
+        /// <summary>
+        /// Retrouve l'état d'un produit à une date passée.
+        /// </summary>
+        /// <param name="produit">produit</param>
+        /// <param name="date">date d'une fin de modification de catalogue passée</param>
+        /// <returns></returns>
+        public static ProduitAEnvoyer ALaDate(Produit produit, DateTime date)
+        {
+            ArchiveProduit[] archivesAvantDate = produit.Archives.Where(a => a.Date <= date).OrderBy(a => a.Date).ToArray();
+            ProduitAEnvoyer produitDeCatalogue = new ProduitAEnvoyer(archivesAvantDate.First().Id)
+            {
+                Date = date
+            };
+            foreach (ArchiveProduit archive in archivesAvantDate)
+            {
+                Produit.CopieDataSiPasNull(archive, produitDeCatalogue);
+            }
+            return produitDeCatalogue;
         }
 
         /// <summary>

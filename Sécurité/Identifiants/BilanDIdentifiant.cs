@@ -9,12 +9,17 @@ namespace KalosfideAPI.Sécurité.Identifiants
     public class BilanCatalogue
     {
         /// <summary>
-        /// Nombre de produits disponibles dans le catalogue d'un site
+        /// Nombre de produits dans le catalogue d'un site
         /// </summary>
         [JsonProperty]
         public int Produits { get; set; }
         /// <summary>
-        /// Nombre de catégories contenant des produits disponibles dans le catalogue d'un site
+        /// Nombre de produits disponibles dans le catalogue d'un site
+        /// </summary>
+        [JsonProperty]
+        public int Disponibles { get; set; }
+        /// <summary>
+        /// Nombre de catégories dans le catalogue d'un site
         /// </summary>
         [JsonProperty]
         public int Catégories { get; set; }

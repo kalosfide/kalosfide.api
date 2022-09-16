@@ -62,9 +62,11 @@ namespace KalosfideAPI.CLF
         #region Action
 
         /// <summary>
-        /// Crée une nouvelle livraison virtuelle vide pour le client défini par la clé
+        /// Crée une nouvelle livraison virtuelle vide pour le client défini par la clé et si la copie des lignes est demandée
+        /// et si la facture précédente a été créée par un bon de livraison virtuel seul, crée des lignes copies de celles
+        /// de cette facture dont les produits sont toujours disponibles.
         /// </summary>
-        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
+        /// <param name="paramsCréeBon">contient la clé du client et la date du catalogue</param>
         /// <returns></returns>
         [HttpPost("/api/livraison/nouveau")]
         [ProducesResponseType(201)] // created
@@ -72,26 +74,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Nouveau([FromQuery] ParamsKeyClient paramsClient)
+        public async Task<IActionResult> Nouveau([FromQuery] ParamsCréeBon paramsCréeBon)
         {
-            return await CréeBon(paramsClient, false);
-        }
-
-        /// <summary>
-        /// Crée une nouvelle livraison virtuelle pour le client défini par la clé avec des détails copiés sur ceux de la facture précédente
-        /// dont les produits sont toujours disponibles si cette facture a été créée par un bon de livraison virtuel seul
-        /// </summary>
-        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
-        /// <returns></returns>
-        [HttpPost("/api/livraison/clone")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
-        [ProducesResponseType(401)] // Unauthorized
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Clone([FromQuery] ParamsKeyClient paramsClient)
-        {
-            return await CréeBon(paramsClient, true);
+            return await CréeBon(paramsCréeBon);
         }
 
         /// <summary>

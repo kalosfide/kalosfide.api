@@ -30,6 +30,8 @@ namespace KalosfideAPI.Démarrage
 
 
             CLF.Initialisation.ConfigureServices(services);
+
+            Préférences.Initialisation.ConfigureServices(services);
         }
     }
 }

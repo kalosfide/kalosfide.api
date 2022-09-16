@@ -64,12 +64,6 @@ namespace KalosfideAPI.Clients
         [ProducesResponseType(409)] // Conflict
         public async Task<IActionResult> Edite(ClientAEditer vue)
         {
-            Client donnée = await _service.Lit(vue.Id);
-            if (donnée == null)
-            {
-                return NotFound();
-            }
-
             CarteUtilisateur carte = await CréeCarteClientOuFournisseurDeClient(vue.Id, PermissionsEtatRole.Actif, PermissionsEtatRole.PasInactif);
             if (carte.Erreur != null)
             {
@@ -81,17 +75,47 @@ namespace KalosfideAPI.Clients
                 return BadRequest(ModelState);
             }
 
+            Client donnée = await _service.Lit(vue.Id);
+            if (donnée == null)
+            {
+                return NotFound();
+            }
+
             if (carte.Fournisseur != null)
             {
                 if (donnée.UtilisateurId != null)
                 {
                     // l'utilisateur est le fournisseur du site mais le client gère son compte
-                    carte.Erreur = RésultatInterdit("Vous ne pouvez pas modifier un client qui gère son compte.");
+                    return RésultatInterdit("Vous ne pouvez pas modifier un client qui gère son compte.");
                 }
             }
             return await Edite(donnée, vue);
         }
 
+        [HttpDelete("/api/client/supprime")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Supprime([FromQuery] uint id)
+        {
+            Client client = await _service.Lit(id);
+            if (client == null)
+            {
+                return NotFound();
+            }
+            CarteUtilisateur carte = await CréeCarteFournisseur(client.SiteId, PermissionsEtatRole.Actif);
+
+            return await Supprime(carte, client);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="idClient"></param>
+        /// <param name="état"></param>
+        /// <returns></returns>
         private async Task<IActionResult> Etat(uint idClient, EtatRole état)
         {
             Client client = await _service.Lit(idClient);
@@ -108,6 +132,8 @@ namespace KalosfideAPI.Clients
                 return carteUtilisateur.Erreur;
             }
 
+            RetourDeService<ClientEtatVue> retour;
+
             if (état == EtatRole.Actif)
             {
                 // on ne peut pas activer un client d'Etat déjà Actif
@@ -116,7 +142,7 @@ namespace KalosfideAPI.Clients
                     return BadRequest();
                 }
                 // le fournisseur peut activer un client Nouveau et réactiver un client Inactif ou Fermé
-                return SaveChangesActionResult(await _service.Active(client));
+                retour = await _service.Active(client);
             }
             else
             {
@@ -129,19 +155,29 @@ namespace KalosfideAPI.Clients
                 if (client.Etat == EtatRole.Nouveau)
                 {
                     // toutes les modifications apportées à la bdd par l'utilisateur qui gère ce compte sont supprimées
-                    return SaveChangesActionResult(await _service.Supprime(client));
+                    retour = await _service.Rétablit(client);
                 }
                 else
                 {
-                    // Si le Role a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé  il est supprimé sinon.
-                    // Si le Role a été créé par le fournisseur et est vide, supprime le Role.
-                    // Si le Role a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'Etat Fermé
+                    // Si le Client a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé  il est supprimé sinon.
+                    // Si le Client a été créé par le fournisseur et est vide, supprime le Role.
+                    // Si le Client a été créé en répondant à une invitation, change son Etat en Inactif et il passera automatiquement à l'Etat Fermé
                     // quand le client se connectera ou quand le fournisseur chargera la liste des clients aprés 60 jours.
-                    return SaveChangesActionResult(await _service.Inactive(client));
+                    retour = await _service.Inactive(client);
                 }
             }
+            if (retour.Ok)
+            {
+                return Ok(retour.Entité);
+            }
+            return SaveChangesActionResult(retour);
         }
 
+        /// <summary>
+        /// Fait passer le Client défini par le paramétre à l'Etat Actif s'il est d'Etat Nouveau, Inactif ou Fermé.
+        /// </summary>
+        /// <param name="id">Id du Client à activer</param>
+        /// <returns>un IActionResult </returns>
         [HttpPut("/api/client/active")]
         [ProducesResponseType(200)] // Ok
         [ProducesResponseType(400)] // Bad request
@@ -203,7 +239,7 @@ namespace KalosfideAPI.Clients
             }
 
             // Array des EtatUtilisateur du client permis
-            List<ClientEtatVue> clients = await _service.ClientsDuSite(id, PermissionsEtatRole.PasInactif, PermissionsEtatUtilisateur.PasInactif);
+            List<ClientEtatVue> clients = await _service.ClientsDuSite(id, PermissionsEtatUtilisateur.PasInactif);
             List<InvitationVue> invitations = await _service.InvitationsSansId(id);
             return Ok(new
             {

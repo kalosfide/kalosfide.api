@@ -153,12 +153,13 @@ namespace KalosfideAPI.CLF
         /// </summary>
         /// <param name="docCLF">document dans la bdd</param>
         /// <returns></returns>
-        public static CLFDoc DeNoType(DocCLF docCLF)
+        public static CLFDoc DeNoTypeDate(DocCLF docCLF)
         {
             CLFDoc clfDoc = new CLFDoc
             {
                 No = docCLF.No,
-                Type = docCLF.Type
+                Type = docCLF.Type,
+                Date = docCLF.Date
             };
             return clfDoc;
         }

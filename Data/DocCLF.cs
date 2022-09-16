@@ -35,7 +35,7 @@ namespace KalosfideAPI.Data
         // données
 
         /// <summary>
-        /// la date est fixée quand le bon de commande est envoyé.
+        /// Date de l'enregistrement du document (envoi pour un bon de commande).
         /// </summary>
         public DateTime? Date { get; set; }
 
@@ -70,6 +70,8 @@ namespace KalosfideAPI.Data
         virtual public ICollection<LigneCLF> Lignes { get; set; }
 
         virtual public Client Client { get; set; }
+
+        virtual public ICollection<Téléchargement> Téléchargements { get; set; }
 
         // création
         public static void CréeTable(ModelBuilder builder)

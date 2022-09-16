@@ -1,5 +1,4 @@
 ﻿using KalosfideAPI.Data;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Partages;
 using System;
 using System.Threading.Tasks;
@@ -26,8 +25,7 @@ namespace KalosfideAPI.Sites
         /// <returns></returns>
         Task<RetourDeService<ArchiveSite>> TermineEtatCatalogue(Site site, DateTime? dateCatalogue);
 
-        Task<Site> TrouveParUrl(string url);
-        Task<Site> TrouveParId(uint id);
+        Task<bool> TrouveParId(uint id);
 
         /// <summary>
         /// Vérifie s'il existe un Site ayant une certaine Url.
@@ -58,5 +56,13 @@ namespace KalosfideAPI.Sites
         /// <param name="id">Id d'un Site</param>
         /// <returns>true s'il existe un Site ayant ce Titre</returns>
         Task<bool> TitrePrisParAutre(uint id, string titre);
+
+        /// <summary>
+        /// Indique s'il y a ou s'il y a eu des Invitations pour un Site.
+        /// </summary>
+        /// <param name="id">Id du Site</param>
+        /// <returns>retourne le nombre d'invitations en cours ou auxquelles un client a répondu.</returns>
+        Task<int> AvecInvitations(uint id);
+
     }
 }

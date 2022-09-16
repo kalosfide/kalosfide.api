@@ -88,7 +88,7 @@ namespace KalosfideAPI.Fournisseurs
 
         private async Task ValideAjoute(Fournisseur donnée, ModelStateDictionary modelState)
         {
-            if (await NomPris(donnée.Nom))
+            if (ClientApp.NomRéservé(donnée.Nom) || await NomPris(donnée.Nom))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }
@@ -97,7 +97,7 @@ namespace KalosfideAPI.Fournisseurs
 
         private async Task ValideEdite(Fournisseur donnée, ModelStateDictionary modelState)
         {
-            if (await NomPrisParAutre(donnée.Id, donnée.Nom))
+            if (ClientApp.NomRéservé(donnée.Nom) || await NomPrisParAutre(donnée.Id, donnée.Nom))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "nom", "nomPris");
             }

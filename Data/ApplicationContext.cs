@@ -16,8 +16,6 @@ namespace KalosfideAPI.Data
             // For example, you can rename the ASP.NET Identity table names and more.
             // Add your customizations after calling base.OnModelCreating(builder);
             Data.Utilisateur.CréeTable(builder);
-
-            Data.Utilisateur.CréeTable(builder);
             Data.ArchiveUtilisateur.CréeTable(builder);
 
             Data.Fournisseur.CréeTable(builder);
@@ -39,10 +37,13 @@ namespace KalosfideAPI.Data
 
             Data.LigneCLF.CréeTable(builder);
             Data.DocCLF.CréeTable(builder);
+            Data.Téléchargement.CréeTable(builder);
 
             // journaux
             Data.ArchiveProduit.CréeTable(builder);
             Data.ArchiveCatégorie.CréeTable(builder);
+
+            Data.Préférence.CréeTable(builder);
         }
 
         public DbSet<Utilisateur> Utilisateur { get; set; }
@@ -66,8 +67,11 @@ namespace KalosfideAPI.Data
         public DbSet<Produit> Produit { get; set; }
         public DbSet<ArchiveProduit> ArchiveProduit { get; set; }
 
-        public DbSet<LigneCLF> Lignes { get; set; }
-        public DbSet<DocCLF> Docs { get; set; }
+        public DbSet<LigneCLF> Ligne { get; set; }
+        public DbSet<DocCLF> Doc { get; set; }
 
+        public DbSet<Téléchargement> Téléchargement { get; set; }
+        
+        public DbSet<Préférence> Préférences { get; set; }
     }
 }

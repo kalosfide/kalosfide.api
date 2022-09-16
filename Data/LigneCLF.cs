@@ -24,7 +24,7 @@ namespace KalosfideAPI.Data
         public uint ProduitId { get; set; }
 
         /// <summary>
-        /// Date du Catalogue applicable à la Ligne.
+        /// Date du Produit de la ligne au moment de l'enregistrement de son DocCLF.
         /// Quand une ligne est ajoutée à un bon, elle a la date du catalogue au moment de l'ajout.
         /// Quand un bon de commande est envoyé, ses lignes prennent la date du catalogue au moment de l'envoi.
         /// Quand une synthèse est enregistrée, sa date est fixée et les lignes du bon virtuel éventuel sont
@@ -38,14 +38,6 @@ namespace KalosfideAPI.Data
         public TypeCLF Type { get; set; }
 
         // données
-
-
-        /// <summary>
-        /// Présent uniquement si le CLFDoc est une commande.
-        /// Indique si Quantité est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
-        /// Si absent, la valeur par défaut du type de commande associée au TypeMesure du Produit est utilisée.
-        /// </summary>
-        public TypeCommande TypeCommande { get; set; }
 
         /// <summary>
         /// Quantité du produit
@@ -82,7 +74,6 @@ namespace KalosfideAPI.Data
                 ligne.Type
             });
 
-            entité.Property(ligne => ligne.TypeCommande).HasMaxLength(1);
             entité.Property(ligne => ligne.Quantité).HasColumnType(QuantitéDef.Type);
             entité.Property(ligne => ligne.AFixer).HasColumnType(QuantitéDef.Type);
 
@@ -114,7 +105,6 @@ namespace KalosfideAPI.Data
                 ProduitId = ligne.ProduitId,
                 Type = ligne.Type,
                 Date = ligne.Date,
-                TypeCommande = ligne.TypeCommande,
                 Quantité = ligne.Quantité,
                 AFixer = ligne.AFixer
             };
@@ -133,7 +123,6 @@ namespace KalosfideAPI.Data
                 ProduitId = ligne.ProduitId,
                 Type = ligne.Type,
                 Date = date,
-                TypeCommande = ligne.TypeCommande,
                 Quantité = ligne.Quantité,
                 AFixer = ligne.AFixer
             };

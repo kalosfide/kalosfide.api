@@ -2,10 +2,12 @@
 using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Erreurs;
 using KalosfideAPI.Partages;
+using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utiles;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -62,10 +64,9 @@ namespace KalosfideAPI.Sites
             return site;
         }
 
-        public async Task<Site> TrouveParId(uint id)
+        public async Task<bool> TrouveParId(uint id)
         {
-            Site site = await _context.Site.Where(s => s.Id == id).FirstOrDefaultAsync();
-            return site;
+            return await _context.Site.Where(s => s.Id == id).AnyAsync();
         }
 
         // implémentation des membres abstraits
@@ -121,7 +122,7 @@ namespace KalosfideAPI.Sites
         }
 
         /// <summary>
-        /// Enregistre la fin de la modification du catalogue du site.
+        /// Enregistre l'ouverture du site et archive avec éventuellement la date de la fin de la modification du catalogue.
         /// </summary>
         /// <param name="site"></param>
         /// <param name="dateCatalogue">présent si le catalogue a été modifié</param>
@@ -164,7 +165,7 @@ namespace KalosfideAPI.Sites
         /// <returns>true s'il existe un Site ayant cette Url</returns>
         public async Task<bool> UrlPriseParAutre(uint id, string url)
         {
-            return await _dbSet.Where(site => site.Url == url && site.Id == id).AnyAsync();
+            return await _dbSet.Where(site => site.Url == url && site.Id != id).AnyAsync();
         }
 
         /// <summary>
@@ -185,16 +186,16 @@ namespace KalosfideAPI.Sites
         /// <returns>true s'il existe un Site ayant ce Titre</returns>
         public async Task<bool> TitrePrisParAutre(uint id, string titre)
         {
-            return await _dbSet.Where(site => site.Titre == titre && site.Id == id).AnyAsync();
+            return await _dbSet.Where(site => site.Titre == titre && site.Id != id).AnyAsync();
         }
 
         private async Task ValideAjoute(Site site, ModelStateDictionary modelState)
         {
-            if (await UrlPrise(site.Url))
+            if (ClientApp.NomRéservé(site.Url) || await UrlPrise(site.Url))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "site.url", "nomPris");
             }
-            if (await TitrePris(site.Titre))
+            if (ClientApp.NomRéservé(site.Url) || await TitrePris(site.Titre))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "site.titre", "nomPris");
             }
@@ -202,14 +203,26 @@ namespace KalosfideAPI.Sites
 
         private async Task ValideEdite(Site site, ModelStateDictionary modelState)
         {
-            if (await UrlPriseParAutre(site.Id, site.Url))
+            if (ClientApp.NomRéservé(site.Url) || await UrlPriseParAutre(site.Id, site.Url))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "url", "nomPris");
             }
-            if (await TitrePrisParAutre(site.Id, site.Titre))
+            if (ClientApp.NomRéservé(site.Url) || await TitrePrisParAutre(site.Id, site.Titre))
             {
                 ErreurDeModel.AjouteAModelState(modelState, "titre", "nomPris");
             }
+        }
+
+        /// <summary>
+        /// Indique s'il y a ou s'il y a eu des Invitations pour un Site.
+        /// </summary>
+        /// <param name="id">Id du Site</param>
+        /// <returns>retourne le nombre d'invitations en cours ou auxquelles un client a répondu.</returns>
+        public async Task<int> AvecInvitations(uint id)
+        {
+            int aInvitations = await _context.Invitation.Where(i => i.Id == id).CountAsync();
+            aInvitations += await _context.Client.Where(c => c.SiteId == id && c.UtilisateurId != null).CountAsync();
+            return aInvitations;
         }
     }
 }

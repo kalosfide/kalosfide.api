@@ -19,7 +19,7 @@ namespace KalosfideAPI.Peuple
                 Url = "ljdp",
                 Titre = "Les jardins du prévôt",
                 ClientsSansCompte = 25,
-                Produits = 50,
+                Produits = 150,
                 Catégories = 7,
                 Clients = new PeupleClientVue[]
                 {

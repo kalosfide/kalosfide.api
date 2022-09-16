@@ -56,9 +56,9 @@ namespace KalosfideAPI.CLF
         public bool EstClient { get; set; }
 
         /// <summary>
-        /// vrai si l'utilisateur est le fournisseur du site
+        /// Fournisseur du site, null si l'utilisateur n'est pas le Fournisseur
         /// </summary>
-        public bool EstFournisseur { get; set; }
+        public Fournisseur Fournisseur { get; set; }
 
         /// <summary>
         /// commande concernée par l'action si elle existe dans la BDD
@@ -71,9 +71,9 @@ namespace KalosfideAPI.CLF
         public LigneCLF LigneCLF { get; set; }
 
         /// <summary>
-        /// Dernière archive du produit demandé dans la ligne
+        /// Produit demandé dans la ligne de commande.
         /// </summary>
-        public ArchiveProduit ArchiveProduit { get; set; }
+        public Produit Produit { get; set; }
 
         /// <summary>
         /// No de la livraison cible

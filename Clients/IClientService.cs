@@ -14,10 +14,9 @@ namespace KalosfideAPI.Clients
         /// et n'ayant pas d'Utilisateur ou ayant un Utilisateur d'Etat permis.
         /// </summary>
         /// <param name="idSite">Id du site</param>
-        /// <param name="permissionsClient">Array des EtatClient permis</param>
         /// <param name="permissionsUtilisateur">Array des EtatUtilisateur permis</param>
         /// <returns></returns>
-        Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatRole permissionsClient, PermissionsEtatUtilisateur permissionsUtilisateur);
+        Task<List<ClientEtatVue>> ClientsDuSite(uint idSite, PermissionsEtatUtilisateur permissionsUtilisateur);
 
         /// <summary>
         /// Retourne l'email de l'utilsateur si le client gère son compte
@@ -124,7 +123,7 @@ namespace KalosfideAPI.Clients
         /// </summary>
         /// <param name="clientNouveau">Client qui a été créé en répondant à une Invitation</param>
         /// <returns>RetourDeService d'un ClientEtatVue contenant un Client identique à celui que l'Invitation invitait à gérer s'il y en avait un, null sinon</returns>
-        new Task<RetourDeService<ClientEtatVue>> Supprime(Client clientNouveau);
+        Task<RetourDeService<ClientEtatVue>> Rétablit(Client clientNouveau);
 
         /// <summary>
         /// Si le Client a été créé par le fournisseur et s'il y a des documents avec des lignes, change son Etat en Fermé.

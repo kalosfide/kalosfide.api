@@ -523,7 +523,7 @@ namespace KalosfideAPI.Utilisateurs
         }
 
         /// <summary>
-        /// Fixe l'UtilisateurId et l'Etat actif du Fournisseur et enregistre dans la bdd.
+        /// Fixe l'UtilisateurId et l'Etat actif du Fournisseur et l'IdDernierSite de l'Utilisateur et enregistre dans la bdd.
         /// </summary>
         /// <param name="fournisseur">Fournisseur d'une DemandeSite à activer</param>
         /// <param name="utilisateur">Utilisateur affecté à ce Fournisseur</param>

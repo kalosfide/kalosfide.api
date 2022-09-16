@@ -43,7 +43,7 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// vérifie que le produit demandé par une ligne existe et est disponible
+        /// vérifie que le produit demandé par une ligne existe et est disponible. Fixe le Produit du vérificateur
         /// </summary>
         private async Task PeutCommanderProduit()
         {
@@ -53,7 +53,7 @@ namespace KalosfideAPI.CLF
                 vérificateur.Erreur = RésultatBadRequest("Produit");
                 throw new VérificationException();
             }
-            vérificateur.ArchiveProduit = produit.Archives.OrderBy(a => a.Date).Last();
+            vérificateur.Produit = produit;
         }
 
         /// <summary>
@@ -104,11 +104,22 @@ namespace KalosfideAPI.CLF
         /// </summary>
         private void ChampsPrésentsValides()
         {
-
+            CLFLigne ligne = vérificateur.CLFLigne;
+            Produit produit = vérificateur.Produit;
             string code;
-            if (vérificateur.CLFLigne.Quantité.HasValue)
+            if (ligne.Quantité.HasValue)
             {
-                code = QuantitéDef.Vérifie(vérificateur.CLFLigne.Quantité.Value);
+                decimal quantité = ligne.Quantité.Value;
+                if (produit.TypeMesure == TypeMesure.Aucune || (produit.TypeMesure == TypeMesure.Kilo && produit.SCALP == true))
+                {
+                    // quantité doit être un entier
+                    if (quantité != ((int)quantité))
+                    {
+                        vérificateur.Erreur = RésultatBadRequest("quantité", "doit être un entier");
+                        throw new VérificationException();
+                    }
+                }
+                code = QuantitéDef.Vérifie(quantité);
                 if (code != null)
                 {
                     vérificateur.Erreur = RésultatBadRequest("quantité", code);
@@ -116,9 +127,19 @@ namespace KalosfideAPI.CLF
                 }
             }
 
-            if (vérificateur.CLFLigne.AFixer.HasValue)
+            if (ligne.AFixer.HasValue)
             {
-                code = QuantitéDef.Vérifie(vérificateur.CLFLigne.AFixer.Value);
+                decimal àFixer = ligne.AFixer.Value;
+                if (produit.TypeMesure == TypeMesure.Aucune)
+                {
+                    // àFixer doit être un entier
+                    if (àFixer != ((int)àFixer))
+                    {
+                        vérificateur.Erreur = RésultatBadRequest("àFixer", "doit être un entier");
+                        throw new VérificationException();
+                    }
+                }
+                code = QuantitéDef.Vérifie(àFixer);
                 if (code != null)
                 {
                     vérificateur.Erreur = RésultatBadRequest("aFixer", code);
@@ -224,9 +245,10 @@ namespace KalosfideAPI.CLF
         }
 
         /// <summary>
-        /// Crée une nouvelle commande vide pour le client défini par la clé
+        /// Crée une nouvelle commande vide pour le client défini par la clé et si la copie des lignes est demandée,
+        /// crée des lignes copies de celles de la commande précédente dont les produits sont toujours disponibles.
         /// </summary>
-        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
+        /// <param name="paramsCréeBon">contient la clé du client et la date du catalogue et éventuellement un champ copie</param>
         /// <returns></returns>
         [HttpPost("/api/commande/nouveau")]
         [ProducesResponseType(201)] // created
@@ -234,26 +256,9 @@ namespace KalosfideAPI.CLF
         [ProducesResponseType(401)] // Unauthorized
         [ProducesResponseType(403)] // Forbid
         [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Nouveau([FromQuery] ParamsKeyClient paramsClient)
+        public async Task<IActionResult> Nouveau([FromQuery] ParamsCréeBon paramsCréeBon)
         {
-            return await CréeBon(paramsClient, false);
-        }
-
-        /// <summary>
-        /// Crée une nouvelle commande pour le client défini par la clé avec des détails copiés sur ceux de la commande
-        /// précédente dont les produits sont toujours disponibles
-        /// </summary>
-        /// <param name="paramsClient">contient la clé du client et la date du catalogue</param>
-        /// <returns></returns>
-        [HttpPost("/api/commande/clone")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(400)] // Bad request
-        [ProducesResponseType(401)] // Unauthorized
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(409)] // Conflict
-        public async Task<IActionResult> Clone([FromQuery] ParamsKeyClient paramsClient)
-        {
-            return await CréeBon(paramsClient, true);
+            return await CréeBon(paramsCréeBon);
         }
 
         /// <summary>
@@ -306,7 +311,7 @@ namespace KalosfideAPI.CLF
             }
 
 
-            RetourDeService retour = await _service.AjouteLigneCommande(vérificateur.Site, ligne);
+            RetourDeService retour = await _service.AjouteLigneCommande(vérificateur.Produit, ligne);
 
             return SaveChangesActionResult(retour);
         }

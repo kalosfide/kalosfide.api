@@ -128,14 +128,24 @@ namespace KalosfideAPI.CLF
             return Ok(clfDocs);
         }
 
-        private async Task<IActionResult> Document(KeyDocSansType keyDocSansType, TypeCLF type)
+        /// <summary>
+        /// Retourne le bon de commande
+        /// </summary>
+        /// <param name="keyDocument">key du document</param>
+        /// <returns></returns>
+        [HttpGet("/api/document/lit")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        public async Task<IActionResult> Lit([FromQuery] KeyDoc keyDocument)
         {
-            if (keyDocSansType is null)
+            if (keyDocument is null)
             {
-                throw new System.ArgumentNullException(nameof(keyDocSansType));
+                throw new System.ArgumentNullException(nameof(keyDocument));
             }
 
-            vérificateur.Initialise(keyDocSansType);
+            vérificateur.Initialise(keyDocument);
             try
             {
                 await ClientDeLAction();
@@ -146,59 +156,13 @@ namespace KalosfideAPI.CLF
                 return vérificateur.Erreur;
             }
 
-            CLFDocs document = await _service.Document(vérificateur.Site, keyDocSansType, type);
-            if (document == null)
+            CLFPdfAEnvoyer àEnvoyer = await _service.CLFPdfAEnvoyer(keyDocument, vérificateur.EstClient);
+            if (àEnvoyer == null)
             {
                 return NotFound();
             }
 
-            return Ok(document);
-
-        }
-
-        /// <summary>
-        /// Retourne le bon de commande
-        /// </summary>
-        /// <param name="keyDocument">key de la commande</param>
-        /// <returns></returns>
-        [HttpGet("/api/document/commande")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(401)] // Unauthorized
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Commande([FromQuery] KeyDocSansType keyDocument)
-        {
-            return await Document(keyDocument, TypeCLF.Commande);
-        }
-
-        /// <summary>
-        /// Retourne le bon de livraison
-        /// </summary>
-        /// <param name="keyDocument">key de la livraison</param>
-        /// <returns></returns>
-        [HttpGet("/api/document/livraison")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(401)] // Unauthorized
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Livraison([FromQuery] KeyDocSansType keyDocument)
-        {
-            return await Document(keyDocument, TypeCLF.Livraison);
-        }
-
-        /// <summary>
-        /// Retourne la facture
-        /// </summary>
-        /// <param name="keyDocument">key de la facture</param>
-        /// <returns></returns>
-        [HttpGet("/api/document/facture")]
-        [ProducesResponseType(200)] // Ok
-        [ProducesResponseType(401)] // Unauthorized
-        [ProducesResponseType(403)] // Forbid
-        [ProducesResponseType(404)] // Not found
-        public async Task<IActionResult> Facture([FromQuery] KeyDocSansType keyDocument)
-        {
-            return await Document(keyDocument, TypeCLF.Facture);
+            return Ok(àEnvoyer);
         }
 
         /// <summary>
@@ -227,6 +191,41 @@ namespace KalosfideAPI.CLF
             CLFDoc chercheDoc = await _service.ChercheDocument(paramsChercheDoc);
             return Ok(chercheDoc);
         }
+
+
+        [HttpPost("/api/document/téléchargé")]
+        [ProducesResponseType(201)] // Created
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Téléchargé(KeyDoc keyDocument)
+        {
+            vérificateur.Initialise(keyDocument);
+            try
+            {
+                await ClientDeLAction();
+                await UtilisateurEstClientPasFerméOuFournisseur();
+            }
+            catch (VérificationException)
+            {
+                return vérificateur.Erreur;
+            }
+
+            Partages.RetourDeService retour = await _service.Téléchargement(keyDocument, vérificateur.EstClient);
+            if (retour == null)
+            {
+                return NotFound();
+            }
+            if (!retour.Ok)
+            {
+                return SaveChangesActionResult(retour);
+            }
+            return Ok(keyDocument);
+
+        }
+
 
     }
 }

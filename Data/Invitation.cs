@@ -84,6 +84,8 @@ namespace KalosfideAPI.Data
 
             entity.HasOne(i => i.Fournisseur).WithMany(f => f.Invitations).HasPrincipalKey(f => f.Id).HasForeignKey(i => i.Id);
             entity.HasOne(i => i.Client).WithOne().HasForeignKey<Invitation>(i => i.ClientId).OnDelete(DeleteBehavior.ClientSetNull);
+
+            entity.ToTable("Invitations");
         }
 
         // utile

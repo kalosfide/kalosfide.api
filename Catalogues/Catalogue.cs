@@ -1,5 +1,4 @@
 ﻿using KalosfideAPI.Catégories;
-using KalosfideAPI.Data.Keys;
 using KalosfideAPI.Produits;
 using Newtonsoft.Json;
 using System;

@@ -11,6 +11,11 @@ namespace KalosfideAPI.Sécurité
 
         public const string Nom = "Kalosfide";
 
+        public static bool NomRéservé(string nom)
+        {
+            return nom.Contains(Nom) || nom.Contains(Nom.ToLower());
+        }
+
         public const string Compte = "compte";
 
         public const string ConfirmeEmail = "confirmeEmail";

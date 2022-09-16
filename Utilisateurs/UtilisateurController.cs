@@ -99,8 +99,7 @@ namespace KalosfideAPI.Utilisateurs
             }
             else
             {
-                Site site = await _siteService.TrouveParId(id);
-                if (site == null)
+                if (!await _siteService.TrouveParId(id))
                 {
                     return NotFound();
                 }

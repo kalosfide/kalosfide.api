@@ -41,7 +41,6 @@
     <Compile Remove="Data\Administrateur.cs" />
     <Compile Remove="Data\ArchiveProduitArchiveCatégorie.cs" />
     <Compile Remove="Data\Commande.cs" />
-    <Compile Remove="Data\Document.cs" />
     <Compile Remove="Data\DétailCommande.cs" />
     <Compile Remove="Data\DétailFacture.cs" />
     <Compile Remove="Data\DétailLivraison.cs" />
@@ -70,6 +69,8 @@
     </PackageReference>
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="3.1.3" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="PdfSharp" Version="1.50.5147" />
+    <PackageReference Include="PDFsharp-MigraDoc-GDI" Version="1.50.5147" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="6.7.1" />
   </ItemGroup>
 

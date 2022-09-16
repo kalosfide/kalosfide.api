@@ -86,7 +86,7 @@ namespace KalosfideAPI.Data
             entité.Property(donnée => donnée.Etat).HasDefaultValue(EtatUtilisateur.Nouveau);
             entité.Property(donnée => donnée.SessionId).HasDefaultValue(0);
 
-            entité.ToTable("Utilisateur");
+            entité.ToTable("Utilisateurs");
         }
 
         // utiles

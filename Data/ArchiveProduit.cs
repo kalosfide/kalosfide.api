@@ -24,7 +24,7 @@ namespace KalosfideAPI.Data
         public uint? CategorieId { get; set; }
 
         public TypeMesure? TypeMesure { get; set; }
-        public TypeCommande? TypeCommande { get; set; }
+        public bool? SCALP { get; set; }
         [Column(TypeName = PrixProduitDef.Type)]
         public decimal? Prix { get; set; }
 

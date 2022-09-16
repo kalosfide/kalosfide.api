@@ -139,8 +139,8 @@ namespace KalosfideAPI.Migrations
                     b.Property<decimal?>("Prix")
                         .HasColumnType("decimal(7,2)");
 
-                    b.Property<int?>("TypeCommande")
-                        .HasColumnType("int");
+                    b.Property<bool?>("SCALP")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("TypeMesure")
                         .HasColumnType("int");
@@ -245,6 +245,15 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("Etat")
                         .HasColumnType("int");
 
+                    b.Property<string>("FormatNomFichierCommande")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierFacture")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierLivraison")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasColumnType("nvarchar(200)")
@@ -265,7 +274,7 @@ namespace KalosfideAPI.Migrations
 
                     b.HasIndex("UtilisateurId");
 
-                    b.ToTable("Client");
+                    b.ToTable("Clients");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.DemandeSite", b =>
@@ -334,6 +343,15 @@ namespace KalosfideAPI.Migrations
                     b.Property<int>("Etat")
                         .HasColumnType("int");
 
+                    b.Property<string>("FormatNomFichierCommande")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierFacture")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("FormatNomFichierLivraison")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Nom")
                         .IsRequired()
                         .HasColumnType("nvarchar(200)")
@@ -352,7 +370,7 @@ namespace KalosfideAPI.Migrations
 
                     b.HasIndex("UtilisateurId");
 
-                    b.ToTable("Fournisseur");
+                    b.ToTable("Fournisseurs");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.Invitation", b =>
@@ -378,7 +396,7 @@ namespace KalosfideAPI.Migrations
 
                     b.HasIndex("Id");
 
-                    b.ToTable("Invitation");
+                    b.ToTable("Invitations");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.LigneCLF", b =>
@@ -403,10 +421,6 @@ namespace KalosfideAPI.Migrations
 
                     b.Property<decimal?>("Quantité")
                         .HasColumnType("decimal(8,3)");
-
-                    b.Property<int>("TypeCommande")
-                        .HasColumnType("int")
-                        .HasMaxLength(1);
 
                     b.HasKey("Id", "No", "ProduitId", "Date", "Type");
 
@@ -442,13 +456,12 @@ namespace KalosfideAPI.Migrations
                         .HasColumnType("decimal(7,2)")
                         .HasDefaultValue(0m);
 
+                    b.Property<bool?>("SCALP")
+                        .IsRequired()
+                        .HasColumnType("bit");
+
                     b.Property<long>("SiteId")
                         .HasColumnType("bigint");
-
-                    b.Property<int>("TypeCommande")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
 
                     b.Property<int>("TypeMesure")
                         .ValueGeneratedOnAdd()
@@ -465,6 +478,25 @@ namespace KalosfideAPI.Migrations
                         .IsUnique();
 
                     b.ToTable("Produits");
+                });
+
+            modelBuilder.Entity("KalosfideAPI.Data.Préférence", b =>
+                {
+                    b.Property<string>("UtilisateurId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<long>("SiteId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Valeur")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("UtilisateurId", "SiteId", "Id");
+
+                    b.ToTable("Préférences");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.Site", b =>
@@ -493,6 +525,28 @@ namespace KalosfideAPI.Migrations
                     b.HasIndex("Url");
 
                     b.ToTable("Sites");
+                });
+
+            modelBuilder.Entity("KalosfideAPI.Data.Téléchargement", b =>
+                {
+                    b.Property<long>("Id")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("No")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("ParLeClient")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id", "No", "Type", "Date", "ParLeClient");
+
+                    b.ToTable("Téléchargements");
                 });
 
             modelBuilder.Entity("KalosfideAPI.Data.Utilisateur", b =>
@@ -567,7 +621,7 @@ namespace KalosfideAPI.Migrations
                         .HasName("UserNameIndex")
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
-                    b.ToTable("Utilisateur");
+                    b.ToTable("Utilisateurs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -849,6 +903,15 @@ namespace KalosfideAPI.Migrations
                     b.HasOne("KalosfideAPI.Data.Fournisseur", "Fournisseur")
                         .WithOne("Site")
                         .HasForeignKey("KalosfideAPI.Data.Site", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("KalosfideAPI.Data.Téléchargement", b =>
+                {
+                    b.HasOne("KalosfideAPI.Data.DocCLF", "DocCLF")
+                        .WithMany("Téléchargements")
+                        .HasForeignKey("Id", "No", "Type")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

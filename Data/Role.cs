@@ -73,6 +73,13 @@ namespace KalosfideAPI.Data
         string Ville { get; set; }
     }
 
+    public class RoleData: IRoleData
+    {
+        public string Nom { get; set; }
+        public string Adresse { get; set; }
+        public string Ville { get; set; }
+    }
+
     public interface IAvecEtat
     {
         EtatRole Etat { get; set; }
@@ -113,31 +120,26 @@ namespace KalosfideAPI.Data
     }
 
     public interface IRolePréférences
-    { 
-        string FormatNomFichierCommande { get; set; }
-        string FormatNomFichierLivraison { get; set; }
-        string FormatNomFichierFacture { get; set; }
-    }
-
-    public static class Role
     {
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public const string FormatNomFichierCommandeParDéfaut = "{nom} commande {no}";
-
+        string FormatNomFichierCommande { get; set; }
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public const string FormatNomFichierLivraisonParDéfaut = "{nom} livraison {no}";
-
+        string FormatNomFichierLivraison { get; set; }
         /// <summary>
         /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
         /// ou du fournisseur si l'utilisateur est le client
         /// </summary>
-        public const string FormatNomFichierFactureParDéfaut = "{nom} facture {no}";
+        string FormatNomFichierFacture { get; set; }
+    }
+
+    public static class Role
+    {
 
         public static void CopieData(IRoleData de, IRoleData vers)
         {

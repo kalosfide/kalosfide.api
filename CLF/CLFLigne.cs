@@ -27,14 +27,6 @@ namespace KalosfideAPI.CLF
         /// </summary>
         public DateTime Date { get; set; }
 
-
-        /// <summary>
-        /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
-        /// Si absent, la valeur par défaut de type de commande associée au TypeMesure du Produit est utilisée.
-        /// </summary>
-        public TypeCommande TypeCommande { get; set; }
-
-
         /// <summary>
         /// Quantité du produit
         /// </summary>
@@ -52,7 +44,6 @@ namespace KalosfideAPI.CLF
             {
                 ProduitId = ligneCLF.ProduitId,
                 Date = ligneCLF.Date,
-                TypeCommande = ligneCLF.TypeCommande,
                 Quantité = ligneCLF.Quantité,
             };
             return data;
@@ -95,15 +86,6 @@ namespace KalosfideAPI.CLF
         /// Présent si la ligne est dans une livraison ou une facture et le produit a changé de prix.
         /// </summary>
         public DateTime Date { get; set; }
-
-
-        /// <summary>
-        /// Présent uniquement si le CLFDoc est une commande.
-        /// Indique si Demande est un compte ou une mesure. Inutile si le Produit a un seul type de commande.
-        /// Si absent, la valeur par défaut du type de commande associée au TypeMesure du Produit est utilisée.
-        /// </summary>
-        public TypeCommande TypeCommande { get; set; }
-
 
         /// <summary>
         /// Quantité du produit

@@ -55,21 +55,27 @@ namespace KalosfideAPI.CLF
         /// <param name="idClient">Id du client</param>
         /// <returns>un CLFDocs dont le champ Documents contient le CLFDoc de la dernière commande du client</returns>
         Task<CLFDocs> CommandeEnCours(uint idClient);
+        
+        /// <summary>
+        /// Recherche un Client à partir de son Id.
+        /// </summary>
+        /// <param name="idClient">Id du client recherché</param>
+        /// <returns>un Client incluant son Site avec son Fournisseur, si trouvé; null, sinon.</returns>
+        Task<Client> ClientAvecSite(uint idClient);
 
         Task<RetourDeService<DocCLF>> AjouteBon(uint idClient, TypeCLF type, uint noDoc);
         /// <summary>
         /// Enregistre comme lignes d'un nouveau bon des copies des lignes d'un document précédent
-        /// dont le produit est toujours disponible en mettant à jour s'il y a lieu la date du catalogue applicable.
+        /// dont le produit est toujours disponible en mettant à jour s'il y a lieu la date du produit applicable.
         /// </summary>
         /// <param name="bon">nouveau bon auquel on veut ajouter des lignes</param>
         /// <param name="docACopier">document incluant ses lignes</param>
-        /// <param name="dateCatalogue">date du catalogue du site</param>
         /// <returns></returns>
-        Task<RetourDeService> CopieLignes(DocCLF bon, DocCLF docACopier, DateTime dateCatalogue);
+        Task<RetourDeService> CopieLignes(DocCLF bon, DocCLF docACopier);
 
         Task<RetourDeService> EffaceBonEtSupprimeSiVirtuel(DocCLF doc);
 
-        Task<RetourDeService> AjouteLigneCommande(Site site, CLFLigne ligne);
+        Task<RetourDeService> AjouteLigneCommande(Produit produit, CLFLigne ligne);
 
         Task<RetourDeService> EditeLigne(LigneCLF ligne, CLFLigne lignePostée);
 
@@ -99,7 +105,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour chaque ligne du document défini par la key et le type.
         /// La copie est impossible si Quantité n'est pas défini ou si la ligne est dans une commande
-        /// et demande un nombre de pièces d'un produit dont le prix dépend d'une mesure.
+        /// et demande un nombre de pièces d'un produit mesuré en Kg.
         /// </summary>
         /// <param name="keyDoc"></param>
         /// <param name="type"></param>
@@ -109,7 +115,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour la ligne définie par la key et le type.
         /// La copie est impossible si Quantité n'est pas défini ou si la ligne est dans une commande
-        /// et demande un nombre de pièces d'un produit dont le prix dépend d'une mesure.
+        /// et demande un nombre de pièces d'un produit mesuré en Kg.
         /// </summary>
         /// <param name="keyLigne"></param>
         /// <param name="type"></param>
@@ -119,7 +125,7 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Copie si possible la valeur de Quantité dans AFixer pour chaque ligne des documents de la liste.
         /// La copie est impossible si Quantité n'est pas défini ou si la ligne est dans une commande
-        /// et demande un nombre de pièces d'un produit dont le prix dépend d'une mesure.
+        /// et demande un nombre de pièces d'un produit mesuré en Kg.
         /// </summary>
         /// <param name="docs"></param>
         /// <param name="type"></param>
@@ -191,11 +197,12 @@ namespace KalosfideAPI.CLF
         /// <summary>
         /// Retourne un CLFDocs qui contient le Client du document et un Documents contenant le document avec ses lignes
         /// </summary>
-        /// <param name="site"></param>
         /// <param name="keyDocument"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        Task<CLFDocs> Document(Site site, KeyDocSansType keyDocument, TypeCLF type);
+        Task<CLFDocs> Document(KeyDocSansType keyDocument, TypeCLF type);
+        Task<CLFPdfAEnvoyer> CLFPdfAEnvoyer(KeyDoc keyDocument, bool utilisateurEstLeClient);
+        Task<RetourDeService> Téléchargement(KeyDoc keyDocument, bool utilisateurEstLeClient);
 
         /// <summary>
         /// Cherche un document de type livraison ou facture à partir de la key de son site, de son Type et de son No.

@@ -25,11 +25,16 @@ namespace KalosfideAPI.Data
         string Siret { get; set; }
     }
 
-    public class Fournisseur: AvecIdUint, IFournisseurData, IAvecIdUintEtEtat
+    public class Fournisseur: AvecIdUint, IFournisseurData, IAvecIdUintEtEtat, IRolePréférences
     {
 
         //données
         public string Siret { get; set; }
+
+        /// <summary>
+        /// Définit les droits du Fournisseur.
+        /// Nouveau jusqu'à la fin de la première modification du catalogue.
+        /// </summary>
         public EtatRole Etat { get; set; }
 
         /// <summary>
@@ -60,6 +65,25 @@ namespace KalosfideAPI.Data
 
         public virtual ICollection<Invitation> Invitations { get; set; }
 
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierCommande { get; set; }
+        public const string FormatNomFichierCommandeParDéfaut = "{nom} commande {no}";
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierLivraison { get; set; }
+        public const string FormatNomFichierLivraisonParDéfaut = "livraison {no} {nom}";
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierFacture { get; set; }
+        public const string FormatNomFichierFactureParDéfaut = "facture {no} {nom}";
+
         // création
         public static void CréeTable(ModelBuilder builder)
         {
@@ -70,7 +94,7 @@ namespace KalosfideAPI.Data
             entité.HasOne(f => f.Utilisateur).WithMany(u => u.Fournisseurs).HasForeignKey(f => f.UtilisateurId).HasPrincipalKey(u => u.Id);
 
             // Les entités Site et Fournisseur partagent une même table
-            entité.ToTable("Fournisseur");
+            entité.ToTable("Fournisseurs");
         }
         // utile
 
@@ -157,6 +181,26 @@ namespace KalosfideAPI.Data
             {
                 return Role.AvérifierSansEspacesDataAnnulable;
             }
+        }
+
+        public static string NomFichier(Fournisseur fournisseur, Client client, TypeCLF type, uint no)
+        {
+            string format = "";
+            switch (type)
+            {
+                case TypeCLF.Commande:
+                    format = fournisseur.FormatNomFichierCommande ?? FormatNomFichierCommandeParDéfaut;
+                    break;
+                case TypeCLF.Livraison:
+                    format = fournisseur.FormatNomFichierLivraison ?? FormatNomFichierLivraisonParDéfaut;
+                    break;
+                case TypeCLF.Facture:
+                    format = fournisseur.FormatNomFichierFacture ?? FormatNomFichierFactureParDéfaut;
+                    break;
+                default:
+                    break;
+            }
+            return format.Replace("{nom}", client.Nom).Replace("{no}", no.ToString());
         }
 
     }

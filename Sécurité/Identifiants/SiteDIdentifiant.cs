@@ -48,6 +48,12 @@ namespace KalosfideAPI.Sécurité.Identifiants
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public List<CLFDoc> NouveauxDocs { get; set; }
 
+        /// <summary>
+        /// Liste des préférences de l'utilisateur.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public List<PréférenceDIdentifiant> Préférences { get; set; }
+
         private void Copie(Site site)
         {
             Id = site.Id;

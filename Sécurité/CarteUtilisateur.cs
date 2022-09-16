@@ -180,9 +180,11 @@ namespace KalosfideAPI.Sécurité
                 {
                     // c'est un site où l'utilisateur est Fournisseur
                     List<Produit> produits = await _context.Produit
-                        .Where(produit => produit.SiteId == site.Id && produit.Disponible)
+                        .Where(produit => produit.SiteId == site.Id)
                         .ToListAsync();
-                    int nbCatégories = produits.GroupBy(produit => produit.CategorieId).Count();
+                    int nbCatégories = await _context.Catégorie
+                        .Where(catégorie => catégorie.SiteId == site.Id)
+                        .CountAsync();
                     List<Client> clients = await _context.Client
                         .Where(client => client.SiteId == site.Id)
                         .ToListAsync();
@@ -190,8 +192,9 @@ namespace KalosfideAPI.Sécurité
                     {
                         Catalogue = new BilanCatalogue
                         {
+                            Produits = produits.Count(),
+                            Disponibles = produits.Where(produit => produit.Disponible).Count(),
                             Catégories = nbCatégories,
-                            Produits = produits.Count()
                         },
                         Clients = new BilanClients
                         {
@@ -199,17 +202,17 @@ namespace KalosfideAPI.Sécurité
                             Nouveaux = clients.Where(client => client.Etat == EtatRole.Nouveau).Count()
                         }
                     };
-                    queryNouveauxDocs = _context.Docs
+                    queryNouveauxDocs = _context.Doc
                         .Include(docCLF => docCLF.Client)
                         .Where(docCLF => docCLF.Client.SiteId == site.Id && docCLF.Type == TypeCLF.Commande);
                     nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeIdNomNoDate(docCLF);
                 }
                 else
                 {
-                    queryNouveauxDocs = _context.Docs
+                    queryNouveauxDocs = _context.Doc
                         .Include(docCLF => docCLF.Client)
                         .Where(docCLF => docCLF.Client.SiteId == site.Id && (docCLF.Type == TypeCLF.Livraison || docCLF.Type == TypeCLF.Facture));
-                    nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeNoType(docCLF);
+                    nouveauCLFDoc = (DocCLF docCLF) => CLFDoc.DeNoTypeDate(docCLF);
                 }
                 // on ne joint les nouveaux docs que s'il y a eu déconnection
                 if (identifiant.Déconnection != null)
@@ -224,6 +227,13 @@ namespace KalosfideAPI.Sécurité
                             .Select(docCLF => nouveauCLFDoc(docCLF))
                             .ToList();
                     }
+                }
+                List<Préférence> préférences = await _context.Préférences
+                    .Where(p => (p.UtilisateurId == Utilisateur.Id || p.UtilisateurId == "tous") && p.SiteId == site.Id)
+                    .ToListAsync();
+                if (préférences.Count > 0)
+                {
+                    site.Préférences = préférences.Select(p => new PréférenceDIdentifiant { Id = p.Id, Valeur = p.Valeur }).ToList();
                 }
             }
 

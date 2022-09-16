@@ -32,20 +32,6 @@ namespace KalosfideAPI.Utiles
         }
 
         /// <summary>
-        /// Cherche un Client à partir de son Id.
-        /// </summary>
-        /// <param name="idClient">Id du client</param>
-        /// <returns>le Client qui inclut son Site, si trouvé; null, sinon</returns>
-        public async Task<Client> ClientAvecSite(uint idClient)
-        {
-            Client client = await _context.Client
-                .Where(cl => cl.Id == idClient)
-                .Include(cl => cl.Site)
-                .FirstOrDefaultAsync();
-            return client;
-        }
-
-        /// <summary>
         /// Cherche un Produit à partir de son Id.
         /// </summary>
         /// <param name="idProduit">Id du Produit</param>

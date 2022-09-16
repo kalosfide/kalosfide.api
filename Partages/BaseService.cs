@@ -1,5 +1,6 @@
 ﻿using KalosfideAPI.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -45,26 +46,15 @@ namespace KalosfideAPI.Partages
 
         public async Task<RetourDeService<T>> SaveChangesAsync<T>(T objet) where T: class
         {
-            try
+            RetourDeService retour = await SaveChangesAsync();
+            if (retour.Ok)
             {
-                await _context.SaveChangesAsync();
                 return new RetourDeService<T>(TypeRetourDeService.Ok)
                 {
                     Objet = objet
                 };
             }
-            catch (DbUpdateConcurrencyException)
-            {
-                return new RetourDeService<T>(TypeRetourDeService.ConcurrencyError);
-            }
-            catch (DbUpdateException ex)
-            {
-                RetourDeService<T> retour = new RetourDeService<T>(TypeRetourDeService.UpdateError)
-                {
-                    Message = ex.InnerException.Message
-                };
-                return retour;
-            }
+            return new RetourDeService<T>(retour);
         }
     }
 

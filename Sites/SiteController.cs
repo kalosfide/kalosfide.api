@@ -1,4 +1,7 @@
-﻿using KalosfideAPI.Erreurs;
+﻿using KalosfideAPI.Data;
+using KalosfideAPI.Erreurs;
+using KalosfideAPI.Partages;
+using KalosfideAPI.Sécurité;
 using KalosfideAPI.Utilisateurs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +14,11 @@ namespace KalosfideAPI.Sites
     [Route("UidRno")]
     [ApiValidationFilter]
     [Authorize]
-    public class SiteController: AvecCarteController
+    public class SiteController: AvecIdUintController<Site, ISiteData, Site, SiteAEditer>
     {
         private readonly ISiteService _service;
 
-        public SiteController(ISiteService service, IUtilisateurService utilisateurService) : base(utilisateurService)
+        public SiteController(ISiteService service, IUtilisateurService utilisateurService) : base(service, utilisateurService)
         {
             _service = service;
         }
@@ -55,6 +58,56 @@ namespace KalosfideAPI.Sites
         {
             return Ok(await _service.TitrePrisParAutre(id, titre));
         }
+
+        [HttpGet("/api/site/avecInvitations")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        public async Task<IActionResult> AvecInvitations([FromQuery] uint id)
+        {
+            CarteUtilisateur carteUtilisateur = await CréeCarteFournisseur(id, PermissionsEtatRole.PasFermé);
+            if (carteUtilisateur.Erreur != null)
+            {
+                return carteUtilisateur.Erreur;
+            }
+            return Ok(await _service.AvecInvitations(id));
+        }
+
+        [HttpPut("/api/site/edite")]
+        [ProducesResponseType(200)] // Ok
+        [ProducesResponseType(400)] // Bad request
+        [ProducesResponseType(401)] // Unauthorized
+        [ProducesResponseType(403)] // Forbid
+        [ProducesResponseType(404)] // Not found
+        [ProducesResponseType(409)] // Conflict
+        public async Task<IActionResult> Edite(SiteAEditer vue)
+        {
+            CarteUtilisateur carte = await CréeCarteFournisseur(vue.Id, PermissionsEtatRole.PasInactif);
+            if (carte.Erreur != null)
+            {
+                return carte.Erreur;
+            }
+            VérifieSansEspacesDataAnnulable(vue, Site.AvérifierSansEspacesDataAnnulable);
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            Site donnée = await _service.Lit(vue.Id);
+            if (donnée == null)
+            {
+                return NotFound();
+            }
+
+            if (donnée.Url != null && donnée.Url != vue.Url && await _service.AvecInvitations(vue.Id) > 0)
+            {
+                ErreurDeModel.AjouteAModelState(ModelState, "url", "modifImpossible");
+                return BadRequest(ModelState);
+            }
+            return await Edite(donnée, vue);
+        }
+
 
     }
 }

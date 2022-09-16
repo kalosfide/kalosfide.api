@@ -1,13 +1,8 @@
-﻿using KalosfideAPI.Catalogues;
-using KalosfideAPI.Catégories;
-using KalosfideAPI.Data;
-using KalosfideAPI.Data.Constantes;
-using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Produits;
+﻿using KalosfideAPI.Data;
+using KalosfideAPI.Utiles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace KalosfideAPI.Peuple
 {
@@ -17,16 +12,19 @@ namespace KalosfideAPI.Peuple
         public List<Catégorie> Catégories { get; private set; }
 
         static readonly int[] Prix = new int[]
-            { 100, 150, 200, 250, 400, 750, 800, 900, 1050 };
+            { 100, 150, 200, 250, 400, 500, 750, 800, 900, 1050 };
+
+        private readonly Hasard<TypeMesure> hasardTypeMesure;
+        private readonly Hasard<bool> hasardPSCALP;
+        private readonly Hasard<bool> hasardDisponible;
+
         Produit Produit(uint idSite, uint idCatégorie, uint id)
         {
             Random random = new Random();
-            Array types = Enum.GetValues(typeof(TypeMesure));
-            TypeMesure typeMesure = (TypeMesure)types.GetValue(random.Next(types.Length));
-            TypeCommande[] typesCommande = Data.Produit.TypesCommandeCompatibles(typeMesure);
-            TypeCommande typeCommande = typesCommande[random.Next(typesCommande.Length)];
+            TypeMesure typeMesure = hasardTypeMesure.Suivant();
+            bool pSCALP = typeMesure == TypeMesure.Kilo ? hasardPSCALP.Suivant() : false;
             decimal prix = .01m * Prix[random.Next(Prix.Length - 1)];
-            bool disponible = random.Next(100) >= 5;
+            bool disponible = hasardDisponible.Suivant();
             Produit produit = new Produit
             {
                 Id = id,
@@ -34,7 +32,7 @@ namespace KalosfideAPI.Peuple
                 CategorieId = idCatégorie,
                 Nom = "Produit" + id,
                 TypeMesure = typeMesure,
-                TypeCommande = typeCommande,
+                SCALP = pSCALP,
                 Prix = prix,
                 Disponible = disponible
             };
@@ -53,6 +51,23 @@ namespace KalosfideAPI.Peuple
 
         public PeuplementCatalogue(uint idSite, int nbCatégories, int nbProduits, PeupleId peuplement)
         {
+            hasardTypeMesure = new Hasard<TypeMesure>(new List<ItemAvecPoids<TypeMesure>>
+            {
+                new ItemAvecPoids<TypeMesure>(TypeMesure.Aucune, 10),
+                new ItemAvecPoids<TypeMesure>(TypeMesure.Kilo, 5),
+                new ItemAvecPoids<TypeMesure>(TypeMesure.Litre, 1),
+            });
+            hasardPSCALP = new Hasard<bool>(new List<ItemAvecPoids<bool>>
+            {
+                new ItemAvecPoids<bool>(true, 1),
+                new ItemAvecPoids<bool>(false, 20)
+            });
+            hasardDisponible = new Hasard<bool>(new List<ItemAvecPoids<bool>>
+            {
+                new ItemAvecPoids<bool>(true, 95),
+                new ItemAvecPoids<bool>(false, 5)
+            });
+
             Catégories = new List<Catégorie>();
             Produits = new List<Produit>();
 

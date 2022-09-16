@@ -1,12 +1,8 @@
 ﻿using KalosfideAPI.Data.Keys;
-using KalosfideAPI.Utiles;
-using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
-using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace KalosfideAPI.Data
 {
@@ -25,7 +21,7 @@ namespace KalosfideAPI.Data
     {
     }
 
-    public class Client : AvecIdUint, IClientData, IAvecIdUintEtEtat
+    public class Client : AvecIdUint, IClientData, IAvecIdUintEtEtat, IRolePréférences
     {
         // données
         public EtatRole Etat { get; set; }
@@ -55,6 +51,26 @@ namespace KalosfideAPI.Data
         public uint SiteId { get; set; }
 
         public virtual Site Site { get; set; }
+
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierCommande { get; set; }
+        public const string FormatNomFichierCommandeParDéfaut = "{nom} commande {no}";
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierLivraison { get; set; }
+        public const string FormatNomFichierLivraisonParDéfaut = "{nom} livraison {no}";
+        /// <summary>
+        /// Chaîne de caractère où {no} représente le numéro du document et {nom} le nom du client si l'utilisateur est le fournisseur
+        /// ou du fournisseur si l'utilisateur est le client
+        /// </summary>
+        public string FormatNomFichierFacture { get; set; }
+        public const string FormatNomFichierFactureParDéfaut = "{nom} facture {no}";
+
         virtual public ICollection<DocCLF> Docs { get; set; }
 
         public virtual ICollection<ArchiveClient> Archives { get; set; }
@@ -70,7 +86,7 @@ namespace KalosfideAPI.Data
             entité.HasOne(c => c.Utilisateur).WithMany(u => u.Clients).HasForeignKey(c => c.UtilisateurId).HasPrincipalKey(u => u.Id);
             entité.HasMany(c => c.Docs).WithOne(d => d.Client).HasForeignKey(d => d.Id).HasPrincipalKey(c => c.Id).OnDelete(DeleteBehavior.Cascade);
 
-            entité.ToTable("Client");
+            entité.ToTable("Clients");
         }
 
         // utile
@@ -142,6 +158,26 @@ namespace KalosfideAPI.Data
             {
                 return Role.AvérifierSansEspacesDataAnnulable;
             }
+        }
+
+        public static string NomFichier(Client clientAvecSiteEtFournisseur, TypeCLF type, uint no)
+        {
+            string format = "";
+            switch (type)
+            {
+                case TypeCLF.Commande:
+                    format = clientAvecSiteEtFournisseur.FormatNomFichierCommande ?? FormatNomFichierCommandeParDéfaut;
+                    break;
+                case TypeCLF.Livraison:
+                    format = clientAvecSiteEtFournisseur.FormatNomFichierLivraison ?? FormatNomFichierLivraisonParDéfaut;
+                    break;
+                case TypeCLF.Facture:
+                    format = clientAvecSiteEtFournisseur.FormatNomFichierFacture ?? FormatNomFichierFactureParDéfaut;
+                    break;
+                default:
+                    break;
+            }
+            return format.Replace("{nom}", clientAvecSiteEtFournisseur.Site.Fournisseur.Nom).Replace("{no}", no.ToString());
         }
 
     }
